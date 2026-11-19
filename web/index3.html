@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>报价 / PRICE</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="./src/tokens.css">
+<link rel="stylesheet" href="./src/scene.css">
+<link rel="stylesheet" href="./src/print.css?v=10" media="print">
+</head>
+<body>
+
+<div class="sky" id="sky"><svg id="skySvg" role="img" aria-label="217 个判断构成的星系"></svg></div>
+
+<div class="pins" id="pins" aria-hidden="true"></div>
+
+<nav class="ticks" id="ticks" aria-label="章节">
+  <a href="#s1" data-i="0">01</a>
+  <a href="#s2" data-i="1">02</a>
+  <a href="#s3" data-i="2">03</a>
+  <a href="#s4" data-i="3">04</a>
+</nav>
+
+<main>
+
+  <!-- 01 封面：只有三样东西 -->
+  <section id="s1" class="s">
+    <div class="brand">报价 / PRICE</div>
+    <div class="hero">
+      <h1>报价</h1>
+      <p class="sub">在你开口之前，先算一算：这句话，对方买不买得起。</p>
+    </div>
+    <div class="rule-v"></div>
+  </section>
+
+  <!-- 02 星图：镜头推进 -->
+  <section id="s2" class="s">
+    <div class="meta" id="meta">217 判断 · 6 承重墙 · 视星等 0.50</div>
+    <p class="foot-note">越亮的话，撑着越多。拆掉一根，塌一片。</p>
+  </section>
+
+  <!-- 03 报价：星图退到 18% -->
+  <section id="s3" class="s">
+    <div class="echo" id="echo">人：<b>@林行</b> · 话：「算法推荐让人变窄」</div>
+
+    <div class="price">
+      <div class="cap">承重损失率</div>
+      <div class="big" id="rate">0<small>%</small></div>
+    </div>
+
+    <table class="ledger">
+      <tbody>
+        <tr><td>要拆掉的判断</td><td id="t1">—</td></tr>
+        <tr><td>其中承重墙</td><td id="t2" class="red">—</td></tr>
+        <tr><td>连带塌陷</td><td id="t3">—</td></tr>
+        <tr><td>若按个数算</td><td id="t4">—</td></tr>
+      </tbody>
+    </table>
+
+    <p class="verdict">他大概率听不进去。</p>
+  </section>
+
+  <!-- 04 换说法：一条竖线劈开 -->
+  <section id="s4" class="s">
+    <div class="split">
+      <div class="half left">
+        <svg id="halfA" role="presentation"></svg>
+        <div class="cap">原话</div>
+        <div class="num"><span id="oldNum">0</span><small>%</small></div>
+      </div>
+      <div class="divider"></div>
+      <div class="half right">
+        <svg id="halfB" role="presentation"></svg>
+        <div class="cap">改后</div>
+        <div class="num gold"><span id="newNum">0</span><small>%</small></div>
+      </div>
+    </div>
+
+    <p class="say" id="say">推荐算法会把一个人越推越窄，但窄不窄，取决于他有没有在窄处停下来。</p>
+    <button class="tbtn" id="copy">复制这句话</button>
+    <p class="note" id="note">同一个意思，少拆 6 根柱子。</p>
+  </section>
+
+</main>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

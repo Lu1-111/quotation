@@ -2,104 +2,87 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>报价</title>
+<title>报价 / PRICE</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="./src/tokens.css">
-<link rel="stylesheet" href="./src/app.css">
-<link rel="stylesheet" href="./src/print.css?v=9" media="print">
+<link rel="stylesheet" href="./src/scene.css">
+<link rel="stylesheet" href="./src/print.css?v=10" media="print">
 </head>
 <body>
 
-<div class="small-note">请用桌面浏览器打开（最小宽度 1280）。</div>
+<div class="sky" id="sky"><svg id="skySvg" role="img" aria-label="217 个判断构成的星系"></svg></div>
 
-<div class="shell">
-  <aside class="rail">
-    <div>
-      <div class="rail-mark">报价 / QUOTATION</div>
-      <ul class="rail-nav">
-        <li><a href="#/house" data-r="house"><span class="no">01</span>星图</a></li>
-        <li><a href="#/price" data-r="price"><span class="no">02</span>算价</a></li>
-        <li><a href="#/rewrite" data-r="rewrite"><span class="no">03</span>换说法</a></li>
-        <li><a href="#/read" data-r="read"><span class="no">04</span>接入</a></li>
-      </ul>
+<div class="pins" id="pins" aria-hidden="true"></div>
+
+<nav class="ticks" id="ticks" aria-label="章节">
+  <a href="#s1" data-i="0">01</a>
+  <a href="#s2" data-i="1">02</a>
+  <a href="#s3" data-i="2">03</a>
+  <a href="#s4" data-i="3">04</a>
+</nav>
+
+<main>
+
+  <!-- 01 封面：只有三样东西 -->
+  <section id="s1" class="s">
+    <div class="brand">报价 / PRICE</div>
+    <div class="hero">
+      <h1>报价</h1>
+      <p class="sub">在你开口之前，先算一算：这句话，对方买不买得起。</p>
     </div>
-    <div class="rail-foot">
-      承重损失率<br><span class="gold">一个估算，不是判决</span>
+    <div class="rule-v"></div>
+  </section>
+
+  <!-- 02 星图：镜头推进 -->
+  <section id="s2" class="s">
+    <div class="meta" id="meta">217 判断 · 6 承重墙 · 视星等 0.50</div>
+    <p class="foot-note">越亮的话，撑着越多。拆掉一根，塌一片。</p>
+  </section>
+
+  <!-- 03 报价：星图退到 18% -->
+  <section id="s3" class="s">
+    <div class="echo" id="echo">人：<b>@林行</b> · 话：「算法推荐让人变窄」</div>
+
+    <div class="price">
+      <div class="cap">承重损失率</div>
+      <div class="big" id="rate">0<small>%</small></div>
     </div>
-  </aside>
 
-  <main class="main">
+    <table class="ledger">
+      <tbody>
+        <tr><td>要拆掉的判断</td><td id="t1">—</td></tr>
+        <tr><td>其中承重墙</td><td id="t2" class="red">—</td></tr>
+        <tr><td>连带塌陷</td><td id="t3">—</td></tr>
+        <tr><td>若按个数算</td><td id="t4">—</td></tr>
+      </tbody>
+    </table>
 
-    <!-- 04 接入 -->
-    <section class="screen" id="s-read">
-      <h1 class="h1">现在，读你的字。</h1>
-      <p class="sub">只读公开内容。读完你随时可以删掉这张图。</p>
-      <div style="display:flex;gap:64px;align-items:flex-end;margin-top:64px;">
-        <button class="tbtn" id="btnRead">用知乎账号授权</button>
-        <div class="counts" id="readCounts" style="margin-left:auto;">
-          已读 <b>1,284</b> 条<br>
-          覆盖 <b>6</b> 年<br>
-          提取 <b>217</b> 个判断
-        </div>
+    <p class="verdict">他大概率听不进去。</p>
+  </section>
+
+  <!-- 04 换说法：一条竖线劈开 -->
+  <section id="s4" class="s">
+    <div class="split">
+      <div class="half left">
+        <svg id="halfA" role="presentation"></svg>
+        <div class="cap">原话</div>
+        <div class="num"><span id="oldNum">0</span><small>%</small></div>
       </div>
-      <div class="progress"><i id="prog"></i></div>
-    </section>
-
-    <!-- 01 星图 -->
-    <section class="screen" id="s-house">
-      <div class="stage-head" id="houseHead"></div>
-      <div class="build">
-        <div class="stage"><svg id="star" role="img" aria-label="这个人的判断星图"></svg></div>
-        <aside class="walls" id="wallsBox"></aside>
+      <div class="divider"></div>
+      <div class="half right">
+        <svg id="halfB" role="presentation"></svg>
+        <div class="cap">改后</div>
+        <div class="num gold"><span id="newNum">0</span><small>%</small></div>
       </div>
-      <a class="hook" href="#/read">这是 @林行 六年的公开表态 · 换成年你的 →</a>
-    </section>
+    </div>
 
-    <!-- 03 算 -->
-    <section class="screen" id="s-price">
-      <div class="echo">人：<b>@林行</b> · 话：<b>「算法推荐让人变窄」</b></div>
-      <div class="price-row">
-        <div>
-          <div class="label">承重损失率</div>
-          <div class="big" id="priceNum">0<small>%</small></div>
-        </div>
-        <div class="inset"><svg id="inset"></svg></div>
-      </div>
+    <p class="say" id="say">推荐算法会把一个人越推越窄，但窄不窄，取决于他有没有在窄处停下来。</p>
+    <button class="tbtn" id="copy">复制这句话</button>
+    <p class="note" id="note">同一个意思，少拆 6 根柱子。</p>
+  </section>
 
-      <table class="ledger" id="priceTable">
-        <tbody>
-          <tr><td>要拆掉的判断</td><td id="t1">—</td></tr>
-          <tr><td>其中承重墙</td><td id="t2" class="red">—</td></tr>
-          <tr><td>连带塌陷</td><td id="t3">—</td></tr>
-          <tr><td>若按个数算</td><td id="t4">—</td></tr>
-        </tbody>
-      </table>
+</main>
 
-      <p class="verdict">他大概率听不进去。</p>
-    </section>
-
-    <!-- 04 换说法 -->
-    <section class="screen" id="s-rewrite">
-      <div class="pair">
-        <div>
-          <div class="label">原话</div>
-          <div class="num" id="oldNum">38<small>%</small></div>
-        </div>
-        <div class="vline"></div>
-        <div>
-          <div class="label">改后</div>
-          <div class="num" id="newNum" style="color:var(--gold)">9<small>%</small></div>
-        </div>
-      </div>
-      <p class="newline" id="rewriteLine">推荐算法会把一个人越推越窄，但窄不窄，取决于他有没有在窄处停下来。</p>
-      <div class="foot">
-        <button class="tbtn" id="btnCopy">复制这句话</button>
-        <div class="label" style="margin-top:24px" id="rewriteNote">同一个意思，少拆 5 根柱子。</div>
-      </div>
-    </section>
-
-  </main>
-</div>
-
-<script type="module" src="./src/app.js"></script>
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>

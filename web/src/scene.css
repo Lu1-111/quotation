@@ -1,0 +1,330 @@
+/* v3《一镜到底》：全站只有一个对象，就是那张星系。 */
+
+* { box-sizing: border-box; }
+
+html {
+  scroll-snap-type: y mandatory;
+  scroll-behavior: auto;
+  background: var(--night);
+}
+
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ivory);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 星图层：固定在底层，镜头推它 ---------- */
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+#skySvg { display: block; width: 100%; height: 100%; transform: scale(.62); transform-origin: 50% 50%; }
+
+/* 星点样式（原本在 app.css 里，v3 自带一份） */
+.edge { stroke: var(--gold); stroke-width: .5; opacity: .028; }
+.core { fill: var(--gold); }
+.ring { fill: none; stroke: var(--red); stroke-width: 1.1; }
+.hit { fill: transparent; }
+
+/* 只在第二屏打开命中，那屏要 hover 星点 */
+body.at-s2 .sky { pointer-events: auto; }
+
+/* ---------- 贴在星上的标签 ---------- */
+.pins {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+}
+.pin {
+  position: absolute;
+  transform: translate(-100%, -50%);
+  display: flex;
+  text-align: right;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+  transition: opacity .35s var(--ease);
+}
+.lead {
+  position: absolute;
+  height: 1px;
+  background: var(--gold);
+  transform-origin: left center;
+  opacity: .45;
+}
+.pin::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  width: 0;
+  height: 1px;
+  background: var(--line-strong);
+}
+.pin p {
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: 1.2;
+  color: var(--ivory);
+}
+.pin b {
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: .08em;
+  font-weight: 400;
+  color: var(--dim);
+}
+.pin.is-hot p { color: var(--gold); }
+.pin.is-hot::before { background: var(--gold); }
+
+/* ---------- 右缘刻度 ---------- */
+.ticks {
+  position: fixed;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ticks a {
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: .08em;
+  color: #ffffff33;
+  text-decoration: none;
+}
+.ticks a.on { color: var(--red); }
+
+/* ---------- 四个 section ---------- */
+main { position: relative; z-index: 1; }
+
+.s {
+  height: 100vh;
+  height: 100svh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  position: relative;
+  display: block;
+}
+
+/* ===== 01 封面：只有三样东西 ===== */
+.brand {
+  position: absolute;
+  top: 48px;
+  left: 56px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: #ffffff66;
+  text-transform: uppercase;
+}
+.hero {
+  position: absolute;
+  left: 56px;
+  top: 18vh;
+}
+.hero h1 {
+  margin: 0;
+  font-size: var(--t-big);
+  font-weight: 600;
+  letter-spacing: .02em;
+  line-height: 1.05;
+  color: var(--ivory);
+}
+.sub {
+  margin: 32px 0 0;
+  font-size: var(--t-body);
+  line-height: 1.75;
+  color: #ffe6b899;
+  max-width: 30em;
+}
+.rule-v {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  width: 1px;
+  height: 24px;
+  background: var(--line-strong);
+}
+
+/* ===== 02 星图 ===== */
+.meta {
+  position: absolute;
+  top: 48px;
+  left: 56px;
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: .08em;
+  color: var(--dim);
+}
+.foot-note {
+  position: absolute;
+  right: 56px;
+  bottom: 48px;
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: 1.75;
+  color: var(--dim);
+}
+
+/* ===== 03 报价 ===== */
+.echo {
+  position: absolute;
+  top: 48px;
+  left: 56px;
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: .08em;
+  color: var(--dim);
+}
+.echo b { color: var(--ivory); font-weight: 400; }
+
+.price { position: absolute; left: 56px; top: 24vh; }
+.cap {
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: .08em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.big {
+  font-size: var(--t-hero);
+  line-height: .9;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  margin-top: 12px;
+  letter-spacing: -.01em;
+}
+.big small {
+  font-size: var(--t-h3);
+  color: var(--dim);
+  margin-left: 10px;
+  letter-spacing: 0;
+}
+
+.ledger {
+  position: absolute;
+  left: 56px;
+  width: 420px;
+  bottom: 22vh;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.ledger td {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-body);
+  color: #ffe6b8cc;
+}
+.ledger td:last-child {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: var(--t-body);
+  color: var(--ivory);
+}
+.ledger td.red { color: var(--red); }
+.ledger tr:first-child td { border-top: 1px solid var(--line); }
+
+.verdict {
+  position: absolute;
+  left: 56px;
+  bottom: 12vh;
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+  color: var(--red);
+}
+
+/* ===== 04 换说法 ===== */
+.split {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+}
+.half { position: relative; overflow: hidden; }
+.half svg { position: absolute; top: 0; height: 100%; width: 200%; opacity: .55; }
+.half.left svg { left: 0; }
+.half.right svg { left: -100%; }
+.half .cap { position: absolute; top: 48px; left: 56px; }
+.half .num {
+  position: absolute;
+  left: 56px;
+  top: 26vh;
+  font-size: var(--t-big);
+  line-height: .9;
+  font-variant-numeric: tabular-nums;
+  color: var(--ivory);
+}
+.half .num small { font-size: var(--t-h3); color: var(--dim); margin-left: 8px; }
+.half .num.gold { color: var(--gold); }
+.divider { background: var(--line-strong); }
+
+.say {
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  bottom: 26vh;
+  margin: 0;
+  font-size: var(--t-h3);
+  line-height: 1.5;
+  max-width: 28em;
+  color: var(--ivory);
+  user-select: text;
+}
+.tbtn {
+  position: absolute;
+  left: 56px;
+  bottom: 22vh;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line-strong);
+  padding: 0 0 3px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+.tbtn:hover { color: var(--gold); border-bottom-color: var(--gold); }
+.note {
+  position: absolute;
+  left: 56px;
+  bottom: 19vh;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: .08em;
+  color: var(--dim);
+}
+
+/* ---------- 小屏 ---------- */
+.narrow { display: none; }
+@media (max-width: 1279px) {
+  .narrow {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 9;
+    background: var(--night);
+    padding: 48px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sky { transition: none !important; }
+}

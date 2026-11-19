@@ -10,7 +10,7 @@
 </head>
 <body>
 
-<div class="sky" id="sky"><svg id="skySvg" role="img" aria-label="217 个判断构成的星系"></svg></div>
+<div class="sky" id="sky"><canvas id="skyCanvas" role="img" aria-label="217 个判断构成的星系"></canvas></div>
 
 <div class="pins" id="pins" aria-hidden="true"></div>
 
@@ -64,13 +64,13 @@
   <section id="s4" class="s">
     <div class="split">
       <div class="half left">
-        <svg id="halfA" role="presentation"></svg>
+        <canvas id="halfA" role="presentation"></canvas>
         <div class="cap">原话</div>
         <div class="num"><span id="oldNum">0</span><small>%</small></div>
       </div>
       <div class="divider"></div>
       <div class="half right">
-        <svg id="halfB" role="presentation"></svg>
+        <canvas id="halfB" role="presentation"></canvas>
         <div class="cap">改后</div>
         <div class="num gold"><span id="newNum">0</span><small>%</small></div>
       </div>

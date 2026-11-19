@@ -1,5 +1,6 @@
 import { STAR } from "./mocks/star.js";
-import { computeGraph, render, collapseAfter, price } from "./starfield.js";
+import { computeGraph, brightness, collapseAfter, price } from "./starfield.js";
+import { createGalaxy } from "./galaxy.js";
 
 /* ---------- 数据 ---------- */
 const graph = computeGraph(STAR.nodes);
@@ -18,49 +19,20 @@ const CHEAP = Math.round((cheapS / totalS) * 100);
 const WALLS = graph.slice().sort((a, b) => b.S - a.S).slice(0, 5);
 const WALL_IDS = WALLS.map((n) => n.id);
 
-/* ---------- 星图 ---------- */
+/* ---------- 星图（canvas 手绘星系） ---------- */
 const sky = document.getElementById("sky");
-const skySvg = document.getElementById("skySvg");
 const pinsBox = document.getElementById("pins");
-let VW = 0, VH = 0, state = null;
+let VW = window.innerWidth, VH = window.innerHeight;
 
-function paintSky() {
-  VW = window.innerWidth;
-  VH = window.innerHeight;
-  state = render(skySvg, graph, VW, VH, { walls: WALL_IDS });
-  intro();
-}
+const LS = brightness(graph);
+const NODES = graph.map((n, i) => ({
+  id: n.id,
+  S: n.S,
+  L: LS[i],
+  wall: WALL_IDS.includes(n.id),
+}));
 
-/* 入场：星点按离核球半径升序点亮，1.4s；全站只有这一处动效 */
-function intro() {
-  if (new URLSearchParams(location.search).has("nointro")) return;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const maxD = Math.max(1, ...graph.map((n) => n.d || 0));
-  const nodes = [...skySvg.querySelectorAll(".node")];
-  const glow = skySvg.querySelector("g[filter]");
-
-  // 先全部压到 0（不带动画），强制一次布局，再把目标值写回去
-  if (glow) { glow.style.transition = "none"; glow.style.opacity = "0"; }
-  for (const el of nodes) { el.style.transition = "none"; el.style.opacity = "0"; }
-  void skySvg.getBoundingClientRect();
-
-  if (glow) {
-    glow.style.transition = "opacity 1.4s cubic-bezier(.22,1,.36,1)";
-    glow.style.opacity = "1";
-  }
-  for (const el of nodes) {
-    const n = byId.get(el.dataset.id);
-    const d = ((n && n.d) || 0) / maxD;
-    el.style.transition = `opacity .45s cubic-bezier(.22,1,.36,1) ${(d * 1.0).toFixed(2)}s`;
-    el.style.opacity = "1";
-  }
-
-  // 兜底：2 秒后无论如何把内联样式清掉，保证最终状态不被动画卡住
-  setTimeout(() => {
-    if (glow) { glow.style.transition = ""; glow.style.opacity = ""; }
-    for (const el of nodes) { el.style.transition = ""; el.style.opacity = ""; }
-  }, 2000);
-}
+const galaxy = createGalaxy(document.getElementById("skyCanvas"), NODES);
 
 /* 五条承重墙标签，坐标每帧跟着镜头走 */
 const pins = WALLS.map((n, i) => {
@@ -118,23 +90,18 @@ function frame(t) {
   cam.ty += (T.ty - cam.ty) * k;
   cam.o += (T.o - cam.o) * k;
 
-  sky.style.transform = `translate3d(${cam.tx.toFixed(2)}px,${cam.ty.toFixed(2)}px,0) scale(${cam.s.toFixed(4)})`;
+  galaxy.setCamera(cam);
   sky.style.opacity = cam.o.toFixed(3);
 
   // 标签跟着星走：相机变换后星点在屏幕上的位置
-  const cx = VW / 2, cy = VH / 2;
   const near = clamp(1 - Math.abs(T.p - 1) * 2.4, 0, 1);
   pinsBox.style.opacity = (near * cam.o).toFixed(3);
-  if (near > 0.01 && state) {
+  if (near > 0.01) {
     const arr = [];
     for (const pin of pins) {
-      const q = state.pos.get(pin.id);
+      const q = galaxy.project(pin.id);
       if (!q) continue;
-      arr.push({
-        pin,
-        x: cx + (q.x - cx) * cam.s * BASE + cam.tx,
-        y: cy + (q.y - cy) * cam.s * BASE + cam.ty,
-      });
+      arr.push({ pin, x: q.x, y: q.y });
     }
     // 标签打架：按 y 排序后向下推开，最后整体上顶回屏内
     arr.sort((a, b) => a.y - b.y);
@@ -160,6 +127,7 @@ function frame(t) {
   }
 
   document.body.classList.toggle("at-s2", T.p > 0.55 && T.p < 1.45);
+  if (T.p > 2.35) paintHalves(false);
 
   const settled =
     Math.abs(T.s - cam.s) < 0.0008 &&
@@ -193,13 +161,35 @@ document.getElementById("t4").textContent = (PRICE.raw * 100).toFixed(1) + "%";
 document.getElementById("meta").textContent =
   `${graph.length} 判断 · ${WALL_IDS.length} 承重墙 · 视星等 0.50`;
 
-/* ---------- 04 换说法 ---------- */
+/* ---------- 04 换说法：同一张星系渲染一次，再按竖线切成两半 —— 不是两份数据 ---------- */
 const halfA = document.getElementById("halfA");
 const halfB = document.getElementById("halfB");
+const off = document.createElement("canvas");
+let halfAt = 0;
 
-function paintHalves() {
-  render(halfA, graph, VW, VH, { walls: picks, dim: 0.62, noise: false });
-  render(halfB, graph, VW, VH, { walls: cheapPicks, dim: 0.62, noise: false });
+function paintHalves(force) {
+  const now = performance.now();
+  if (!force && halfAt && now - halfAt < 400) return;
+  halfAt = now;
+  VW = window.innerWidth; VH = window.innerHeight;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const sw = Math.round((VW / 2) * dpr);
+  const sh = Math.round(VH * dpr);
+
+  for (const c of [halfA, halfB]) {
+    if (c.width !== sw || c.height !== sh) { c.width = sw; c.height = sh; }
+  }
+  const srcW = Math.round(off.width / 2);
+  const ga = halfA.getContext("2d");
+  const gb = halfB.getContext("2d");
+
+  // 左：原话——七根柱子全标红
+  galaxy.renderTo(off, { s: 0.9, tx: 0, ty: 0, o: 1 }, true, PRICE.picks);
+  ga.drawImage(off, 0, 0, srcW, off.height, 0, 0, sw, sh);
+
+  // 右：改后——只剩最轻的那两根
+  galaxy.renderTo(off, { s: 0.9, tx: 0, ty: 0, o: 1 }, true, cheapPicks);
+  gb.drawImage(off, off.width - srcW, 0, srcW, off.height, 0, 0, sw, sh);
 }
 
 document.getElementById("oldNum").textContent = RATE;
@@ -219,7 +209,8 @@ document.getElementById("copy").addEventListener("click", async () => {
 
 /* ---------- 启动 ---------- */
 function boot() {
-  paintSky();
+  galaxy.setCamera(cam);
+  galaxy.start();
   paintHalves();
   syncTicks();
   kick();
@@ -227,7 +218,8 @@ function boot() {
 
 window.addEventListener("scroll", () => { syncTicks(); kick(); }, { passive: true });
 window.addEventListener("resize", () => {
-  paintSky();
+  VW = window.innerWidth; VH = window.innerHeight;
+  galaxy.resize();
   paintHalves();
   kick();
 });

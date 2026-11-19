@@ -122,3 +122,16 @@ body {
   .small-note { display: block; }
 }
 .small-note { display: none; font-family: var(--mono); font-size: var(--t-label); letter-spacing: .08em; color: var(--dim); padding: 96px 48px; }
+
+/* 开场页底部那句入口：不抢星图，但一定看得见 */
+.hook {
+  display: inline-block;
+  margin-top: 20px;
+  font: 11px/1.75 var(--mono);
+  letter-spacing: .08em;
+  color: var(--dim);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.hook:hover { color: var(--gold); border-bottom-color: var(--gold); }

@@ -21,7 +21,7 @@ const RATE = Math.round(PRICE.rate * 100);
 const CHEAP_RATE = Math.round((cheapS / totalS) * 100);
 
 function route() {
-  const r = location.hash.replace("#/", "") || "read";
+  const r = location.hash.replace("#/", "") || "house";
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("on"));
   document.querySelectorAll(".rail-nav a").forEach((a) => a.classList.remove("on"));
   const el = document.getElementById(`s-${r}`);

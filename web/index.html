@@ -16,10 +16,10 @@
     <div>
       <div class="rail-mark">报价 / QUOTATION</div>
       <ul class="rail-nav">
-        <li><a href="#/read" data-r="read"><span class="no">01</span>读</a></li>
-        <li><a href="#/house" data-r="house"><span class="no">02</span>建</a></li>
-        <li><a href="#/price" data-r="price"><span class="no">03</span>算</a></li>
-        <li><a href="#/rewrite" data-r="rewrite"><span class="no">04</span>换说法</a></li>
+        <li><a href="#/house" data-r="house"><span class="no">01</span>星图</a></li>
+        <li><a href="#/price" data-r="price"><span class="no">02</span>算价</a></li>
+        <li><a href="#/rewrite" data-r="rewrite"><span class="no">03</span>换说法</a></li>
+        <li><a href="#/read" data-r="read"><span class="no">04</span>接入</a></li>
       </ul>
     </div>
     <div class="rail-foot">
@@ -29,9 +29,9 @@
 
   <main class="main">
 
-    <!-- 01 读 -->
+    <!-- 04 接入 -->
     <section class="screen" id="s-read">
-      <h1 class="h1">先读你写过的字。</h1>
+      <h1 class="h1">现在，读你的字。</h1>
       <p class="sub">只读公开内容。读完你随时可以删掉这张图。</p>
       <div style="display:flex;gap:64px;align-items:flex-end;margin-top:64px;">
         <button class="tbtn" id="btnRead">用知乎账号授权</button>
@@ -44,13 +44,14 @@
       <div class="progress"><i id="prog"></i></div>
     </section>
 
-    <!-- 02 建 -->
+    <!-- 01 星图 -->
     <section class="screen" id="s-house">
       <div class="stage-head" id="houseHead"></div>
       <div class="build">
         <div class="stage"><svg id="star" role="img" aria-label="这个人的判断星图"></svg></div>
         <aside class="walls" id="wallsBox"></aside>
       </div>
+      <a class="hook" href="#/read">这是 @林行 六年的公开表态 · 换成年你的 →</a>
     </section>
 
     <!-- 03 算 -->

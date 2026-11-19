@@ -1,0 +1,49 @@
+/* 纸上：只能是墨点浅底。所以 print 是负片，不是底片。 */
+@page { size: A4 portrait; margin: 18mm; }
+
+:root {
+  --paper: #f2efe6;
+  --ink: #14110d;
+  --red-print: #c8342a;
+}
+
+body {
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+  min-width: 0 !important;
+  font-size: 10.5pt;
+}
+
+.rail, .small-note, .tbtn, .progress { display: none !important; }
+.shell { display: block; max-width: none; }
+.main { padding: 0; max-width: none; }
+.screen { display: block !important; page-break-after: always; }
+.screen:last-child { page-break-after: auto; }
+
+.label, .stage-head, .echo, .m, .no, .rail-foot, .counts {
+  color: var(--ink) !important;
+  opacity: .62;
+}
+
+.gold, .newNum { color: var(--ink) !important; }
+.red, .verdict, .wall .no { color: var(--red-print) !important; }
+
+/* 星图反相：去掉辉光与噪点，星 = 墨点 */
+#star, #inset { height: auto !important; }
+#star, .inset { width: 100%; height: 92mm !important; }
+.inset { width: 78mm !important; height: 78mm !important; background: var(--paper) !important; }
+#star filter, #inset filter, #grain, #glow { display: none; }
+#star .core, #inset .core { fill: var(--ink) !important; }
+#star .edge, #inset .edge { stroke: var(--ink) !important; opacity: .18; }
+#star .ring, #inset .ring { stroke: var(--red-print) !important; }
+
+/* 纸上有线才可信 */
+.ledger th, .ledger td { border: 1px solid var(--ink) !important; padding: 6pt 8pt; }
+.ledger { page-break-inside: avoid; }
+
+.big { font-size: 96px !important; line-height: .9; }
+.h1 { font-size: 20pt; }
+.verdict { font-size: 18pt; page-break-before: avoid; }
+.newline { font-size: 14pt; }
+
+.wall { border-top: 1px solid var(--ink) !important; page-break-inside: avoid; }

@@ -1,0 +1,4 @@
+*.lock
+.dsh-ops-update-*
+node_modules/
+.DS_Store

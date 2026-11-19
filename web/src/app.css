@@ -135,3 +135,17 @@ body {
   padding-bottom: 6px;
 }
 .hook:hover { color: var(--gold); border-bottom-color: var(--gold); }
+
+/* 点星：被点的加金环，塌掉的暗下去 */
+.node { cursor: pointer; }
+.node:focus { outline: none; }
+.node.focus .core { stroke: var(--gold); stroke-width: 2.6; }
+.fallen {
+  font: 15px/1.6 var(--serif);
+  color: var(--ivory);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.fallen .m { display: inline-block; width: 46px; color: var(--dim); }
+.wall.sel p { color: var(--ivory); }
+.hook.back { margin-top: 24px; }

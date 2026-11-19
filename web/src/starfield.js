@@ -234,6 +234,8 @@ export function render(svg, graph, W, H, opt = {}) {
 }
 
 /* ---------- 报价：最小拆除集 → 熄灭 ---------- */
+// 塔陷规则：一个判断失去过半根据就站不住（不是全失去才塔）。
+// 现实里人不是与门：三根支柱倒了一根，他还会撑着；倒了两根，这句话就废了。
 export function collapseAfter(removed, graph) {
   const dead = new Set(removed);
   let changed = true;
@@ -241,7 +243,8 @@ export function collapseAfter(removed, graph) {
     changed = false;
     for (const n of graph) {
       if (dead.has(n.id) || !n.deps.length) continue;
-      if (n.deps.every((d) => dead.has(d))) { dead.add(n.id); changed = true; }
+      const alive = n.deps.filter((d) => !dead.has(d)).length;
+      if (alive / n.deps.length < 0.5) { dead.add(n.id); changed = true; }
     }
   }
   return dead;

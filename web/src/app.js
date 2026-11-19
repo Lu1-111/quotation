@@ -20,6 +20,10 @@ const cheapS = graph.filter((n) => cheapDead.has(n.id)).reduce((a, n) => a + n.S
 const RATE = Math.round(PRICE.rate * 100);
 const CHEAP_RATE = Math.round((cheapS / totalS) * 100);
 
+// 每颗星拆了会塌多少：只算一次
+const FALL = new Map();
+for (const n of graph) FALL.set(n.id, collapseAfter(new Set([n.id]), graph).size - 1);
+
 function route() {
   const r = location.hash.replace("#/", "") || "house";
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("on"));
@@ -28,8 +32,11 @@ function route() {
   if (el) el.classList.add("on");
   const link = document.querySelector(`.rail-nav a[data-r="${r}"]`);
   if (link) link.classList.add("on");
-  if (r === "house") drawHouse();
-  if (r === "price") drawPrice();
+  if (r === "house") {
+    drawHouse();
+    const sel = new URLSearchParams(location.search).get("sel");
+    if (sel && byId.has(sel)) showNode(sel);
+  }  if (r === "price") drawPrice();
   if (r === "rewrite") drawRewrite();
 }
 window.addEventListener("hashchange", route);
@@ -40,6 +47,73 @@ if (btnRead) btnRead.addEventListener("click", () => { document.getElementById("
 
 /* ---------- 02 建 ---------- */
 let state = null;
+let selId = null;
+
+/* 右栏：默认列承重墙 */
+function wallsPanel() {
+  selId = null;
+  const box = document.getElementById("wallsBox");
+  box.innerHTML = "";
+  walls.forEach((id, i) => {
+    const n = byId.get(id);
+    const div = document.createElement("div");
+    div.className = "wall";
+    div.innerHTML =
+      `<div class="no">${String(i + 1).padStart(2, "0")}</div>` +
+      `<p>${n.text}</p>` +
+      `<div class="m">承重 ${n.S} · 拆了塌 ${FALL.get(id)}</div>`;
+    div.addEventListener("click", () => showNode(id));
+    box.appendChild(div);
+  });
+  state.nodeEls.forEach((el) => el.classList.remove("dead", "focus"));
+}
+
+/* 点星：塌掉的那一片暗下去 */
+function showNode(id) {
+  selId = id;
+  const n = byId.get(id);
+  const dead = collapseAfter(new Set([id]), graph);
+  const fallen = graph
+    .filter((x) => dead.has(x.id) && x.id !== id)
+    .sort((a, b) => b.S - a.S);
+  const left = graph.length - dead.size;
+
+  state.nodeEls.forEach((el, nid) => {
+    el.classList.toggle("dead", dead.has(nid));
+    el.classList.toggle("focus", nid === id);
+  });
+
+  const box = document.getElementById("wallsBox");
+  box.innerHTML = "";
+
+  const head = document.createElement("div");
+  head.className = "wall sel";
+  head.innerHTML =
+    `<div class="no">拆</div>` +
+    `<p>${n.text}</p>` +
+    `<div class="m">拆了塌 ${fallen.length} 个 · 还剩 ${left}</div>`;
+  box.appendChild(head);
+
+  fallen.slice(0, 6).forEach((f) => {
+    const d = document.createElement("div");
+    d.className = "fallen";
+    d.innerHTML = `${f.text}`;
+    box.appendChild(d);
+  });
+  if (fallen.length > 6) {
+    const d = document.createElement("div");
+    d.className = "m";
+    d.textContent = `……还有 ${fallen.length - 6} 个`;
+    box.appendChild(d);
+  }
+
+  const back = document.createElement("a");
+  back.className = "hook back";
+  back.href = "#/house";
+  back.textContent = "← 回到承重墙";
+  back.addEventListener("click", (e) => { e.preventDefault(); wallsPanel(); });
+  box.appendChild(back);
+}
 
 function drawHouse() {
   if (state) return;
@@ -54,23 +128,18 @@ function drawHouse() {
 
   const box = document.getElementById("wallsBox");
   box.innerHTML = "";
-  walls.forEach((id, i) => {
-    const n = byId.get(id);
-    const div = document.createElement("div");
-    div.className = "wall";
-    div.innerHTML =
-      `<div class="no">${String(i + 1).padStart(2, "0")}</div>` +
-      `<p>${n.text}</p>` +
-      `<div class="m">承重 ${n.S} · 拆了塌 ${Math.round((n.S / graph.length) * 100)}%</div>`;
-    box.appendChild(div);
 
-    const el = state.nodeEls.get(id);
-    if (el && i < 5) {
-      el.setAttribute("tabindex", "0");
-      el.setAttribute("role", "button");
-      el.setAttribute("aria-label", `${n.text}，承重 ${n.S}`);
-    }
+  state.nodeEls.forEach((el, id) => {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.setAttribute("aria-label", `${byId.get(id).text}，承重 ${byId.get(id).S}`);
+    el.addEventListener("click", () => showNode(id));
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showNode(id); }
+    });
   });
+
+  wallsPanel();
 }
 
 /* ---------- 03 算 ---------- */
@@ -95,6 +164,21 @@ function drawPrice() {
   const vx = Math.max(0, Math.min(W - box, cx - box / 2));
   const vy = Math.max(0, Math.min(H - box, cy - box / 2));
   inset.setAttribute("viewBox", `${vx} ${vy} ${box} ${box}`);
+
+  // 熄灯：要拆的星逐颗灭掉，依赖它们的一片跟着塔下去
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    || new URLSearchParams(location.search).has("still");
+  const kill = (el) => el && el.classList.add("dead");
+  if (still) {
+    res.dead.forEach((id) => kill(st.nodeEls.get(id)));
+  } else {
+    setTimeout(() => {
+      res.picks.forEach((id, i) => setTimeout(() => kill(st.nodeEls.get(id)), i * 110));
+      setTimeout(() => {
+        res.dead.forEach((id) => kill(st.nodeEls.get(id)));
+      }, res.picks.length * 110 + 160);
+    }, 520);
+  }
 
   document.getElementById("oldNum").innerHTML = `${RATE}<small>%</small>`;
   document.getElementById("newNum").innerHTML = `${CHEAP_RATE}<small>%</small>`;

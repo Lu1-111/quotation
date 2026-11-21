@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "module": "data-collection-service",
+  "kind": "collection_page",
+  "userId": "00000000-0000-4000-8000-000000000001",
+  "snapshotId": "00000000-0000-4000-8000-000000000002",
+  "deviceId": "00000000-0000-4000-8000-000000000003",
+  "jobId": "00000000-0000-4000-8000-000000000004",
+  "receivedAt": "2026-11-21T14:05:16.051Z",
+  "metadata": {
+    "schemaVersion": 3,
+    "source": "demo_history",
+    "account": {
+      "nickname": "演示读者"
+    },
+    "syncedAt": "2026-11-21T14:05:16.051Z",
+    "policyVersion": "knowledge-v1",
+    "settings": {
+      "history": true,
+      "likes": true,
+      "collections": true,
+      "knowledgeFilter": true,
+      "aiReview": false
+    },
+    "revision": "651a59597f5e515a0174ded841e63d414267b417262777b02cc8f264cd94bc20",
+    "counts": {
+      "history": 3,
+      "likes": 1,
+      "collections": 1
+    }
+  },
+  "excludedCount": 0,
+  "page": {
+    "offset": 0,
+    "limit": 10,
+    "total": 3,
+    "returned": 3,
+    "hasMore": false,
+    "nextOffset": null
+  },
+  "items": [
+    {
+      "key": "answer:101",
+      "contentId": "101",
+      "contentType": "answer",
+      "title": "本地大模型推理如何加速",
+      "summary": "比较推理框架和硬件配置。",
+      "url": "https://www.zhihu.com/answer/101",
+      "author": "演示作者",
+      "kinds": [
+        "history",
+        "likes"
+      ],
+      "observedAt": "2026-11-21T14:05:16.051Z",
+      "sourceReadTime": "1795183516",
+      "signals": [
+        {
+          "kind": "history",
+          "time": "1795183516"
+        },
+        {
+          "kind": "likes",
+          "time": 1792677916
+        }
+      ],
+      "topics": [
+        {
+          "id": "ai",
+          "name": "人工智能"
+        }
+      ],
+      "voteCount": 24,
+      "commentCount": 5,
+      "metricsMissing": false,
+      "weight": 5.014615,
+      "weightDetails": {
+        "base": 3,
+        "actionMultiplier": 1.3333333333333333,
+        "engagementBonus": 0.514615,
+        "similarPostCount": 1,
+        "themeBonus": 0.5,
+        "ageDays": 1.0000005902777778,
+        "timeFactor": 1
+      },
+      "bodyStatus": "unavailable",
+      "summaryTruncated": false,
+      "ruleDecision": "review",
+      "contentTrust": "external_untrusted"
+    },
+    {
+      "key": "article:102",
+      "contentId": "102",
+      "contentType": "article",
+      "title": "本地大模型部署实践",
+      "summary": "从模型选择到部署。",
+      "url": "https://zhuanlan.zhihu.com/p/102",
+      "author": "演示作者",
+      "kinds": [
+        "history",
+        "collections"
+      ],
+      "observedAt": "2026-11-21T14:05:16.051Z",
+      "sourceReadTime": "1794492316",
+      "signals": [
+        {
+          "kind": "history",
+          "time": "1794492316"
+        },
+        {
+          "kind": "collections",
+          "time": "2026-11-21T14:05:16.051Z"
+        }
+      ],
+      "topics": [
+        {
+          "id": "ai",
+          "name": "人工智能"
+        }
+      ],
+      "voteCount": 12,
+      "commentCount": 3,
+      "metricsMissing": false,
+      "weight": 3.592856,
+      "weightDetails": {
+        "base": 2,
+        "actionMultiplier": 1.3333333333333333,
+        "engagementBonus": 0.42619,
+        "similarPostCount": 1,
+        "themeBonus": 0.5,
+        "ageDays": 9.000000590277779,
+        "timeFactor": 1
+      },
+      "bodyStatus": "unavailable",
+      "summaryTruncated": false,
+      "ruleDecision": "review",
+      "contentTrust": "external_untrusted"
+    },
+    {
+      "key": "pin:103",
+      "contentId": "103",
+      "contentType": "pin",
+      "title": "阅读笔记的整理方法",
+      "summary": "保留观点与原文链接。",
+      "url": "https://www.zhihu.com/pin/103",
+      "author": "演示作者",
+      "kinds": [
+        "history"
+      ],
+      "observedAt": "2026-11-21T14:05:16.051Z",
+      "sourceReadTime": "1793887516",
+      "signals": [
+        {
+          "kind": "history",
+          "time": "1793887516"
+        }
+      ],
+      "topics": [
+        {
+          "id": "notes",
+          "name": "笔记"
+        }
+      ],
+      "voteCount": 2,
+      "commentCount": 1,
+      "metricsMissing": false,
+      "weight": 0.863069,
+      "weightDetails": {
+        "base": 1,
+        "actionMultiplier": 1,
+        "engagementBonus": 0.232956,
+        "similarPostCount": 0,
+        "themeBonus": 0,
+        "ageDays": 16.00000059027778,
+        "timeFactor": 0.7
+      },
+      "bodyStatus": "unavailable",
+      "summaryTruncated": false,
+      "ruleDecision": "review",
+      "contentTrust": "external_untrusted"
+    }
+  ]
+}

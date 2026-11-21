@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "module": {
+      "type": "string",
+      "const": "data-collection-service"
+    },
+    "kind": {
+      "type": "string",
+      "const": "collection_page"
+    },
+    "userId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "snapshotId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "deviceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "jobId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "receivedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 3
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "zhihu_selected_data",
+            "demo_history"
+          ]
+        },
+        "account": {
+          "type": "object",
+          "properties": {
+            "nickname": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "nickname"
+          ],
+          "additionalProperties": false
+        },
+        "syncedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "policyVersion": {
+          "type": "string"
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "history": {
+              "type": "boolean"
+            },
+            "likes": {
+              "type": "boolean"
+            },
+            "collections": {
+              "type": "boolean"
+            },
+            "knowledgeFilter": {
+              "type": "boolean"
+            },
+            "aiReview": {
+              "type": "boolean",
+              "const": false
+            }
+          },
+          "required": [
+            "history",
+            "likes",
+            "collections",
+            "knowledgeFilter",
+            "aiReview"
+          ],
+          "additionalProperties": false
+        },
+        "revision": {
+          "type": "string"
+        },
+        "counts": {
+          "type": "object",
+          "properties": {
+            "history": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "likes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "collections": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "history",
+            "likes",
+            "collections"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "source",
+        "account",
+        "syncedAt",
+        "policyVersion",
+        "settings",
+        "revision",
+        "counts"
+      ],
+      "additionalProperties": false
+    },
+    "excludedCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "page": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "returned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "hasMore": {
+          "type": "boolean"
+        },
+        "nextOffset": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "offset",
+        "limit",
+        "total",
+        "returned",
+        "hasMore",
+        "nextOffset"
+      ],
+      "additionalProperties": false
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "contentId": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "author": {
+            "type": "string"
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "history",
+                "likes",
+                "collections"
+              ]
+            }
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "sourceReadTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "history",
+                    "likes",
+                    "collections"
+                  ]
+                },
+                "time": {
+                  "type": [
+                    "string",
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "time"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "voteCount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "commentCount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "metricsMissing": {
+            "type": "boolean"
+          },
+          "weight": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "weightDetails": {
+            "type": "object",
+            "properties": {
+              "base": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "actionMultiplier": {
+                "type": "number"
+              },
+              "engagementBonus": {
+                "type": "number"
+              },
+              "similarPostCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "themeBonus": {
+                "type": "number"
+              },
+              "ageDays": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "timeFactor": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "base",
+              "actionMultiplier",
+              "engagementBonus",
+              "similarPostCount",
+              "themeBonus",
+              "ageDays",
+              "timeFactor"
+            ],
+            "additionalProperties": false
+          },
+          "bodyStatus": {
+            "type": "string"
+          },
+          "summaryTruncated": {
+            "type": "boolean"
+          },
+          "ruleDecision": {
+            "type": "string",
+            "enum": [
+              "keep",
+              "exclude",
+              "review"
+            ]
+          },
+          "contentTrust": {
+            "type": "string",
+            "const": "external_untrusted"
+          }
+        },
+        "required": [
+          "key",
+          "contentId",
+          "contentType",
+          "title",
+          "summary",
+          "url",
+          "summaryTruncated",
+          "contentTrust"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "module",
+    "kind",
+    "userId",
+    "snapshotId",
+    "deviceId",
+    "jobId",
+    "receivedAt",
+    "metadata",
+    "excludedCount",
+    "page",
+    "items"
+  ],
+  "additionalProperties": false
+}

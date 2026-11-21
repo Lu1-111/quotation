@@ -1,0 +1,13 @@
+{
+  "name": "quotation-data-collection-cli",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "bin": { "zhihu-collect": "./cli.mjs" },
+  "scripts": {
+    "cli": "node --env-file-if-exists=.env cli.mjs",
+    "demo": "node cli.mjs sync --demo --consent --history --likes --collections --json",
+    "test": "node --test"
+  },
+  "dependencies": { "playwright-core": "1.65.1" }
+}

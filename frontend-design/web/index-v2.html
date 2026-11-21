@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>报价</title>
+<link rel="stylesheet" href="./src/tokens.css">
+<link rel="stylesheet" href="./src/app.css">
+<link rel="stylesheet" href="./src/print.css?v=9" media="print">
+</head>
+<body>
+
+<div class="small-note">请用桌面浏览器打开（最小宽度 1280）。</div>
+
+<div class="shell">
+  <aside class="rail">
+    <div>
+      <div class="rail-mark">报价 / QUOTATION</div>
+      <ul class="rail-nav">
+        <li><a href="#/house" data-r="house"><span class="no">01</span>星图</a></li>
+        <li><a href="#/price" data-r="price"><span class="no">02</span>算价</a></li>
+        <li><a href="#/rewrite" data-r="rewrite"><span class="no">03</span>换说法</a></li>
+        <li><a href="#/read" data-r="read"><span class="no">04</span>接入</a></li>
+      </ul>
+    </div>
+    <div class="rail-foot">
+      承重损失率<br><span class="gold">一个估算，不是判决</span>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- 04 接入 -->
+    <section class="screen" id="s-read">
+      <h1 class="h1">现在，读你的字。</h1>
+      <p class="sub">只读公开内容。读完你随时可以删掉这张图。</p>
+      <div style="display:flex;gap:64px;align-items:flex-end;margin-top:64px;">
+        <button class="tbtn" id="btnRead">用知乎账号授权</button>
+        <div class="counts" id="readCounts" style="margin-left:auto;">
+          已读 <b>1,284</b> 条<br>
+          覆盖 <b>6</b> 年<br>
+          提取 <b>217</b> 个判断
+        </div>
+      </div>
+      <div class="progress"><i id="prog"></i></div>
+    </section>
+
+    <!-- 01 星图 -->
+    <section class="screen" id="s-house">
+      <div class="stage-head" id="houseHead"></div>
+      <div class="build">
+        <div class="stage"><svg id="star" role="img" aria-label="这个人的判断星图"></svg></div>
+        <aside class="walls" id="wallsBox"></aside>
+      </div>
+      <a class="hook" href="#/read">这是 @林行 六年的公开表态 · 换成年你的 →</a>
+    </section>
+
+    <!-- 03 算 -->
+    <section class="screen" id="s-price">
+      <div class="echo">人：<b>@林行</b> · 话：<b>「算法推荐让人变窄」</b></div>
+      <div class="price-row">
+        <div>
+          <div class="label">承重损失率</div>
+          <div class="big" id="priceNum">0<small>%</small></div>
+        </div>
+        <div class="inset"><svg id="inset"></svg></div>
+      </div>
+
+      <table class="ledger" id="priceTable">
+        <tbody>
+          <tr><td>要拆掉的判断</td><td id="t1">—</td></tr>
+          <tr><td>其中承重墙</td><td id="t2" class="red">—</td></tr>
+          <tr><td>连带塌陷</td><td id="t3">—</td></tr>
+          <tr><td>若按个数算</td><td id="t4">—</td></tr>
+        </tbody>
+      </table>
+
+      <p class="verdict">他大概率听不进去。</p>
+    </section>
+
+    <!-- 04 换说法 -->
+    <section class="screen" id="s-rewrite">
+      <div class="pair">
+        <div>
+          <div class="label">原话</div>
+          <div class="num" id="oldNum">38<small>%</small></div>
+        </div>
+        <div class="vline"></div>
+        <div>
+          <div class="label">改后</div>
+          <div class="num" id="newNum" style="color:var(--gold)">9<small>%</small></div>
+        </div>
+      </div>
+      <p class="newline" id="rewriteLine">推荐算法会把一个人越推越窄，但窄不窄，取决于他有没有在窄处停下来。</p>
+      <div class="foot">
+        <button class="tbtn" id="btnCopy">复制这句话</button>
+        <div class="label" style="margin-top:24px" id="rewriteNote">同一个意思，少拆 5 根柱子。</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>

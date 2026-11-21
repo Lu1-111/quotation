@@ -15,6 +15,3 @@ history-profiles/
 *.log
 zhihu-data-*.json
 zhihu-history-*.json
-
-# 本地保留的前端设计不纳入当前两个模块的发布范围
-/frontend-design/

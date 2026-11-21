@@ -1,14 +1,19 @@
 # quotation
 
-本仓库当前维护两个独立模块，源码、配置模板、测试和对接文档分别位于模块目录中。
+本仓库保留原有前端设计，并分别维护数据采集与信息搜索。各分区的代码、素材和说明保存在自己的目录中。
 
 | 模块 | 功能 | 输出说明 |
 | --- | --- | --- |
+| [`frontend-design/`](frontend-design/README.md) | 原有前端页面、样式与 `shots` 预览素材 | 页面设计，不提供数据 JSON |
 | [`data-collection/`](data-collection/README.md) | 获取知乎浏览、点赞、收藏信息，规则过滤、权重排序、本机保存与导出 | [采集 JSON 格式](data-collection/OUTPUT_FORMAT.md) |
 | [`information-search/`](information-search/README.md) | 知乎官方 API 搜索、关键词与标签词匹配，支持 Agent tools 和 MCP | [搜索 JSON 格式](information-search/OUTPUT_FORMAT.md) |
 
 ```text
 quotation/
+├─ frontend-design/
+│  ├─ web/
+│  ├─ shots/
+│  └─ README.md
 ├─ data-collection/
 │  ├─ OUTPUT_FORMAT.md
 │  ├─ schemas/

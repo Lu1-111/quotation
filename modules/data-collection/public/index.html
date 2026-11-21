@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>知乎数据同步</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>知乎数据同步</h1>
+      <p id="demo" class="notice" hidden>本地演示。以下记录为示例数据。</p>
+      <p>连接知乎后，同步公开创作和近期公开收藏。</p>
+      <p><a href="/history">打开最近浏览同步</a></p>
+    </header>
+    <p id="feedback" class="notice" role="status" hidden></p>
+    <section class="account" aria-label="账号与同步">
+      <div>
+        <h2 id="account-title">正在检查连接</h2>
+        <p id="sync-time"></p>
+      </div>
+      <div class="actions" id="actions" hidden>
+        <form method="post" action="/auth/zhihu" id="connect" hidden>
+          <button id="connect-label" type="submit">连接知乎并同步</button>
+        </form>
+        <button id="sync" type="button" hidden>重新同步</button>
+        <a id="export" class="button secondary" href="/api/zhihu/export" hidden>下载 JSON</a>
+        <button id="disconnect" class="quiet" type="button" hidden>断开并删除数据</button>
+      </div>
+    </section>
+    <div id="data" class="data" hidden>
+      <section>
+        <h2>公开创作 <span id="creations-count"></span></h2>
+        <ol id="creations"></ol>
+      </section>
+      <section>
+        <h2>近期公开收藏 <span id="collections-count"></span></h2>
+        <ol id="collections"></ol>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+.data/
+zhihu-data-*.json
+zhihu-history-*.json
+node_modules/

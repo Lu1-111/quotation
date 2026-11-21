@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>采集设置</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/settings.js" type="module"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>采集设置</h1>
+      <p><a href="/history">返回同步页面</a></p>
+    </header>
+    <p id="settings-feedback" class="notice" role="status" hidden></p>
+    <form id="settings-form" class="settings-panel">
+      <fieldset>
+        <legend>获取哪些信息</legend>
+        <label><input type="checkbox" name="history"> 浏览记录</label>
+        <p>按浏览时间从新到旧获取，过滤用户主页和低互动回答，保留最多 50 条合格帖子。</p>
+        <label><input type="checkbox" name="likes"> 点赞与赞同</label>
+        <p>遍历当前账号可见的赞同动态，分页获取到列表结束。</p>
+        <label><input type="checkbox" name="collections"> 收藏</label>
+        <p>遍历账号自己的收藏夹和其中条目，分页获取到列表结束。</p>
+      </fieldset>
+      <fieldset>
+        <legend>知识筛选与全文分析</legend>
+        <label><input type="checkbox" name="knowledgeFilter"> 自动排除缺少知识价值的内容</label>
+        <p>保留解释、方法、证据、技能和可迁移经验；排除纯猎奇、擦边故事、八卦、情绪宣泄及无实质信息的内容。依据不足时保留并标为待复核。点赞和收藏同样适用。</p>
+        <label><input type="checkbox" name="aiReview"> 使用本机 Ollama 阅读正文、筛选、总结与分类</label>
+        <p>仅向本机模型发送帖子标题、正文和话题，不发送知乎 Cookie。长文分段阅读后汇总，输出关键词、标签、领域和知识点。正文不足时不生成全文总结；模型不可用时使用规则并标注。</p>
+        <p id="agent-status" class="notice" role="status">正在检查本机模型配置…</p>
+        <p class="footnote">全文按知乎接口实际返回的正文处理，不能补齐付费、删除或受限内容，也不自动读取评论或图片。已排除项会保留在独立审查列表，方便检查误判。</p>
+      </fieldset>
+      <p>勾选的信息用于本机存储、权重排序、网页展示和 JSON 导出。保存后，后续同步按这些选择执行。</p>
+      <div class="actions"><button type="submit" id="settings-save" disabled>保存并同意获取所选数据</button></div>
+    </form>
+    <section class="settings-panel">
+      <h2>筛选与权重规则</h2>
+      <ul class="rules">
+        <li>按内容用途判断知识价值，不按敏感词或用户立场整类屏蔽医学、心理、文学、法律、游戏设计等领域。</li>
+        <li>回答点赞少于 5 且评论少于 2 时过滤，互动数据缺失时保留并标注。</li>
+        <li>想法初始权重为 1，文章为 2，回答为 3。</li>
+        <li>互动加分为 min(1, ln(1 + 点赞数 + 2 × 评论数) / ln(1001))，范围为 0 到 1。</li>
+        <li>话题标签优先。缺少标签时，标题至少有 2 个相同关键词且关键词集合重合比例达到 35%，视为相似。</li>
+        <li>每条记录获得 0.5 × 其他相似帖子数的主题加分，同一帖子去重计算。</li>
+        <li>浏览超过 7 天的帖子乘以 0.9，超过 14 天乘以 0.7。</li>
+        <li>点赞或收藏将类型初始权重乘以 4/3，时间系数为 1。同一帖子同时点赞和收藏时使用一次该加成。</li>
+      </ul>
+      <p class="formula">最终权重 =（类型初始权重 × 行为系数 + 互动加分 + 主题加分）× 时间系数</p>
+      <p class="footnote">问题、视频等尚未指定初始权重的类型会保留，权重标为待配置，排在已有权重的记录之后。</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -2,3 +2,16 @@
 .dsh-ops-update-*
 node_modules/
 .DS_Store
+
+# Local configuration and private module runtime data
+.env
+.env.*
+!.env.example
+.data/
+history-profiles/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.log
+zhihu-data-*.json
+zhihu-history-*.json

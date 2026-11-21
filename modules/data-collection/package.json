@@ -1,0 +1,16 @@
+{
+  "name": "zhihu-data-sync",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "demo": "node server.mjs --demo",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "playwright-core": "1.65.1"
+  }
+}

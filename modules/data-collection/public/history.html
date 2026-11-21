@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>知乎信息同步</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/history.js" type="module"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>知乎信息同步</h1>
+      <p>获取选定的浏览、点赞和收藏信息，按权重保存到本机。</p>
+      <p><a href="/settings">采集设置</a></p>
+      <p id="history-demo" class="notice" hidden>当前为本地演示，使用示例记录。</p>
+    </header>
+    <p id="history-feedback" class="notice" role="status" hidden></p>
+    <section class="account history-account" aria-label="知乎连接与采集授权">
+      <div>
+        <h2 id="history-account">正在检查连接</h2>
+        <p id="history-status"></p>
+        <p id="history-time"></p>
+        <p id="history-kinds"></p>
+      </div>
+      <div class="history-controls">
+        <label id="consent-label">
+          <input id="history-consent" type="checkbox">
+          我同意获取设置中勾选的知乎账号信息，保存到本机用于权重排序、网页查看和 JSON 导出。
+        </label>
+        <div class="actions">
+          <button id="history-connect" type="button" disabled>打开知乎登录</button>
+          <button id="history-sync" type="button" disabled>立即同步</button>
+        </div>
+        <label>
+          <input id="history-auto" type="checkbox">
+          同步成功后每 5 分钟自动检查更新（仅应用网页保持打开时运行）
+        </label>
+        <div class="actions">
+          <button id="history-pause" class="secondary" type="button" disabled>暂停同步</button>
+          <button id="history-disconnect" class="secondary" type="button" disabled>断开连接</button>
+          <button id="history-clear" class="quiet" type="button" disabled>删除本机记录</button>
+        </div>
+        <p class="footnote">首次在专用窗口登录知乎，后续同步在后台完成。关闭最后一个同步页或设置页后停止采集；浏览器异常退出或网页冻结时，约 30 秒未收到心跳即停止。重新打开网页后，已保存的自动同步设置可恢复执行。本机服务仍需运行。断开连接会撤回采集同意。</p>
+      </div>
+    </section>
+    <section class="history-results">
+      <div class="history-heading">
+        <h2>已获取的帖子 <span id="history-count">0</span></h2>
+        <a class="button secondary" href="/api/history/export" id="history-export" hidden>下载 JSON</a>
+      </div>
+      <p id="history-empty">连接并同步后，记录会出现在这里。</p>
+      <ol id="history-records"></ol>
+    </section>
+    <section class="history-results">
+      <details>
+        <summary>查看排除记录与理由（<span id="history-excluded-count">0</span> 条）</summary>
+        <p class="footnote">这些内容不进入知识记录和权重排序。保留审查结果用于检查误判，关闭知识过滤后可重新纳入。</p>
+        <ol id="history-excluded"></ol>
+      </details>
+    </section>
+    <p class="footnote">同一帖子合并浏览、点赞和收藏来源，按最终权重从高到低保存和展示。</p>
+  </main>
+</body>
+</html>

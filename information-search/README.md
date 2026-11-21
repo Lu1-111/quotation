@@ -1,6 +1,6 @@
 # 知乎信息搜索模块
 
-本模块通过知乎数据开放平台的官方搜索 API 获取内容，按调用方给出的关键词、标签词和内容类型筛选结果，提供网页、HTTP 接口与可直接导入的 JavaScript 模块。
+本模块通过知乎数据开放平台的官方搜索 API 获取内容，按调用方给出的关键词、标签词和内容类型筛选结果，提供 Agent tools、MCP、HTTP 接口与可直接导入的 JavaScript 模块。网页是可选的人工调试入口；Agent 调用无需启动网页或 HTTP 服务。
 
 文件夹和文件名使用英文，界面、说明与错误提示使用中文。本模块与 `data-collection/` 的个人浏览历史采集相互独立，不读取知乎网页登录会话，也不依赖 OAuth 应用凭证。Access Secret 仅在本机后端使用，不传给浏览器。
 
@@ -26,7 +26,7 @@
 
 ## 本地运行
 
-需要 Node.js 24+，无第三方运行依赖。以下命令在模块目录执行：
+需要 Node.js 24+。Agent 工具使用 Zod 校验参数，MCP 入口使用官方 `@modelcontextprotocol/server` SDK；`@modelcontextprotocol/client` 只用于开发测试。以下网页调试命令在模块目录执行：
 
 ```powershell
 cd information-search
@@ -115,7 +115,23 @@ if (!response.ok) throw new Error(snapshot.error);
 
 常见错误：400 参数无效，401 上游凭证无效／权限不足，403 请求来源不符，404 尚无结果，409 已有任务运行，413 请求过大，429 频率或额度受限，502 上游网络或响应异常，503 未配置凭证。错误体只返回安全的 `error` 与 `code`，不回显上游鉴权头或原始错误消息。
 
-## 供本地 Agent 或其他模块调用
+## 供 Agent 直接调用的工具
+
+已实现独立于界面的三个工具，输入与输出均提供 JSON Schema：
+
+| 工具 | 功能 |
+| --- | --- |
+| `zhihu_search` | 官方搜索、匹配、缓存、保存快照，返回经过长度限制的结构化结果 |
+| `zhihu_get_search_result` | 按 `requestId` 分批读取已经保存的结果，不再次调用知乎 |
+| `zhihu_search_status` | 检查配置、运行状态和能力边界，不回传密钥 |
+
+Node.js Agent 可从 `agent-tools.mjs` 导入 `createLocalAgentTools()`，将 `definitions` 注册到宿主并通过 `call(name, arguments, { signal })` 执行。支持标准 MCP 的本地 Agent 可以启动 `mcp-server.mjs`，通过标准输入输出发现并调用这些工具，无需浏览器、网页端口或个人账号登录。
+
+工具默认最多执行 2 个查询、返回前 8 条内容，每条摘要最多 1000 个字符；完整官方摘要与结果快照保存在本机，可按结果标识继续读取。这里的“分批读取”是本地已保存结果的分页，不增加官方搜索的分页能力。工具具有总执行时限、取消传播、重复任务拦截与稳定的错误码，不自动无限重试。
+
+详细接入、MCP 配置、返回协议与调用示例见 [Agent 工具对接说明](AGENT_TOOLS.md)。本模块没有内置推理模型或自动运行的 Agent；由你们的 Agent 宿主决定何时调用。
+
+## 底层 JavaScript 服务调用
 
 ```javascript
 import { createOfficialClient } from './official-client.mjs';
@@ -166,8 +182,12 @@ search.mjs            条件校验、查询计划、匹配证据、去重和预�
 store.mjs             SQLite 单查询缓存与成功结果存储
 report.mjs            Markdown 导出
 server.mjs            本机 HTTP 服务和应用入口
+agent-tools.mjs       与框架无关的 Agent 工具执行、结果裁剪、取消与生命周期
+tool-schemas.mjs      工具输入／输出校验与 JSON Schema 定义
+mcp-server.mjs        无界面的标准 MCP stdio 入口
+AGENT_TOOLS.md        Agent 宿主与 MCP 接入说明
 public/               中文搜索界面
-test/                 协议、条件、缓存、取消和 HTTP 测试
+test/                 协议、条件、缓存、取消、HTTP 与 MCP 完整调用测试
 .env.example          无密钥的配置模板
 ```
 

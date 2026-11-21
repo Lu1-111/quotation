@@ -2,10 +2,21 @@
   "name": "quotation-information-search",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
     "demo": "node server.mjs --demo",
-    "test": "node --test"
+    "test": "node --test",
+    "mcp": "node --env-file-if-exists=.env mcp-server.mjs",
+    "mcp:demo": "node mcp-server.mjs --demo"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0"
   }
 }

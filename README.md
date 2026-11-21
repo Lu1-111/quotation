@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | [`frontend-design/`](frontend-design/README.md) | 前端设计 | 原有 `web` 与 `shots`，包含网页演示、样式、素材和预览 |
 | [`data-collection/`](data-collection/README.md) | 数据采集模块 | 知乎浏览、点赞、收藏的本机采集，规则过滤、排序、SQLite、JSON 接口和对接说明 |
-| [`information-search/`](information-search/README.md) | 信息搜索模块 | 知乎官方 API 搜索、关键词与标签词文本匹配、缓存及 JSON／Markdown 导出 |
+| [`information-search/`](information-search/README.md) | 信息搜索模块 | 知乎官方 API 搜索、关键词与标签词文本匹配、Agent tools／MCP、缓存及 JSON／Markdown 导出 |
 
 ```text
 quotation/
@@ -45,7 +45,7 @@ npm start
 4. 前端设计提交放在 `frontend-design/`，本机数据采集提交放在 `data-collection/`；模块直接位于第一级目录，不使用 `modules/` 中间层。
 5. 提交前检查密钥、浏览器会话、数据库、日志和真实用户数据均未进入暂存区。
 
-信息搜索模块在自身目录运行 `npm ci`、`npm start`，默认入口为 <http://127.0.0.1:3002/>。它使用官方 Access Secret 搜索公开内容，标签词按标题和摘要匹配，不代表知乎原生话题过滤。详细能力和对接方式见对应 README。
+信息搜索模块在自身目录运行 `npm ci`、`npm start`，默认人工调试入口为 <http://127.0.0.1:3002/>。Agent 可直接调用工具执行器或 MCP stdio，不需要运行网页，详见 [Agent 工具对接说明](information-search/AGENT_TOOLS.md)。它使用官方 Access Secret 搜索公开内容，标签词按标题和摘要匹配，不代表知乎原生话题过滤。
 
 数据采集模块目前保留网页操作方式，CLI 继续暂缓。
 

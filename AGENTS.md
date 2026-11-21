@@ -1,11 +1,12 @@
-# Repository module boundaries
+# 仓库模块与协作约定
 
-- `modules/frontend-design/` is the frontend design area. Its `web/` and `shots/` directories contain the original repository frontend and previews.
-- `modules/data-collection/` is the local Zhihu user-data collection area. Keep its source, tests, dependencies, configuration template, and integration documentation together.
-- New independent modules get their own directory and README beneath `modules/`. Do not flatten module implementation files into the repository root.
-- Root files are for shared navigation, ignore rules, and repository-wide instructions. Do not move unrelated existing root files as part of a module update.
-- Before syncing, inspect remote updates and the working tree. Never force-push or overwrite another member's work to resolve a conflict.
-- Stage only the intended module and explicitly reviewed shared documentation. Test the modified module before pushing.
-- For the data collector, use Node.js 24+, run `npm ci` and `npm test` from `modules/data-collection/`. Normal tests use demo or mock data and do not require a real Zhihu login or Ollama model.
-- Never commit actual `.env` files, browser profiles, cookies, tokens, SQLite databases, logs, exported user records, or `node_modules/`. Only configuration templates and synthetic fixtures belong in Git.
-- CLI work is deferred. The separately requested official Zhihu API content-search collector is future work, not part of the existing browser-session collector upload.
+- 文件夹和文件名使用英文，说明文档、协作规则和提交说明使用中文。代码标识、协议字段、依赖名称保持技术兼容。
+- `frontend-design/` 是前端设计分区，原有页面和预览分别位于其中的 `web/` 与 `shots/`。
+- `data-collection/` 是本机知乎用户数据采集分区，源码、测试、配置模板和对接文档保持在一起。
+- 新独立模块直接放在仓库第一级目录，并提供自己的 README，不增加 `modules/` 中间层。
+- 根目录仅放仓库导航、忽略规则和共享说明，不平铺各模块实现，也不移动不相关的既有文件。
+- 同步前检查远程更新与工作区差异；不使用强制推送覆盖其他成员的提交。
+- 只暂存本次负责的模块与明确需要修改的共享说明，推送前运行对应模块的测试。
+- 数据采集模块要求 Node.js 24+，在 `data-collection/` 执行 `npm ci`、`npm test`；常规测试不需要真实知乎登录或 Ollama 模型。
+- 不提交实际 `.env`、浏览器会话、Cookie、令牌、SQLite 数据库、日志、用户导出数据或 `node_modules/`，仅提交配置模板和合成测试数据。
+- CLI 开发暂缓。仓库整理完成后，官方接口的信息搜索功能应作为独立模块实现，不混入用户浏览历史采集链路。

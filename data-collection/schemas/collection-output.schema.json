@@ -1,0 +1,385 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:quotation:data-collection:output:v3",
+  "title": "数据采集输出版本3",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 3
+    },
+    "source": {
+      "enum": [
+        "zhihu_selected_data",
+        "demo_history"
+      ]
+    },
+    "account": {
+      "type": "object",
+      "properties": {
+        "nickname": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "nickname"
+      ],
+      "additionalProperties": true
+    },
+    "syncedAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policyVersion": {
+      "type": "string"
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "history": {
+          "type": "boolean"
+        },
+        "likes": {
+          "type": "boolean"
+        },
+        "collections": {
+          "type": "boolean"
+        },
+        "knowledgeFilter": {
+          "type": "boolean"
+        },
+        "aiReview": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "history",
+        "likes",
+        "collections",
+        "knowledgeFilter",
+        "aiReview"
+      ],
+      "additionalProperties": true
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    },
+    "revision": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "history": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "likes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "collections": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "history",
+        "likes",
+        "collections"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "source",
+    "account",
+    "syncedAt",
+    "policyVersion",
+    "settings",
+    "records",
+    "excluded",
+    "revision",
+    "counts"
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "record": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "contentId": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceReadTime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observedAt": {
+          "type": "string"
+        },
+        "voteCount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "commentCount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "metricsMissing": {
+          "type": "boolean"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "history",
+              "likes",
+              "collections"
+            ]
+          }
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "history",
+                  "likes",
+                  "collections"
+                ]
+              },
+              "time": {
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "time"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "topics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "additionalProperties": true
+          }
+        },
+        "bodyText": {
+          "type": "string"
+        },
+        "bodyStatus": {
+          "type": "string"
+        },
+        "bodySource": {
+          "type": "string"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "weightDetails": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "actionMultiplier": {
+              "type": "number"
+            },
+            "engagementBonus": {
+              "type": "number"
+            },
+            "similarPostCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "themeBonus": {
+              "type": "number"
+            },
+            "ageDays": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "timeFactor": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "additionalProperties": true
+        },
+        "analysis": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string"
+            },
+            "decision": {
+              "enum": [
+                "keep",
+                "exclude",
+                "review"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "domains": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "keywords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "knowledgePoints": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "summary": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "basis": {
+              "type": "string"
+            },
+            "inputHash": {
+              "type": "string"
+            },
+            "policyVersion": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "method",
+            "decision",
+            "reason"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "contentId",
+        "contentType",
+        "title",
+        "summary",
+        "url"
+      ],
+      "additionalProperties": true
+    }
+  }
+}

@@ -156,6 +156,8 @@ try {
 
 ## 输出协议
 
+供 Agent 解析的独立字段说明见 [OUTPUT_FORMAT.md](OUTPUT_FORMAT.md)，完整快照与工具结果的 JSON Schema 位于 `schemas/`，合成样例位于 `examples/`。
+
 快照为 `schemaVersion: 1`，与个人数据采集模块的版本 3 是不同协议：
 
 | 字段 | 含义 |

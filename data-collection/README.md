@@ -1,5 +1,7 @@
 # 知乎数据采集与本地 Agent 对接
 
+Agent 解析当前浏览、点赞、收藏输出前，请阅读 [OUTPUT_FORMAT.md](OUTPUT_FORMAT.md)，并参考 [JSON Schema](schemas/collection-output.schema.json) 与 [完整合成样例](examples/history.snapshot.json)。本次正式对接协议为版本 3，OAuth 补充链路的新改动暂未发布。
+
 本机网页支持选择获取知乎浏览、点赞和收藏信息，按指定规则筛选、计算权重并写入 SQLite，同时提供 JSON 导出。项目也保留了 OAuth 接入原型，可在赛事开放项目凭证后继续联调公开创作和收藏接口。
 
 第一阶段计划部署本地 Agent，默认数据留在本机。当前已实现采集、规则处理、网页在线限制和版本 3 JSON 快照；独立 Agent 协调器、持久化任务队列和用户领域分析尚未实现。Ollama 适配代码已预留但未部署模型、未启用。

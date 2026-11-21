@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "data": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "provider": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "criteria": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            "queryPlan": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            "coverage": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            "stats": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            "contentTrust": {
+              "type": "string",
+              "const": "external_untrusted"
+            },
+            "page": {
+              "type": "object",
+              "properties": {
+                "offset": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "limit": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "returned": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "nextOffset": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "hasMore": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "offset",
+                "limit",
+                "total",
+                "returned",
+                "nextOffset",
+                "hasMore"
+              ],
+              "additionalProperties": false
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "contentId": {
+                    "type": "string"
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "excerpt": {
+                    "type": "string"
+                  },
+                  "excerptTruncated": {
+                    "type": "boolean"
+                  },
+                  "textKind": {
+                    "type": "string",
+                    "const": "excerpt"
+                  },
+                  "fullTextAvailable": {
+                    "type": "boolean",
+                    "const": false
+                  },
+                  "platformTags": {
+                    "type": "null"
+                  },
+                  "url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "canonicalUrl": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "author": {
+                    "type": "string"
+                  },
+                  "voteCount": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "commentCount": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "rankingScore": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "createdTime": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "editedTime": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "matchedQueries": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "matches": {
+                    "type": "object",
+                    "properties": {
+                      "accepted": {
+                        "type": "boolean"
+                      },
+                      "keywords": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "tagSource": {
+                        "type": "string",
+                        "const": "local_title_excerpt_match"
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "keyword",
+                                "tagText"
+                              ]
+                            },
+                            "term": {
+                              "type": "string"
+                            },
+                            "fields": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "title",
+                                  "excerpt"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "term",
+                            "fields"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "accepted",
+                      "keywords",
+                      "tags",
+                      "tagSource",
+                      "evidence"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "key",
+                  "contentId",
+                  "contentType",
+                  "title",
+                  "excerpt",
+                  "excerptTruncated",
+                  "textKind",
+                  "fullTextAvailable",
+                  "platformTags",
+                  "url",
+                  "canonicalUrl",
+                  "author",
+                  "voteCount",
+                  "commentCount",
+                  "rankingScore",
+                  "createdTime",
+                  "editedTime",
+                  "matchedQueries",
+                  "matches"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "requestId",
+            "provider",
+            "createdAt",
+            "criteria",
+            "queryPlan",
+            "coverage",
+            "stats",
+            "contentTrust",
+            "page",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "ok",
+    "data",
+    "error"
+  ],
+  "additionalProperties": false,
+  "$id": "urn:quotation:information-search:tool-result:v1",
+  "title": "Agent 搜索与读取结果版本1",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "error": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "error": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  ]
+}

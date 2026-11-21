@@ -1,0 +1,462 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:quotation:information-search:snapshot:v1",
+  "title": "信息搜索完整快照版本1",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "module": {
+      "const": "information-search"
+    },
+    "provider": {
+      "enum": [
+        "zhihu_official_search",
+        "demo"
+      ]
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "criteria": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "keywordMode": {
+          "enum": [
+            "any",
+            "all"
+          ]
+        },
+        "tagMode": {
+          "enum": [
+            "any",
+            "all"
+          ]
+        },
+        "countPerQuery": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "maxQueries": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "contentTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "query",
+        "keywords",
+        "tags",
+        "keywordMode",
+        "tagMode",
+        "countPerQuery",
+        "maxQueries",
+        "contentTypes"
+      ],
+      "additionalProperties": true
+    },
+    "queryPlan": {
+      "type": "object",
+      "properties": {
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidateQueryCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "queries",
+        "candidateQueryCount",
+        "truncated"
+      ],
+      "additionalProperties": true
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "paginationSupported": {
+          "const": false
+        },
+        "perQueryLimit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "platformTagsAvailable": {
+          "const": false
+        },
+        "tagMatching": {
+          "const": "local_title_excerpt_match"
+        },
+        "textKind": {
+          "const": "excerpt"
+        },
+        "hasMoreReported": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paginationSupported",
+        "perQueryLimit",
+        "platformTagsAvailable",
+        "tagMatching",
+        "textKind",
+        "hasMoreReported"
+      ],
+      "additionalProperties": true
+    },
+    "searches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "searchHashId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "returnedCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hasMoreReported": {
+            "type": "boolean"
+          },
+          "emptyReason": {
+            "type": "string"
+          },
+          "fromCache": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "query",
+          "searchHashId",
+          "returnedCount",
+          "hasMoreReported",
+          "emptyReason",
+          "fromCache"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "stats": {
+      "type": "object",
+      "properties": {
+        "apiCalls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheHits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rawCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uniqueCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "matchedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "filteredCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "apiCalls",
+        "cacheHits",
+        "rawCount",
+        "uniqueCount",
+        "matchedCount",
+        "filteredCount"
+      ],
+      "additionalProperties": true
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "contentId": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "excerpt": {
+            "type": "string"
+          },
+          "excerptVariants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canonicalUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "author": {
+            "type": "string"
+          },
+          "authorBadge": {
+            "type": "string"
+          },
+          "voteCount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commentCount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdTime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "editedTime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "authorityLevel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rankingScore": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selectedComments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "matchedQueries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "matches": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "keywords": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "tagSource": {
+                "const": "local_title_excerpt_match"
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "keyword",
+                        "tagText"
+                      ]
+                    },
+                    "term": {
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "enum": [
+                          "title",
+                          "excerpt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "term",
+                    "fields"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            },
+            "required": [
+              "accepted",
+              "keywords",
+              "tags",
+              "tagSource",
+              "evidence"
+            ],
+            "additionalProperties": true
+          },
+          "textKind": {
+            "const": "excerpt"
+          },
+          "fullTextAvailable": {
+            "const": false
+          },
+          "platformTags": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "key",
+          "contentId",
+          "contentType",
+          "title",
+          "excerpt",
+          "excerptVariants",
+          "url",
+          "canonicalUrl",
+          "author",
+          "authorBadge",
+          "voteCount",
+          "commentCount",
+          "createdTime",
+          "editedTime",
+          "authorityLevel",
+          "rankingScore",
+          "selectedComments",
+          "matchedQueries",
+          "matches",
+          "textKind",
+          "fullTextAvailable",
+          "platformTags"
+        ],
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "module",
+    "provider",
+    "requestId",
+    "createdAt",
+    "criteria",
+    "queryPlan",
+    "coverage",
+    "searches",
+    "stats",
+    "items"
+  ],
+  "additionalProperties": true
+}

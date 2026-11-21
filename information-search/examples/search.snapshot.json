@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "module": "information-search",
+  "provider": "demo",
+  "requestId": "9191ebb2-0738-4b88-a27e-43dc7fe16e77",
+  "createdAt": "2026-11-21T14:05:16.063Z",
+  "criteria": {
+    "query": "",
+    "keywords": [
+      "RAG"
+    ],
+    "tags": [
+      "人工智能"
+    ],
+    "keywordMode": "any",
+    "tagMode": "any",
+    "countPerQuery": 10,
+    "maxQueries": 2,
+    "contentTypes": []
+  },
+  "queryPlan": {
+    "queries": [
+      "RAG 人工智能",
+      "RAG"
+    ],
+    "candidateQueryCount": 3,
+    "truncated": true
+  },
+  "coverage": {
+    "paginationSupported": false,
+    "perQueryLimit": 10,
+    "platformTagsAvailable": false,
+    "tagMatching": "local_title_excerpt_match",
+    "textKind": "excerpt",
+    "hasMoreReported": false
+  },
+  "searches": [
+    {
+      "query": "RAG 人工智能",
+      "searchHashId": "demo-search",
+      "returnedCount": 2,
+      "hasMoreReported": false,
+      "emptyReason": "",
+      "fromCache": false
+    },
+    {
+      "query": "RAG",
+      "searchHashId": "demo-search",
+      "returnedCount": 1,
+      "hasMoreReported": false,
+      "emptyReason": "",
+      "fromCache": false
+    }
+  ],
+  "stats": {
+    "apiCalls": 2,
+    "cacheHits": 0,
+    "rawCount": 3,
+    "uniqueCount": 2,
+    "matchedCount": 1,
+    "filteredCount": 1
+  },
+  "items": [
+    {
+      "key": "article:1001",
+      "contentId": "1001",
+      "contentType": "article",
+      "title": "RAG 评测与人工智能检索实践",
+      "excerpt": "介绍 RAG 检索评测方法、人工智能知识库和实验指标。",
+      "textKind": "excerpt",
+      "fullTextAvailable": false,
+      "url": "https://zhuanlan.zhihu.com/p/1001?utm_source=demo",
+      "canonicalUrl": "https://zhuanlan.zhihu.com/p/1001",
+      "author": "示例作者",
+      "authorBadge": "",
+      "voteCount": 24,
+      "commentCount": 3,
+      "createdTime": null,
+      "editedTime": null,
+      "authorityLevel": null,
+      "rankingScore": 0.9,
+      "selectedComments": [],
+      "platformTags": null,
+      "excerptVariants": [
+        "介绍 RAG 检索评测方法、人工智能知识库和实验指标。"
+      ],
+      "matchedQueries": [
+        "RAG 人工智能",
+        "RAG"
+      ],
+      "matches": {
+        "accepted": true,
+        "keywords": [
+          "RAG"
+        ],
+        "tags": [
+          "人工智能"
+        ],
+        "tagSource": "local_title_excerpt_match",
+        "evidence": [
+          {
+            "kind": "keyword",
+            "term": "RAG",
+            "fields": [
+              "title",
+              "excerpt"
+            ]
+          },
+          {
+            "kind": "tagText",
+            "term": "人工智能",
+            "fields": [
+              "title",
+              "excerpt"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

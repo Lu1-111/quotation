@@ -1,52 +1,44 @@
-# 报价 / quotation
+# quotation
 
-本仓库按模块分区协作，避免前端设计、用户数据采集和后续模块相互混淆。
+本仓库当前维护两个独立模块，源码、配置模板、测试和对接文档分别位于模块目录中。
 
-| 分区 | 中文标识 | 内容与入口 |
+| 模块 | 功能 | 输出说明 |
 | --- | --- | --- |
-| [`frontend-design/`](frontend-design/README.md) | 前端设计 | 原有 `web` 与 `shots`，包含网页演示、样式、素材和预览 |
-| [`data-collection/`](data-collection/README.md) | 数据采集模块 | 知乎浏览、点赞、收藏的本机采集，规则过滤、排序、SQLite、JSON 接口和对接说明 |
-| [`information-search/`](information-search/README.md) | 信息搜索模块 | 知乎官方 API 搜索、关键词与标签词文本匹配、Agent tools／MCP、缓存及 JSON／Markdown 导出 |
+| [`data-collection/`](data-collection/README.md) | 获取知乎浏览、点赞、收藏信息，规则过滤、权重排序、本机保存与导出 | [采集 JSON 格式](data-collection/OUTPUT_FORMAT.md) |
+| [`information-search/`](information-search/README.md) | 知乎官方 API 搜索、关键词与标签词匹配，支持 Agent tools 和 MCP | [搜索 JSON 格式](information-search/OUTPUT_FORMAT.md) |
 
 ```text
 quotation/
-├─ frontend-design/
-│  ├─ README.md
-│  ├─ web/                   原有前端代码与素材
-│  └─ shots/                 原有截图、视频和导出预览
-├─ data-collection/          本机数据采集模块
-├─ information-search/       官方接口的信息搜索模块
-├─ AGENTS.md                 模块分区与同步约定
-├─ README.md                 仓库导航
+├─ data-collection/
+│  ├─ OUTPUT_FORMAT.md
+│  ├─ schemas/
+│  ├─ examples/
+│  └─ README.md
+├─ information-search/
+│  ├─ OUTPUT_FORMAT.md
+│  ├─ schemas/
+│  ├─ examples/
+│  └─ README.md
+├─ AGENTS.md
+├─ README.md
 └─ .gitignore
 ```
 
-此次仅移动原有 `web/` 和 `shots/`，它们的内部文件保持原样。其他原有根目录文件保留在根目录。
+## 启动
 
-## 启动入口
+两个模块需要 Node.js 24+，分别在模块目录运行 `npm ci`、`npm start`。
 
-前端设计可将 `frontend-design/web/` 作为静态站点根目录提供服务，详见对应 README。
+- 数据采集入口：<http://127.0.0.1:3000/history>，真实采集需 Edge 与用户亲自登录知乎。
+- 信息搜索调试入口：<http://127.0.0.1:3002/>，需要后端配置开发者 Access Secret；Agent tools／MCP 可独立于网页运行。
 
-数据采集模块在自身目录安装与运行，需要 Node.js 24+；真实采集还需要 Edge 和用户亲自登录知乎：
+详细配置见各模块 README。真实配置、登录会话、数据库和用户导出数据保存在本机，不提交 Git。
 
-```powershell
-cd data-collection
-npm ci
-npm start
-```
+## 给 Agent 的数据
 
-然后访问 <http://127.0.0.1:3000/history>。配置模板为 `.env.example`，真实配置、数据库、登录会话与用户导出文件只保存在本机。
+采集模块的版本 3 快照以 `records` 为主，包含行为来源、过滤结果和权重。搜索模块的版本 1 快照以 `items` 为主，包含查询计划、摘要和匹配证据；搜索 tools 再使用 `{ schemaVersion, ok, data, error }` 外层。
 
-## 后续同步约定
+每个模块均提供独立的 `OUTPUT_FORMAT.md`、JSON Schema 与合成示例。Agent 应先检查协议标识和版本，再解析字段；不要将昵称作为稳定用户 ID，也不要把摘要当作全文。
 
-1. 修改代码前先查看 `AGENTS.md`，在对应模块目录开发；新增模块使用独立目录和 README。
-2. 同步前先检查远程更新和本地差异，不使用强制推送覆盖他人提交。
-3. 只暂存本次负责的模块路径；仓库导航、协作规则等共享文件需要有明确修改目的。
-4. 前端设计提交放在 `frontend-design/`，本机数据采集提交放在 `data-collection/`；模块直接位于第一级目录，不使用 `modules/` 中间层。
-5. 提交前检查密钥、浏览器会话、数据库、日志和真实用户数据均未进入暂存区。
+## 协作
 
-信息搜索模块在自身目录运行 `npm ci`、`npm start`，默认人工调试入口为 <http://127.0.0.1:3002/>。Agent 可直接调用工具执行器或 MCP stdio，不需要运行网页，详见 [Agent 工具对接说明](information-search/AGENT_TOOLS.md)。它使用官方 Access Secret 搜索公开内容，标签词按标题和摘要匹配，不代表知乎原生话题过滤。
-
-数据采集模块目前保留网页操作方式，CLI 继续暂缓。
-
-文件夹和文件名使用英文，说明文档、协作规则和提交说明使用中文。
+文件夹和文件名使用英文，说明文档使用中文。提交只描述具体文件或功能更新，在对应模块开发和测试，同步前检查远程差异。真实密钥和用户数据不进入提交。

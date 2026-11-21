@@ -2,8 +2,8 @@
    运行：node quotation-p0/verify-p1.mjs
    检查：确定性、分层方向、坐标范围、连线交叉数、层内分布 */
 
-import {graph} from './quotation-case.js';
-import {layoutStructure, structureLevels, structureLevelsAll, edgeRoutes, isVirtual} from './structure-layout.js';
+import {graph} from '../quotation-case.js';
+import {layoutStructure, structureLevels, structureLevelsAll, edgeRoutes, isVirtual} from '../structure-layout.js';
 
 const pass = [], fail = [];
 const check = (ok, name, detail) => (ok ? pass : fail).push(`${name} — ${detail}`);

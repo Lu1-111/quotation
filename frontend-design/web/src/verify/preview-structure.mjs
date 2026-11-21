@@ -9,9 +9,9 @@
      本节点已塌  红虚线 */
 
 import {writeFileSync} from 'node:fs';
-import {graph, versions} from './quotation-case.js';
-import {layoutStructure, edgeRoutes, structureLevelsAll} from './structure-layout.js';
-import {brightnessMonotonic, radius, glowR, glowA, collapseAfter} from './starfield.js';
+import {graph, versions} from '../quotation-case.js';
+import {layoutStructure, edgeRoutes, structureLevelsAll} from '../structure-layout.js';
+import {brightnessMonotonic, radius, glowR, glowA, collapseAfter} from '../starfield.js';
 
 const W = 1280, H = 860, PAD_X = 140, PAD_R = 104, PAD_T = 118, PAD_B = 104;
 const GOLD = '#FFD27A', RED = '#D64A32', HELD = '#A8ADB5';

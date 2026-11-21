@@ -4,14 +4,14 @@
    重点是相机几何：结构态必须正视，立面不能歪。
    project() 的复刻严格照 stellar-disc.js 原文，只把 roll 改为从 cam 读取。 */
 
-import {graph} from './quotation-case.js';
-import {isVirtual} from './structure-layout.js';
+import {graph} from '../quotation-case.js';
+import {isVirtual} from '../structure-layout.js';
 import {
   morphAmount, resolveMorph, debugMorph, fade,
   cameraTarget, dragGain, veilAmount, discOpacity,
   isFrozen, isEnabled, prepareStructure, blendCoord, blendAll,
   MORPH_FROM, MORPH_TO, SKY_YAW, SKY_TILT, SKY_ROLL, STRUCT_ROLL, VEIL_FLOOR,
-} from './structure-morph.js';
+} from '../structure-morph.js';
 
 const pass = [], fail = [];
 const check = (ok, name, detail) => (ok ? pass : fail).push(`${name} — ${detail}`);

@@ -3,11 +3,11 @@
    注：导入的 ./starfield.js 是本地测试替身（源自运行中 demo 的原文摘录），
    在仓库里应指向真正的 src/starfield.js。 */
 
-import {graph, versions, quote, SPINE} from './quotation-case.js';
+import {graph, versions, quote, SPINE} from '../quotation-case.js';
 import {
   brightness, brightnessMonotonic, radius, glowR, glowA,
   collapseAfter, conflictSet,
-} from './starfield.js';
+} from '../starfield.js';
 
 const pass = [];
 const fail = [];

@@ -5,7 +5,9 @@ const RED = "#D64A32";
 const NS = "http://www.w3.org/2000/svg";
 
 /* ---------- 确定性哈希（替代随机抖动） ---------- */
-function h32(s) {
+// 导出：structure-layout.js 的纵深抖动需要与本文件共用同一套随机源，
+// 不要在别处复制第二份实现。
+export function h32(s) {
   let x = 2166136261;
   for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); }
   return ((x >>> 0) / 4294967296);
@@ -69,6 +71,50 @@ export function brightness(g) {
   if (q < 1 && top > 0.5) {
     L = L.map((v) =>
       v <= q ? Math.min(v, 0.499) : 0.5 + 0.5 * ((v - q) / (top - q || 1))
+    );
+  }
+  return L;
+}
+
+/* ---------- 亮度（严格单调版本） ----------
+   brightness() 的分位强制段里，下半段用 Math.min(v, 0.499) 做硬截断。
+   截断会把超过阈值的节点并到同一个亮度值上：30 节点数据实测
+   timbre(S=9) 与 example(S=10) 同时落在 L=0.499000，
+   于是「承重越大越亮」在这两档之间失效，S ↔ L 的 Spearman 只有 0.999663。
+
+   这里把下半段改为保序线性压缩到 [0.04, 0.499)，不并档。
+   上半段与分位约束（L>0.5 的星不超过 8%）保持原样。
+   实测：Spearman = 1.000000，L>0.5 仍为 2/30 = 6.7%，承重墙不变。
+
+   需要「亮度严格等于承重」时用这个；保留 brightness() 以免影响现有调用。 */
+export function brightnessMonotonic(g) {
+  const raw = g.map((n) => {
+    const m = 6.2 - 2.5 * Math.log10(1 + n.S);
+    return Math.pow(10, -0.4 * (m - 1.2));
+  });
+  const max = Math.max(...raw);
+  const x = raw.map((v) => v / max);
+
+  const sorted = [...x].sort((a, b) => a - b);
+  const med = sorted[Math.floor(sorted.length / 2)] || 1e-6;
+
+  let gamma = Math.log(0.1458) / Math.log(med);
+  if (!isFinite(gamma) || gamma <= 0) gamma = 1;
+
+  const map = (v) => Math.min(1, Math.max(0.04, 0.04 + 0.96 * Math.pow(v, gamma)));
+  let L = x.map(map);
+
+  const sortedL = [...L].sort((a, b) => a - b);
+  const cut = Math.floor(0.92 * L.length);
+  const q = sortedL[cut];
+  const top = sortedL[sortedL.length - 1];
+  if (q < 1 && top > 0.5) {
+    const lo = Math.min(...L);
+    const span = (q - lo) || 1;
+    L = L.map((v) =>
+      v <= q
+        ? 0.04 + 0.459 * ((v - lo) / span)              // 保序压缩，不截断
+        : 0.5 + 0.5 * ((v - q) / (top - q || 1))
     );
   }
   return L;

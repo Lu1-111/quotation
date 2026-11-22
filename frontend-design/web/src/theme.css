@@ -1,0 +1,127 @@
+/* 报价 / QUOTATION — 主题层
+   白天：Neumorphism（不透明、双向软阴影）
+   夜晚：Liquid Glass（半透明、模糊、高光边）
+   两套只换表面材质，版式、字号、间距共用。 */
+
+:root {
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, SimSun, serif;
+  --font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
+
+  --radius-s: 14px;
+  --radius-m: 22px;
+  --radius-l: 34px;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+
+  /* 白天 · Neumorphism */
+  color-scheme: light;
+  --bg: #e9edf2;
+  --bg-deep: #dde4ec;
+  --text: #262c35;
+  --text-2: #5b6674;
+  --text-3: #8b95a3;
+  --line: rgba(56, 70, 90, .13);
+  --accent: #a97722;
+  --accent-bright: #d99a2b;
+  --danger: #b4452f;
+
+  --shade: rgba(108, 124, 146, .32);
+  --light: rgba(255, 255, 255, .92);
+
+  --planet-a: #ffffff;
+  --planet-b: #e2e9f1;
+  --planet-c: #bcc9d9;
+  --planet-d: #8e9db1;
+
+  --glass-bg: rgba(255, 255, 255, .5);
+  --glass-line: rgba(255, 255, 255, .75);
+  --glass-shadow: rgba(80, 95, 115, .22);
+
+  --grain-opacity: .035;
+  --grain-blend: multiply;
+}
+
+:root[data-theme="dark"] {
+  /* 夜晚 · Liquid Glass */
+  color-scheme: dark;
+  --bg: #07080f;
+  --bg-deep: #04050a;
+  --text: #e8ecf4;
+  --text-2: #a6b0c1;
+  --text-3: #6d7789;
+  --line: rgba(255, 255, 255, .13);
+  --accent: #ffd27a;
+  --accent-bright: #ffd27a;
+  --danger: #d64a32;
+
+  --shade: rgba(0, 0, 0, .72);
+  --light: rgba(255, 255, 255, .06);
+
+  --planet-a: #37415a;
+  --planet-b: #1b2232;
+  --planet-c: #0e1320;
+  --planet-d: #05060b;
+
+  --glass-bg: rgba(16, 20, 30, .42);
+  --glass-line: rgba(255, 255, 255, .17);
+  --glass-shadow: rgba(0, 0, 0, .5);
+
+  --grain-opacity: .05;
+  --grain-blend: screen;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--bg); }
+
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(120% 90% at 50% 16%, var(--bg-deep), var(--bg) 54%, var(--bg) 100%);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* 细颗粒，打散纯渐变的塑料感 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+}
+
+.mono { font-family: var(--font-mono); }
+
+:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 3px;
+}
+
+::selection { background: var(--accent-bright); color: #14161d; }
+
+/* 白天 / 夜晚切换：圆形裁切由脚本驱动，这里只关掉默认交叉淡化 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 2; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

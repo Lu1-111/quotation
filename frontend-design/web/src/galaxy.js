@@ -354,7 +354,8 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
   function drawNebula(t = 0) {
     ctx.globalCompositeOperation = "lighter";
     const breath = 0.5 + 0.5 * Math.sin(t * 1.2);
-    const scaleB = 0.976 + 0.048 * breath;
+    const scaleBreath = 0.5 + 0.5 * Math.sin(t * 0.8);
+    const scaleB = 0.988 + 0.024 * scaleBreath;
 
     for (const [cid, c] of Object.entries(clusterCenters)) {
       const p = project(c.x * scaleB, c.y * scaleB, c.z * scaleB);
@@ -456,7 +457,8 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
     drawStars(t);
 
     const breath = 0.5 + 0.5 * Math.sin(t * 1.2);
-    const breathScale = 0.976 + 0.048 * breath;
+    const scaleBreath = 0.5 + 0.5 * Math.sin(t * 0.8);
+    const breathScale = 0.988 + 0.024 * scaleBreath;
 
     projected = [];
     for (const n of nodes) {

@@ -669,6 +669,80 @@ html[data-vt="view"]::view-transition-new(root) {
     0 18px 40px rgba(0, 0, 0, .42);
 }
 
+/* 夜间进入星图：星球坍缩成黑洞，周围内容螺旋吸入 */
+.bh-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 41;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .9s var(--ease);
+  background: radial-gradient(
+    circle at var(--bhx, 50%) var(--bhy, 50%),
+    transparent 0 54px,
+    rgba(4, 5, 10, .5) 55%,
+    rgba(4, 5, 10, .94) 100%
+  );
+}
+body.bh-active { overflow: hidden; }
+body.bh-active .bh-veil { opacity: 1; }
+
+.black-hole {
+  position: fixed;
+  left: var(--bhx, 50%);
+  top: var(--bhy, 50%);
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background: #000;
+  z-index: 55;
+  opacity: 0;
+  transform: scale(.1);
+  pointer-events: none;
+  box-shadow:
+    0 0 0 1px rgba(255, 210, 122, .55),
+    0 0 22px 6px rgba(255, 210, 122, .22),
+    0 0 60px 24px rgba(255, 210, 122, .08);
+}
+.black-hole::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 30%,
+    rgba(255, 210, 122, .45) 48%,
+    transparent 62%
+  );
+  filter: blur(2px);
+  animation: bh-spin 2.6s linear infinite;
+}
+.black-hole::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 210, 122, .35);
+}
+.black-hole.on {
+  animation: bh-appear .55s var(--ease) .45s both;
+}
+.black-hole.vanish {
+  animation: bh-vanish .45s var(--ease) forwards;
+}
+@keyframes bh-appear {
+  0% { opacity: 0; transform: scale(.1); }
+  65% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes bh-vanish {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.7); }
+}
+@keyframes bh-spin { to { transform: rotate(360deg); } }
+
 /* Mind Galaxy：全屏三维星图 */
 .galaxy {
   position: fixed;

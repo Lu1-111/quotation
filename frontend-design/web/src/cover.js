@@ -3,7 +3,7 @@
    - 主题写入 localStorage；也支持 ?theme=dark 便于截图与分享
    - 登录入口目前是占位，后续接入后端 */
 
-import { createGalaxy } from "./galaxy.js?v=10";
+import { createGalaxy } from "./galaxy.js?v=11";
 
 const root = document.documentElement;
 const body = document.body;
@@ -23,7 +23,11 @@ const cardName = document.getElementById("cardName");
 const cardText = document.getElementById("cardText");
 const cardMeta = document.getElementById("cardMeta");
 const cardClose = document.getElementById("nodeCardClose");
+const blackHole = document.getElementById("blackHole");
 let galaxyScene = null;
+let bhActive = false;
+let bhAnimations = [];
+let bhTimers = [];
 
 function ensureGalaxy() {
   if (!galaxyScene) {
@@ -204,8 +208,134 @@ function setPageInert(on) {
   for (const el of pageChrome) el.inert = on;
 }
 
+function beginGalaxyReveal() {
+  setPageInert(true);
+  galaxy.setAttribute("aria-hidden", "false");
+  galaxy.classList.remove("closing");
+  void galaxy.offsetWidth;
+  galaxy.classList.add("on");
+  ensureGalaxy().start();
+  setTimeout(() => {
+    if (galaxy.classList.contains("on")) {
+      galaxyBack.focus({ preventScroll: true });
+    }
+  }, 1500);
+}
+
+function cleanupBlackHole() {
+  for (const id of bhTimers) clearTimeout(id);
+  bhTimers = [];
+  for (const anim of bhAnimations) {
+    try {
+      anim.cancel();
+    } catch (err) {}
+  }
+  bhAnimations = [];
+  bhActive = false;
+  body.classList.remove("bh-active");
+  blackHole.classList.remove("on", "vanish");
+  if (!galaxy.classList.contains("on")) setPageInert(false);
+}
+
+function playBlackHole(cx, cy) {
+  bhActive = true;
+  setPageInert(true);
+  root.style.setProperty("--bhx", `${cx}px`);
+  root.style.setProperty("--bhy", `${cy}px`);
+
+  body.classList.add("bh-active");
+  blackHole.classList.remove("vanish");
+  blackHole.classList.add("on");
+
+  const targets = [
+    document.querySelector(".topbar-left"),
+    document.querySelector(".topbar-right"),
+    document.querySelector(".galaxy-label"),
+    document.querySelector(".info"),
+    document.querySelector(".scroll-cue"),
+    document.querySelector(".foot"),
+    document.querySelector(".orbit"),
+  ].filter(Boolean);
+
+  const planetAnim = planet.animate(
+    [
+      { transform: "scale(1)", filter: "brightness(1)", opacity: 1 },
+      { transform: "scale(.86)", filter: "brightness(.75)", opacity: 1, offset: .3 },
+      { transform: "scale(.03)", filter: "brightness(.2) blur(3px)", opacity: .9 },
+    ],
+    { duration: 780, easing: "cubic-bezier(.5,0,.9,.35)", fill: "forwards" }
+  );
+  bhAnimations.push(planetAnim);
+
+  targets.forEach((el, i) => {
+    const rect = el.getBoundingClientRect();
+    if (!rect.width && !rect.height) return;
+    const ex = rect.left + rect.width / 2;
+    const ey = rect.top + rect.height / 2;
+    const dx = cx - ex;
+    const dy = cy - ey;
+    const angle = (i % 2 ? 1 : -1) * (120 + i * 42);
+    const anim = el.animate(
+      [
+        {
+          translate: "0 0",
+          rotate: "0deg",
+          scale: "1",
+          opacity: 1,
+          filter: "blur(0)",
+        },
+        {
+          translate: `${dx * 0.6}px ${dy * 0.6}px`,
+          rotate: `${angle * 0.55}deg`,
+          scale: ".55",
+          opacity: .65,
+          filter: "blur(1px)",
+          offset: .6,
+        },
+        {
+          translate: `${dx}px ${dy}px`,
+          rotate: `${angle}deg`,
+          scale: ".04",
+          opacity: 0,
+          filter: "blur(4px)",
+        },
+      ],
+      {
+        duration: 850,
+        delay: i * 35,
+        easing: "cubic-bezier(.45,0,.9,.4)",
+        fill: "forwards",
+      }
+    );
+    bhAnimations.push(anim);
+  });
+
+  bhTimers.push(
+    setTimeout(() => {
+      if (!bhActive) return;
+      beginGalaxyReveal();
+      blackHole.classList.remove("on");
+      blackHole.classList.add("vanish");
+    }, 1000)
+  );
+
+  bhTimers.push(
+    setTimeout(() => {
+      body.classList.remove("bh-active");
+    }, 1600)
+  );
+}
+
 function openGalaxy() {
-  if (viewSwitching || switching || galaxy.classList.contains("on")) return;
+  if (
+    viewSwitching ||
+    switching ||
+    bhActive ||
+    galaxy.classList.contains("on")
+  ) {
+    return;
+  }
+
   const rect = planet.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
@@ -216,19 +346,23 @@ function openGalaxy() {
   galaxy.style.setProperty("--gx", `${cx}px`);
   galaxy.style.setProperty("--gy", `${cy}px`);
   galaxy.style.setProperty("--gr", `${radius + 6}px`);
-  setPageInert(true);
-  galaxy.setAttribute("aria-hidden", "false");
-  galaxy.classList.remove("closing");
-  void galaxy.offsetWidth;
-  galaxy.classList.add("on");
-  ensureGalaxy().start();
-  setTimeout(() => galaxyBack.focus({ preventScroll: true }), 1500);
+
+  if (root.dataset.theme === "dark" && !reduceMotion.matches) {
+    playBlackHole(cx, cy);
+  } else {
+    beginGalaxyReveal();
+  }
 }
 
 function closeGalaxy() {
+  if (bhActive && !galaxy.classList.contains("on")) {
+    cleanupBlackHole();
+    return;
+  }
   if (!galaxy.classList.contains("on") || galaxyClosing) return;
   galaxyClosing = true;
   if (galaxyScene) galaxyScene.stop();
+  cleanupBlackHole();
   galaxy.classList.add("closing");
   setTimeout(() => {
     galaxy.classList.remove("on", "closing");
@@ -241,7 +375,7 @@ function closeGalaxy() {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
-  if (galaxy.classList.contains("on")) {
+  if (galaxy.classList.contains("on") || bhActive) {
     closeGalaxy();
     return;
   }

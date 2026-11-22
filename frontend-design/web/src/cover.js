@@ -3,7 +3,7 @@
    - 主题写入 localStorage；也支持 ?theme=dark 便于截图与分享
    - 登录入口目前是占位，后续接入后端 */
 
-import { createGalaxy } from "./galaxy.js";
+import { createGalaxy } from "./galaxy.js?v=5";
 
 const root = document.documentElement;
 const body = document.body;
@@ -190,8 +190,15 @@ function setPageInert(on) {
 function openGalaxy() {
   if (viewSwitching || switching || galaxy.classList.contains("on")) return;
   const rect = planet.getBoundingClientRect();
-  galaxy.style.setProperty("--gx", `${rect.left + rect.width / 2}px`);
-  galaxy.style.setProperty("--gy", `${rect.top + rect.height / 2}px`);
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const radius = Math.hypot(
+    Math.max(cx, innerWidth - cx),
+    Math.max(cy, innerHeight - cy)
+  );
+  galaxy.style.setProperty("--gx", `${cx}px`);
+  galaxy.style.setProperty("--gy", `${cy}px`);
+  galaxy.style.setProperty("--gr", `${radius + 6}px`);
   setPageInert(true);
   galaxy.setAttribute("aria-hidden", "false");
   galaxy.classList.remove("closing");

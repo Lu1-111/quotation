@@ -637,7 +637,7 @@ html[data-vt="view"]::view-transition-new(root) {
 .galaxy.closing { opacity: 0; }
 @keyframes galaxy-open {
   from { clip-path: circle(0px at var(--gx) var(--gy)); }
-  to { clip-path: circle(150vmax at var(--gx) var(--gy)); }
+  to { clip-path: circle(var(--gr, 150vmax) at var(--gx) var(--gy)); }
 }
 
 .galaxy-canvas {

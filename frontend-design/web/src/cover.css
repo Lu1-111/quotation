@@ -688,43 +688,23 @@ body.bh-active { overflow: hidden; }
 body.bh-active .bh-veil { opacity: 1; }
 
 .black-hole {
+  --bh-size: clamp(84px, 11vmin, 132px);
   position: fixed;
   left: var(--bhx, 50%);
   top: var(--bhy, 50%);
-  width: 34px;
-  height: 34px;
-  margin: -17px 0 0 -17px;
+  width: var(--bh-size);
+  height: var(--bh-size);
+  margin: calc(var(--bh-size) / -2) 0 0 calc(var(--bh-size) / -2);
   border-radius: 50%;
-  background: #000;
+  background: #000 url("./assets/black-hole.webp") center / 150% no-repeat;
   z-index: 55;
   opacity: 0;
   transform: scale(.1);
   pointer-events: none;
   box-shadow:
-    0 0 0 1px rgba(255, 210, 122, .55),
-    0 0 22px 6px rgba(255, 210, 122, .22),
-    0 0 60px 24px rgba(255, 210, 122, .08);
-}
-.black-hole::before {
-  content: "";
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0 30%,
-    rgba(255, 210, 122, .45) 48%,
-    transparent 62%
-  );
-  filter: blur(2px);
-  animation: bh-spin 2.6s linear infinite;
-}
-.black-hole::after {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 210, 122, .35);
+    0 0 0 1px rgba(255, 210, 122, .32),
+    0 0 34px 8px rgba(255, 210, 122, .16),
+    0 0 80px 30px rgba(255, 210, 122, .06);
 }
 .black-hole.on {
   animation: bh-appear .55s var(--ease) .45s both;
@@ -741,7 +721,6 @@ body.bh-active .bh-veil { opacity: 1; }
   from { opacity: 1; transform: scale(1); }
   to { opacity: 0; transform: scale(1.7); }
 }
-@keyframes bh-spin { to { transform: rotate(360deg); } }
 
 /* Mind Galaxy：全屏三维星图 */
 .galaxy {

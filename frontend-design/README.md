@@ -21,6 +21,7 @@ frontend-design/
 │     ├─ cover.js                # 封面/信息页交互、主题切换、玻璃折射
 │     ├─ galaxy.js               # 三维星图：布局、投影、漫游、节点卡
 │     ├─ analysis.js             # 承重账单、受影响判断与改写对比
+│     ├─ assets/black-hole.webp  # 入场黑洞素材（本地生成）
 │     ├─ theme.css               # 白天 / 夜晚两套 token
 │     ├─ cover.css               # 封面布局与材质
 │     ├─ demo.js                 # 原四屏逻辑（待接入）
@@ -51,6 +52,7 @@ python -m http.server 5173 --bind 127.0.0.1 --directory frontend-design/web
 - Mind Galaxy 使用自研 canvas 透视投影，星图始终为深空配色；拖动／WASD 漫游，点击节点打开信息卡。
 - 星图有缓慢呼吸：星尘盘自转、节点与背景星独立相位闪烁、整图轻微膨胀收缩；系统开启“减少动画”时静止。
 - 进入星图：星球收缩成黑洞，顶栏与信息页内容螺旋吸入，随后星图从黑洞中心扩圈展开；白天与夜晚一致，减少动画时直接扩圈。
+- 黑洞素材 `assets/black-hole.webp` 由本机 ComfyUI（Z-Image）生成，1024 源图转为 22KB WebP。
 - 信息页下滑进入承重分析；账单与改写卡片白天为 Neumorphism，夜晚为 Liquid Glass，滚动时淡入。
 - 右上角 `?` 打开说明面板，点外部或按 Esc 关闭。
 

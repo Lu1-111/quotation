@@ -3,7 +3,7 @@
    - 主题写入 localStorage；也支持 ?theme=dark 便于截图与分享
    - 登录入口目前是占位，后续接入后端 */
 
-import { createGalaxy } from "./galaxy.js?v=12";
+import { createGalaxy } from "./galaxy.js?v=13";
 
 const root = document.documentElement;
 const body = document.body;

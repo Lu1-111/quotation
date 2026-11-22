@@ -49,6 +49,7 @@ python -m http.server 5173 --bind 127.0.0.1 --directory frontend-design/web
 - 封面 → 信息页使用 View Transition：星球作为共享元素缩小，其余内容淡入淡出。
 - 信息页左上角箭头回到封面；星图左下角返回。Esc 先关闭节点卡，再退出星图，再回到封面。
 - Mind Galaxy 使用自研 canvas 透视投影，星图始终为深空配色；拖动／WASD 漫游，点击节点打开信息卡。
+- 星图有缓慢呼吸：星尘盘自转、节点与背景星独立相位闪烁、整图轻微膨胀收缩；系统开启“减少动画”时静止。
 - 信息页下滑进入承重分析；账单与改写卡片白天为 Neumorphism，夜晚为 Liquid Glass，滚动时淡入。
 - 右上角 `?` 打开说明面板，点外部或按 Esc 关闭。
 

@@ -1,7 +1,9 @@
 /* 第 0 屏 · 封面交互
    - 白天 / 夜晚切换：以按钮为圆心的圆形裁切
    - 主题写入 localStorage；也支持 ?theme=dark 便于截图与分享
-   - 登录入口目前是占位，后续接入后端与 Mind Galaxy */
+   - 登录入口目前是占位，后续接入后端 */
+
+import { createGalaxy } from "./galaxy.js";
 
 const root = document.documentElement;
 const body = document.body;
@@ -13,6 +15,31 @@ const demoLogin = document.getElementById("demoLogin");
 const backHome = document.getElementById("backHome");
 const galaxy = document.getElementById("galaxy");
 const galaxyBack = document.getElementById("galaxyBack");
+const galaxyCanvas = document.getElementById("galaxyCanvas");
+const galaxyHint = document.getElementById("galaxyHint");
+const nodeCard = document.getElementById("nodeCard");
+const cardCluster = document.getElementById("cardCluster");
+const cardName = document.getElementById("cardName");
+const cardText = document.getElementById("cardText");
+const cardMeta = document.getElementById("cardMeta");
+const cardClose = document.getElementById("nodeCardClose");
+let galaxyScene = null;
+
+function ensureGalaxy() {
+  if (!galaxyScene) {
+    galaxyScene = createGalaxy({
+      canvas: galaxyCanvas,
+      card: nodeCard,
+      cardCluster,
+      cardName,
+      cardText,
+      cardMeta,
+      cardClose,
+      hint: galaxyHint,
+    });
+  }
+  return galaxyScene;
+}
 const pageChrome = [
   document.querySelector(".topbar"),
   document.querySelector(".cover"),
@@ -153,7 +180,7 @@ function transitionView(view) {
   }
 }
 
-/* 星球 → 星图占位层（第三阶段替换为真正的星图） */
+/* 星球 → Mind Galaxy */
 let galaxyClosing = false;
 
 function setPageInert(on) {
@@ -170,12 +197,14 @@ function openGalaxy() {
   galaxy.classList.remove("closing");
   void galaxy.offsetWidth;
   galaxy.classList.add("on");
+  ensureGalaxy().start();
   setTimeout(() => galaxyBack.focus({ preventScroll: true }), 750);
 }
 
 function closeGalaxy() {
   if (!galaxy.classList.contains("on") || galaxyClosing) return;
   galaxyClosing = true;
+  if (galaxyScene) galaxyScene.stop();
   galaxy.classList.add("closing");
   setTimeout(() => {
     galaxy.classList.remove("on", "closing");

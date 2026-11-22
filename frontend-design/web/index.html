@@ -102,12 +102,27 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <section class="galaxy" id="galaxy" role="dialog" aria-modal="true" aria-label="Mind Galaxy" aria-hidden="true">
-  <div class="galaxy-stars" aria-hidden="true"></div>
-  <div class="galaxy-copy">
-    <p class="galaxy-eyebrow">YOUR MIND GALAXY</p>
-    <p class="galaxy-name">林行</p>
-    <p class="galaxy-note">星图将在下一阶段接入</p>
+  <canvas class="galaxy-canvas" id="galaxyCanvas" role="img"
+          aria-label="林行的世界观星图"></canvas>
+
+  <div class="galaxy-hud">
+    <p class="galaxy-eyebrow">MIND GALAXY</p>
+    <p class="galaxy-user">林行 · 30 条判断</p>
   </div>
+
+  <p class="galaxy-hint" id="galaxyHint">
+    <span class="hint-desktop">拖动转视角 · WASD 移动 · 点击节点</span>
+    <span class="hint-mobile">拖动转视角 · 点击节点</span>
+  </p>
+
+  <aside class="node-card" id="nodeCard" hidden>
+    <button class="node-card-close" id="nodeCardClose" type="button" aria-label="关闭">×</button>
+    <p class="node-card-cluster" id="cardCluster"></p>
+    <h3 class="node-card-name" id="cardName"></h3>
+    <p class="node-card-text" id="cardText"></p>
+    <p class="node-card-meta" id="cardMeta"></p>
+  </aside>
+
   <button class="galaxy-back" id="galaxyBack" type="button">← 返回</button>
 </section>
 

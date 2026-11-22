@@ -2,18 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>报价 / PRICE</title>
+<title>报价 / QUOTATION</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="./src/tokens.css">
 <link rel="stylesheet" href="./src/scene.css">
 <link rel="stylesheet" href="./src/print.css?v=10" media="print">
-</head>
+<link rel="stylesheet" href="./src/atlas.css"></head>
 <body>
 
-<div class="sky" id="sky"><svg id="skySvg" role="img" aria-label="217 个判断构成的星系"></svg></div>
-
-<div class="pins" id="pins" aria-hidden="true"></div>
-
+<div class="universe" aria-hidden="true"></div>
+<div id="disc"><img src="./src/linxing-galaxy.webp" alt=""><svg viewBox="0 0 100 100" preserveAspectRatio="none" id="threads" aria-hidden="true"></svg><div id="stars"></div></div>
 <nav class="ticks" id="ticks" aria-label="章节">
   <a href="#s1" data-i="0">01</a>
   <a href="#s2" data-i="1">02</a>
@@ -21,11 +19,11 @@
   <a href="#s4" data-i="3">04</a>
 </nav>
 
-<main>
+<aside id="reading" hidden><small></small><p></p><span></span></aside><main>
 
   <!-- 01 封面：只有三样东西 -->
   <section id="s1" class="s">
-    <div class="brand">报价 / PRICE</div>
+    <div class="brand">报价 / QUOTATION</div>
     <div class="hero">
       <h1>报价</h1>
       <p class="sub">在你开口之前，先算一算：这句话，对方买不买得起。</p>
@@ -35,9 +33,9 @@
 
   <!-- 02 星图：镜头推进 -->
   <section id="s2" class="s">
-    <div class="meta" id="meta">217 判断 · 6 承重墙 · 视星等 0.50</div>
-    <p class="foot-note">越亮的话，撑着越多。拆掉一根，塌一片。</p>
-  </section>
+    <div class="atlas-caption"><div class="meta">林行的性格星图　/　人物与引文均为演示材料</div>
+<div class="atlas-foot"><button id="overview" hidden>回到全景</button><span id="guide">选择一颗主星，查看他曾说过的话</span></div></div>
+</section>
 
   <!-- 03 报价：星图退到 18% -->
   <section id="s3" class="s">
@@ -48,16 +46,16 @@
       <div class="big" id="rate">0<small>%</small></div>
     </div>
 
-    <table class="ledger">
+    <aside id="billEvidence"></aside><table class="ledger">
       <tbody>
         <tr><td>要拆掉的判断</td><td id="t1">—</td></tr>
-        <tr><td>其中承重墙</td><td id="t2" class="red">—</td></tr>
+        <tr><td>损失承重 / 总承重</td><td id="t2" class="red">—</td></tr>
         <tr><td>连带塌陷</td><td id="t3">—</td></tr>
         <tr><td>若按个数算</td><td id="t4">—</td></tr>
       </tbody>
     </table>
 
-    <p class="verdict">他大概率听不进去。</p>
+    <p class="verdict">“只会”排除了他经历过的例外。</p>
   </section>
 
   <!-- 04 换说法：一条竖线劈开 -->
@@ -76,13 +74,13 @@
       </div>
     </div>
 
-    <p class="say" id="say">推荐算法会把一个人越推越窄，但窄不窄，取决于他有没有在窄处停下来。</p>
-    <button class="tbtn" id="copy">复制这句话</button>
+    <p id="oldText"></p><p class="say" id="say">推荐算法会把一个人越推越窄，但窄不窄，取决于他有没有在窄处停下来。</p>
+    <button class="tbtn" id="copy">采用改写并复制</button><button class="tbtn" id="copyOld">保留原话并复制</button><span id="feedback" role="status"></span>
     <p class="note" id="note">同一个意思，少拆 6 根柱子。</p>
   </section>
 
 </main>
 
-<script type="module" src="./src/main.js"></script>
+<script type="module" src="./src/atlas.js"></script>
 </body>
 </html>

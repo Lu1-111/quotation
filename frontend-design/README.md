@@ -1,28 +1,51 @@
 # 前端设计模块
 
-本目录收纳原仓库的 `web/` 与 `shots/`，用于前端演示、设计素材和效果预览。
+本目录是「报价 / QUOTATION」四屏演示的正式前端，以及旧版归档。
+
+## 目录
 
 ```text
 frontend-design/
-├─ web/       页面、JavaScript、样式、图片与演示数据
-└─ shots/     截图、视频及 PDF 预览
+├─ web/                          # 唯一正式站点
+│  ├─ index.html                 # 唯一入口
+│  └─ src/
+│     ├─ demo.js                 # 四屏逻辑：报价计算 + 星空⇄结构形变
+│     ├─ quotation-case.js       # 30 条判断、三个改写版本与 quote()
+│     ├─ starfield.js            # 承重 → 亮度 / 半径 / 辉光
+│     ├─ structure-layout.js     # 结构态布局
+│     ├─ structure-morph.js      # 形变量与相机插值
+│     └─ verify/                 # P0–P2 验收脚本（Node 运行）
+├─ archive/2026-11-21-web/       # 旧版快照，不部署、不被引用
+└─ shots/                        # 截图、视频与 PDF 预览
 ```
 
-此次仅调整目录位置，原有文件内容保持原样。后续前端设计变更提交到本目录。
+`archive/` 里的旧页面保持完整可运行，仅作留档；正式站点只使用 `web/`，改动前端请以 `web/index.html` 为唯一入口。
 
-将 `web/` 作为静态 HTTP 站点根目录即可预览。例如已安装 Python 时，可在仓库根目录执行：
+## 本地预览
+
+将 `web/` 作为静态 HTTP 站点根目录即可，无需安装依赖：
 
 ```powershell
 python -m http.server 5173 --bind 127.0.0.1 --directory frontend-design/web
 ```
 
-然后打开 <http://127.0.0.1:5173/>。页面使用相对路径，不能将数据采集模块的 `/history` 页面与本模块的演示页面混为同一入口。
+打开 <http://127.0.0.1:5173/>。页面使用相对路径。
 
-确定性演示数据生成脚本原注释中的命令，需在本模块目录执行：
+## 验收脚本
+
+在模块目录执行，常规测试不需要浏览器或网络：
 
 ```powershell
-cd frontend-design
-node web/src/gen.mjs
+node web/src/verify/verify-p0.mjs
+node web/src/verify/verify-p1.mjs
+node web/src/verify/verify-p2.mjs
 ```
 
-生成脚本会更新本目录下的前端演示数据，运行前应先检查差异并确认变更用途。
+## 已知限制
+
+- 当前 `web/index.html` 为桌面尺寸设计，没有移动端断点，也没有打印样式；旧版的响应式与打印规则只存在于 `archive/`。
+- 页面数据来自 `quotation-case.js` 的合成示例，尚未接入 `information-search/` 或数据采集模块。
+
+## 归档
+
+`archive/2026-11-21-web/` 冻结了整理前的 4 个旧入口（`index.html`、`index-v2.html`、`index-v3.html`、`index3.html`）及其脚本、样式与演示数据。其中 `index3.html` 与 `index-v3.html` 内容完全相同。归档目录不作为站点发布。

@@ -198,7 +198,7 @@ function openGalaxy() {
   void galaxy.offsetWidth;
   galaxy.classList.add("on");
   ensureGalaxy().start();
-  setTimeout(() => galaxyBack.focus({ preventScroll: true }), 750);
+  setTimeout(() => galaxyBack.focus({ preventScroll: true }), 1500);
 }
 
 function closeGalaxy() {
@@ -212,7 +212,7 @@ function closeGalaxy() {
     setPageInert(false);
     galaxyClosing = false;
     planet.focus({ preventScroll: true });
-  }, 340);
+  }, 470);
 }
 
 document.addEventListener("keydown", (event) => {

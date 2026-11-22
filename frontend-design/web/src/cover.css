@@ -428,16 +428,17 @@ body[data-view="info"] .planet-wrap::after {
 /* 视角切换：星球做共享元素，其余淡入淡出 */
 html[data-vt="view"] .planet { view-transition-name: planet; }
 html[data-vt="view"]::view-transition-old(root) {
-  animation: vt-out .42s var(--ease) both;
+  animation: vt-out .7s var(--ease) both;
 }
 html[data-vt="view"]::view-transition-new(root) {
-  animation: vt-in .52s var(--ease) both;
+  animation: vt-in .85s var(--ease) both;
 }
 @keyframes vt-out { to { opacity: 0; } }
 @keyframes vt-in { from { opacity: 0; } }
+::view-transition-group(planet),
 ::view-transition-old(planet),
 ::view-transition-new(planet) {
-  animation-duration: .68s;
+  animation-duration: 1.05s;
   animation-timing-function: var(--ease);
 }
 
@@ -626,12 +627,12 @@ html[data-vt="view"]::view-transition-new(root) {
   visibility: hidden;
   pointer-events: none;
   opacity: 1;
-  transition: opacity .32s var(--ease);
+  transition: opacity .45s var(--ease);
 }
 .galaxy.on {
   visibility: visible;
   pointer-events: auto;
-  animation: galaxy-open .95s var(--ease) forwards;
+  animation: galaxy-open 1.35s var(--ease) forwards;
 }
 .galaxy.closing { opacity: 0; }
 @keyframes galaxy-open {
@@ -703,7 +704,7 @@ html[data-vt="view"]::view-transition-new(root) {
     inset 0 1px 0 rgba(255, 255, 255, .2),
     0 24px 60px rgba(0, 0, 0, .5);
   transform: translateY(-50%);
-  animation: node-card-in .35s var(--ease) both;
+  animation: node-card-in .55s var(--ease) both;
 }
 @keyframes node-card-in {
   from { opacity: 0; transform: translateY(calc(-50% + 8px)); }
@@ -753,10 +754,10 @@ html[data-vt="view"]::view-transition-new(root) {
 }
 
 .galaxy.on .galaxy-hud {
-  animation: galaxy-copy-in .5s .3s var(--ease) both;
+  animation: galaxy-copy-in .8s .55s var(--ease) both;
 }
 .galaxy.on .galaxy-back {
-  animation: galaxy-copy-in .5s .55s var(--ease) both;
+  animation: galaxy-copy-in .8s .85s var(--ease) both;
 }
 @keyframes galaxy-copy-in {
   from { opacity: 0; transform: translateY(10px); }
@@ -828,7 +829,7 @@ html[data-vt="view"]::view-transition-new(root) {
     bottom: 78px;
     width: auto;
     transform: none;
-    animation: node-card-mobile .35s var(--ease) both;
+    animation: node-card-mobile .55s var(--ease) both;
   }
   @keyframes node-card-mobile {
     from { opacity: 0; transform: translateY(10px); }

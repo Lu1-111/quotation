@@ -4,9 +4,20 @@
    - 登录入口目前是占位，后续接入后端与 Mind Galaxy */
 
 const root = document.documentElement;
+const body = document.body;
 const toggle = document.getElementById("themeToggle");
 const toastEl = document.getElementById("toast");
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const planet = document.getElementById("planet");
+const demoLogin = document.getElementById("demoLogin");
+const backHome = document.getElementById("backHome");
+const galaxy = document.getElementById("galaxy");
+const galaxyBack = document.getElementById("galaxyBack");
+const pageChrome = [
+  document.querySelector(".topbar"),
+  document.querySelector(".cover"),
+  document.querySelector(".foot"),
+].filter(Boolean);
 
 function syncChrome() {
   const dark = root.dataset.theme === "dark";
@@ -31,9 +42,10 @@ function applyTheme(theme, persist = true) {
 syncChrome();
 
 let switching = false;
+let viewSwitching = false;
 
 toggle.addEventListener("click", () => {
-  if (switching) return;
+  if (switching || viewSwitching) return;
   const next = root.dataset.theme === "dark" ? "light" : "dark";
 
   // 减少动画的系统设置，或浏览器不支持 View Transitions：直接换
@@ -51,7 +63,14 @@ toggle.addEventListener("click", () => {
   );
 
   switching = true;
-  const transition = document.startViewTransition(() => applyTheme(next));
+  let transition;
+  try {
+    transition = document.startViewTransition(() => applyTheme(next));
+  } catch (err) {
+    switching = false;
+    applyTheme(next);
+    return;
+  }
 
   transition.ready
     .then(() => {
@@ -69,12 +88,12 @@ toggle.addEventListener("click", () => {
         }
       );
     })
-    .catch(() => {})
-    .finally(() => {
-      transition.finished.finally(() => {
-        switching = false;
-      });
-    });
+    .catch(() => {});
+
+  transition.finished.then(
+    () => { switching = false; },
+    () => { switching = false; }
+  );
 });
 
 /* 说明面板 */
@@ -95,8 +114,89 @@ document.addEventListener("click", (event) => {
   if (!about.hidden && !about.contains(event.target)) setAbout(false);
 });
 
+/* 视角切换：封面 ⇄ 信息页 */
+function applyView(view) {
+  body.dataset.view = view;
+  planet.setAttribute(
+    "aria-label",
+    view === "info" ? "进入 Mind Galaxy" : "你的世界观星球"
+  );
+}
+
+function transitionView(view) {
+  if (viewSwitching || switching || body.dataset.view === view) return;
+  setAbout(false);
+
+  if (reduceMotion.matches || !document.startViewTransition) {
+    applyView(view);
+    return;
+  }
+
+  viewSwitching = true;
+  root.dataset.vt = "view";
+  try {
+    const transition = document.startViewTransition(() => applyView(view));
+    transition.finished.then(
+      () => {
+        delete root.dataset.vt;
+        viewSwitching = false;
+      },
+      () => {
+        delete root.dataset.vt;
+        viewSwitching = false;
+      }
+    );
+  } catch (err) {
+    delete root.dataset.vt;
+    viewSwitching = false;
+    applyView(view);
+  }
+}
+
+/* 星球 → 星图占位层（第三阶段替换为真正的星图） */
+let galaxyClosing = false;
+
+function setPageInert(on) {
+  for (const el of pageChrome) el.inert = on;
+}
+
+function openGalaxy() {
+  if (viewSwitching || switching || galaxy.classList.contains("on")) return;
+  const rect = planet.getBoundingClientRect();
+  galaxy.style.setProperty("--gx", `${rect.left + rect.width / 2}px`);
+  galaxy.style.setProperty("--gy", `${rect.top + rect.height / 2}px`);
+  setPageInert(true);
+  galaxy.setAttribute("aria-hidden", "false");
+  galaxy.classList.remove("closing");
+  void galaxy.offsetWidth;
+  galaxy.classList.add("on");
+  setTimeout(() => galaxyBack.focus({ preventScroll: true }), 750);
+}
+
+function closeGalaxy() {
+  if (!galaxy.classList.contains("on") || galaxyClosing) return;
+  galaxyClosing = true;
+  galaxy.classList.add("closing");
+  setTimeout(() => {
+    galaxy.classList.remove("on", "closing");
+    galaxy.setAttribute("aria-hidden", "true");
+    setPageInert(false);
+    galaxyClosing = false;
+    planet.focus({ preventScroll: true });
+  }, 340);
+}
+
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !about.hidden) {
+  if (event.key !== "Escape") return;
+  if (galaxy.classList.contains("on")) {
+    closeGalaxy();
+    return;
+  }
+  if (body.dataset.view === "info") {
+    transitionView("cover");
+    return;
+  }
+  if (!about.hidden) {
     setAbout(false);
     aboutBtn.focus();
   }
@@ -111,13 +211,15 @@ function toast(message) {
   toastTimer = setTimeout(() => toastEl.classList.remove("on"), 2800);
 }
 
-document.getElementById("demoLogin").addEventListener("click", () => {
-  toast("演示账号「林行」· 信息页将在下一阶段接入");
+demoLogin.addEventListener("click", () => transitionView("info"));
+
+planet.addEventListener("click", () => {
+  if (body.dataset.view === "info") openGalaxy();
+  else transitionView("info");
 });
 
-document.getElementById("planet").addEventListener("click", () => {
-  toast("Mind Galaxy 将在下一阶段接入");
-});
+backHome.addEventListener("click", () => transitionView("cover"));
+galaxyBack.addEventListener("click", closeGalaxy);
 
 /* ---------- Liquid Glass：边缘折射 ----------
    思路来自 shuding/liquid-glass：用 feDisplacementMap 只在边缘把背景

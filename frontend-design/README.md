@@ -2,7 +2,12 @@
 
 本目录是「报价 / QUOTATION」的正式前端。
 
-当前 `web/index.html` 是封面（第 0 屏）：白天 Neumorphism，夜晚 Liquid Glass，右上角可切换主题。绑定知乎、Mind Galaxy 与成本账单在后续阶段接入；原四屏逻辑保留在 `src/demo.js`，尚未挂到新入口。
+当前 `web/index.html` 包含两个视图：
+
+- **封面（第 0 屏）**：白天 Neumorphism，夜晚 Liquid Glass，右上角切换主题；提供「使用演示账号」与「绑定知乎 · 即将开放」两个入口。
+- **信息页（第 1 屏）**：进入演示账号后，星球缩小并居中，显示「YOUR MIND GALAXY」、账号与判断数量；点击星球会以圆形光晕展开到星图占位层。
+
+星图目前是占位层，第三阶段替换为真正的 Mind Galaxy；成本账单与改写对比在原 `src/demo.js` 中保留，后续接到新流程。
 
 ## 目录
 
@@ -11,7 +16,7 @@ frontend-design/
 ├─ web/
 │  ├─ index.html                 # 唯一入口：封面
 │  └─ src/
-│     ├─ cover.js                # 主题切换、说明面板、玻璃折射
+│     ├─ cover.js                # 封面/信息页交互、主题切换、玻璃折射
 │     ├─ theme.css               # 白天 / 夜晚两套 token
 │     ├─ cover.css               # 封面布局与材质
 │     ├─ demo.js                 # 原四屏逻辑（待接入）
@@ -37,6 +42,8 @@ python -m http.server 5173 --bind 127.0.0.1 --directory frontend-design/web
 - 白天：Neumorphism，不透明软阴影。
 - 夜晚：Liquid Glass，半透明、背景模糊、边缘折射（SVG `feDisplacementMap`）；不支持该滤镜的浏览器回退为普通磨砂。
 - 主题切换以按钮为圆心做 `clip-path: circle()` 扩散；系统开启“减少动画”时直接切换。
+- 封面 → 信息页使用 View Transition：星球作为共享元素缩小，其余内容淡入淡出。
+- 信息页左上角箭头回到封面；星图占位层左下角返回，Esc 可逐层返回。
 - 右上角 `?` 打开说明面板，点外部或按 Esc 关闭。
 
 ## 验收脚本
@@ -49,10 +56,11 @@ node web/src/verify/verify-p2.mjs
 
 ## 已知限制
 
-- 登录入口目前是占位：演示账号只提示，绑定知乎待后端接入。
-- 星图、成本账单、改写对比尚未接到新封面；原实现保留在 `src/demo.js`。
+- 登录入口目前是占位：演示账号进入信息页，绑定知乎待后端接入。
+- 信息页点击星球后进入的是星图占位层，真正的 Mind Galaxy 在第三阶段接入。
+- 成本账单与改写对比尚未接到新流程；原实现保留在 `src/demo.js`。
 - 页面数据仍是 `quotation-case.js` 的合成示例，尚未接入数据采集或搜索模块。
-- 漫游（WASD／鼠标视角）与移动端触控方案在下一阶段实现。
+- 漫游（WASD／鼠标视角）与移动端触控方案在第三阶段实现。
 
 ## 归档
 

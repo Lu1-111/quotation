@@ -8,6 +8,7 @@ import { createWorker } from './worker.mjs';
 import { defaultSettings } from './contracts.mjs';
 import { storagePaths, configuredClient, defaultWorkerDir } from './config.mjs';
 import { writeSnapshot } from './local/runtime.mjs';
+import { inspectEnvironment } from './local/lib/browser-runtime.mjs';
 
 const help = `知乎通用采集模块（Node.js 24+）
 node cli.mjs <命令> [选项]
@@ -17,6 +18,7 @@ node cli.mjs <命令> [选项]
   device-revoke   撤销设备凭证，必须 --user-id <UUID> --device-id <UUID>
   token-rotate    替换用户凭证并取消其任务，必须 --user-id <UUID> --output <新文件>
   worker-login    本人确认采集及上传同意并登录知乎，需要 --consent
+  worker-doctor   检查本机采集器环境，无需服务凭证，不连接知乎
   worker          前台运行本机采集器，仅处理已请求的任务；--once 只处理一次
   worker-revoke   撤回本机同意并删除知乎登录会话
   status          查询当前应用用户和设备状态
@@ -24,20 +26,25 @@ node cli.mjs <命令> [选项]
   export          读取最近的完整交付 JSON
 
 通用：--demo、--credentials <私有凭证文件>、--data-dir <服务数据库根目录>
-设备：--profile <英文档案名>、--worker-data-dir <本机目录>、--browser msedge|chrome
+设备：--profile <英文档案名>、--worker-data-dir <本机目录>、--browser auto|msedge|chrome|chromium
 同意范围：--history/--no-history、--likes、--collections、--knowledge-filter/--no-knowledge-filter
 provision 的输出文件含用户、设备凭证，仅供本地开发；跨设备分别交付对应角色凭证。
-凭证不接受命令行明文参数；使用私有文件或环境变量。真实采集需已安装 Edge/Chrome。
+凭证不接受命令行明文参数；使用私有文件或环境变量。真实采集需 Edge/Chrome 或已安装的托管 Chromium。
 `;
 
 export async function main(args, { signal } = {}) {
   const { values: options, positionals } = parseArgs({ args, allowPositionals: true, allowNegative: true, options: {
     ...Object.fromEntries(['name', 'device', 'user-id', 'device-id', 'output', 'credentials', 'data-dir', 'worker-data-dir', 'profile', 'browser'].map((key) => [key, { type: 'string' }])),
-    ...Object.fromEntries(['demo', 'consent', 'once', 'history', 'likes', 'collections', 'knowledge-filter', 'help'].map((key) => [key, { type: 'boolean' }])),
+    ...Object.fromEntries(['launch-check', 'demo', 'consent', 'once', 'history', 'likes', 'collections', 'knowledge-filter', 'help'].map((key) => [key, { type: 'boolean' }])),
   } });
   const command = positionals[0] || 'help';
   if (options.help || command === 'help') { process.stdout.write(help); return; }
   if (positionals.length !== 1) throw new Error('只允许一个命令。');
+  if (command === 'worker-doctor') {
+    const result = await inspectEnvironment({ preference: options.browser || process.env.WORKER_BROWSER || 'auto', launchCheck: Boolean(options['launch-check']) });
+    process.stdout.write(JSON.stringify(result) + '\n'); if (!result.readyForLogin) process.exitCode = 3; return;
+  }
+  if (options['launch-check'] !== undefined) throw new Error('launch-check 仅适用于 worker-doctor。');
   if (['history', 'likes', 'collections', 'knowledge-filter'].some((key) => options[key] !== undefined) && command !== 'worker-login') throw new Error('采集范围选项仅用于 worker-login；实际请求范围通过用户 API 设置。');
   const demo = Boolean(options.demo); const paths = storagePaths(demo, options['data-dir']);
   if (['serve', 'provision', 'device-add', 'device-revoke', 'token-rotate'].includes(command)) {
@@ -88,6 +95,6 @@ export async function main(args, { signal } = {}) {
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const controller = new AbortController(); const stop = () => controller.abort(); process.once('SIGINT', stop); process.once('SIGTERM', stop);
   try { await main(process.argv.slice(2), { signal: controller.signal }); }
-  catch (error) { if (!controller.signal.aborted) { process.stderr.write(JSON.stringify({ ok: false, error: { code: error.code || 'STARTUP_ERROR', message: ['ApiError', 'ServiceError', 'CliError'].includes(error.constructor.name) ? error.message : '运行失败，请检查参数、配置、依赖与本机权限。' } }) + '\n'); process.exitCode = 1; } }
+  catch (error) { if (!controller.signal.aborted) { process.stderr.write(JSON.stringify({ ok: false, error: { code: error.code || 'STARTUP_ERROR', message: ['ApiError', 'ServiceError', 'CliError', 'BrowserSetupError'].includes(error.constructor.name) ? error.message : '运行失败，请检查参数、配置、依赖与本机权限。' } }) + '\n'); process.exitCode = 1; } }
   finally { process.off('SIGINT', stop); process.off('SIGTERM', stop); }
 }

@@ -32,7 +32,9 @@ export function createWorker({ client, dataDir, profile = 'default', demo = fals
     async login({ consent = false, settings = defaultSettings, loginTimeout = 180, signal } = {}) {
       if (!consent) throw new ApiError('CONSENT_REQUIRED', '登录前需 --consent，同意所选数据保存本机并上传到配置的采集服务。');
       const selected = parseSettings(settings); const identity = await info(signal);
-      const result = await local.execute('login', { profile, consent: true, browser, loginTimeout, ...selected }, { signal, log });
+      let result;
+      try { result = await local.execute('login', { profile, consent: true, browser, loginTimeout, ...selected }, { signal, log }); }
+      catch (error) { throw safeCliError(error, signal); }
       if (!result.value.accountRef) throw new ApiError('LOGIN_REQUIRED', '无法绑定本机账号。');
       const grant = { schemaVersion: 1, ...identity, profile, accountRef: result.value.accountRef, settings: selected, consentedAt: new Date().toISOString() };
       mkdirSync(scope, { recursive: true, mode: 0o700 }); const temporary = `${grantPath}.${randomUUID()}.tmp`;

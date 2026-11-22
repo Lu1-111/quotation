@@ -7,6 +7,8 @@
   "scripts": {
     "cli": "node --env-file-if-exists=.env cli.mjs",
     "demo": "node cli.mjs sync --demo --consent --history --likes --collections --json",
+    "doctor": "node cli.mjs doctor",
+    "browser:install": "playwright-core install chromium",
     "test": "node --test"
   },
   "dependencies": { "playwright-core": "1.65.1" }

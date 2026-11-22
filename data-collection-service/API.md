@@ -52,6 +52,8 @@
 
 结果先校验协议、请求类别、计数、模式和绑定账号，再在 SQLite 事务内保存快照并更新任务。相同任务、相同设备租约、相同内容重复上传返回同一个 `snapshotId`；新租约、不同内容或取消后上传不接受。采集器网络异常只重试一次交付，不无限重跑采集。
 
+如果取消或断线发生在创建任务响应送达前，客户端可能还没有拿到任务 ID，无法立即发出指定任务的取消请求。此时由调用方 90 秒租约取消队列中的任务，设备下次心跳停止；不能把“服务器已排队”当成“客户端已收到任务 ID”。
+
 常用错误：400 `INVALID_ARGUMENTS` / `INVALID_JSON`；401 `UNAUTHORIZED`；403 `HOST_DENIED` / `ORIGIN_DENIED`；404 `NOT_FOUND`；409 `BUSY` / `LEASE_EXPIRED` / `ACCOUNT_MISMATCH`；413 `BODY_TOO_LARGE`；415 `CONTENT_TYPE`。任务本身失败时查询仍返回 HTTP 200，由 `state` 与 `error.code` 判断结果。
 
 服务只持有应用凭证哈希。创建用户、增加设备、撤销设备、轮换用户凭证由可信服务器上的 CLI 操作，详见部署文档；不存在公开管理员 HTTP 接口。

@@ -7,9 +7,10 @@
 ## 环境与设备
 
 - Node.js 24+，安装入口见 [Node.js 官网](https://nodejs.org/en/download)。本模块需要该版本提供的内置 SQLite 和相关 Node API。
-- 真实采集需本机安装 Microsoft Edge 或 Google Chrome。Windows 默认 `msedge`，其他系统默认 `chrome`，可用 `--browser` 选择；通道机制见 [Playwright 官方文档](https://playwright.dev/docs/browsers#google-chrome--microsoft-edge)。
+- 真实采集需要 Microsoft Edge、Google Chrome，或本模块下载的 Chromium。默认 `auto` 自动检测；Windows 优先 Edge，macOS／Linux 优先 Chrome，再检测托管 Chromium。已指定或登录后保存的浏览器不会在缺失时静默切换。
+- 没有浏览器时，在本目录执行 `npm run browser:install` 下载与当前 Playwright 配套的 Chromium，再用 `--browser chromium`。仅下载浏览器，不替换系统 Edge/Chrome；Linux 可能还需本人执行 `npx playwright-core install --with-deps chromium` 补齐系统依赖。见 [Playwright 浏览器说明](https://playwright.dev/docs/browsers)。
 - 初次登录需要有图形桌面的设备和网络连接，网页验证须由用户亲自完成。
-- 当前自动化验证在 Windows 完成，真实登录／采集仍受账号状态、平台验证和接口变化影响。macOS／Linux 未进行真机验收，手机浏览器不能直接运行本模块。
+- 当前完成 Windows 自动化与浏览器实际启动检查，并模拟验证三个桌面系统的路径选择。macOS／Linux 尚未进行真机登录验收，不能承诺任意设备都可启动。系统版本以 [Playwright 要求](https://playwright.dev/docs/intro#system-requirements) 为准，Linux 首次登录需要图形桌面／显示服务；手机网页和手机原生环境不直接运行本 CLI。
 
 无需先运行原版 `data-collection/`。只复制本目录时，也必须保留 `lib/`、`package.json`、`package-lock.json`；不要拷贝其他人的 `.data/`、`.env` 或登录状态。
 
@@ -19,6 +20,7 @@
 
 ```powershell
 npm ci
+node cli.mjs doctor --launch-check
 node cli.mjs --help
 ```
 
@@ -37,14 +39,32 @@ node cli.mjs sync --profile personal --json
 node cli.mjs export --profile personal --output .data/exports/personal.json
 ```
 
-`login` 会显示专用浏览器，并在最多 180 秒内检查登录结果；登录成功即绑定账号、保存本机登录状态并关闭窗口，不采集帖子、不清空已有快照。需要更多时间时用 `--login-timeout 600`。Chrome 用户首次可加 `--browser chrome`，选择会按档案保存。
+`doctor` 不连接知乎、不创建采集档案；检查 Node.js、依赖、浏览器和基本图形环境。加 `--launch-check` 会启动并关闭无头浏览器，检查系统依赖和进程权限。环境不通过退出码为 3，`doctor --json` 可输出诊断 JSON；通过仍需验证实际网络、本人登录和平台验证。
+
+`login` 会显示专用浏览器，并在最多 180 秒内检查登录结果；登录成功即绑定账号、保存本机登录状态并关闭窗口，不采集帖子、不清空已有快照。需要更多时间时用 `--login-timeout 600`。可指定 `--browser chrome`、`--browser msedge` 或 `--browser chromium`；成功启动登录浏览器后按档案保存实际选择。
 
 `--consent` 表示同意将所选账号信息采集并保存在本机。首次 `login` 或 `sync` 需要明确同意；后续复用已记录的同意。默认只获取浏览记录，点赞与收藏需勾选对应命令选项。CLI 不要求同步网页在线；它以当前明确执行的命令作为本轮许可，命令退出即停止。
+
+## Windows PowerShell 中文与 JSON
+
+Windows PowerShell 5.1 可能把 Node 的 UTF-8 stdout 按本机旧代码页解码，造成中文乱码并进一步导致 JSON 解析失败。模块提供 `cli.ps1` 入口，设置本次 PowerShell 运行环境为 UTF-8，参数和退出码与 `cli.mjs` 一致；可以在任意当前目录调用脚本。
+
+```powershell
+.\cli.ps1 doctor --launch-check
+.\cli.ps1 login --profile personal --consent
+.\cli.ps1 config --profile personal --history --likes --collections
+.\cli.ps1 sync --profile personal --json
+$snapshot = .\cli.ps1 export --profile personal | ConvertFrom-Json -ErrorAction Stop
+$snapshot.records | Select-Object title, weight
+```
+
+如执行策略阻止本地脚本，可只为当前进程启动 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\cli.ps1 doctor`，不需要修改系统执行策略。若坚持直接管道调用 `node`，先设置 `[Console]::OutputEncoding = $OutputEncoding = New-Object System.Text.UTF8Encoding($false)`。读取 UTF-8 导出文件使用 `Get-Content -Raw -Encoding UTF8 <file>`。不要用 PowerShell 5.1 的默认 `>` 重定向生成给 Agent 的 JSON，优先用 CLI 的 `--output`。
 
 ## 命令
 
 | 命令 | 功能 |
 | --- | --- |
+| `doctor [--launch-check]` | 检查启动条件，可额外验证无头浏览器真实启动；不登录和采集 |
 | `login` | 打开专用窗口，等待本人登录并核对账号 |
 | `sync` | 单次获取所选信息，过滤、排序、整体提交快照并关闭浏览器 |
 | `config` | 查看或修改该档案的采集种类、知识过滤和浏览器选择 |
@@ -61,7 +81,7 @@ node cli.mjs export --profile personal --output .data/exports/personal.json
 | --- | --- |
 | `--profile <name>` | 默认 `default`；1 至 64 位英文字母、数字、下划线、连字符，大小写不区分 |
 | `--data-dir <path>` | 指定数据根目录；相对路径以当前工作目录解释 |
-| `--browser msedge` 或 `--browser chrome` | 在 `login`、`sync` 或 `config` 中选择并保存通道 |
+| `--browser auto/msedge/chrome/chromium` | 指定自动选择或浏览器；doctor 只检查，login／sync／config 按档案使用 |
 | `--history`、`--no-history` | 开启／关闭浏览记录 |
 | `--likes`、`--no-likes` | 开启／关闭点赞 |
 | `--collections`、`--no-collections` | 开启／关闭收藏 |
@@ -97,6 +117,8 @@ node cli.mjs export --profile personal --output .data/exports/personal.json
 
 ## JSON 与 Agent 对接
 
+完整操作步骤、默认 tools 使用哪条链路、CLI 与统一服务的区别，见 [AGENT_INTEGRATION.md](AGENT_INTEGRATION.md)。本模块不启动统一 API，也不自带 MCP；现有采集 MCP 位于 `data-collection-service/`，使用 API＋worker。
+
 数据协议、条件字段、错误流与示例见 [OUTPUT_FORMAT.md](OUTPUT_FORMAT.md)。机器校验文件为 [collection-output.schema.json](schemas/collection-output.schema.json)，完整合成样例为 [collection.snapshot.json](examples/collection.snapshot.json)。
 
 给 Agent／脚本调用时，直接运行 Node 命令并检查退出码：
@@ -131,7 +153,7 @@ CLI 只有单次命令，没有 `watch` 或自动常驻任务。需要定时更�
 
 正常结束和 Ctrl+C 会关闭采集浏览器并释放锁；取消、验证失败、限流或类别读取失败时不会提交半批快照。操作系统强制结束或断电可能留下锁，确认对应进程已经退出后执行 `unlock --yes`。不同档案不共用锁。更改设置是独立操作，即使后续同步失败，用户明确选择的新设置仍保留。
 
-文件输出先生成完整临时 JSON 再发布到目标路径，默认不覆盖。输出路径不能指向当前数据根目录下任何真实或演示档案内部，防止把快照写到另一个账号的 SQLite 或登录目录。建议导出到本机普通磁盘；特殊文件系统不支持文件发布机制时可用 stdout 交由宿主保存。
+文件输出先生成完整 UTF-8 临时 JSON 再发布到目标路径，默认不覆盖；文件系统不支持硬链接时改用独占复制，仍拒绝覆盖已经存在或并发创建的目标。复制回退不保证文件在复制期间不可见，消费者应等命令成功退出后再读取，不要监控半写入文件。输出路径不能指向当前数据根目录下任何真实或演示档案内部，防止覆盖另一账号的数据库或登录目录。
 
 ## 错误和配置
 

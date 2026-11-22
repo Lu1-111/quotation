@@ -111,9 +111,11 @@ test('HTTP 验证 Host、来源、身份与请求结构；分页不传递全文�
 
 test('SDK 取消任务，服务端保留上次快照', async (t) => {
   const { client, store, user, device } = await api(t); const previous = complete(store, user, device).result;
+  // 等客户端收到任务 ID 再取消；服务端排队不代表创建响应已送达客户端。
+  let acknowledge; const acknowledged = new Promise((ok) => { acknowledge = ok; }); const create = client.createJob;
+  client.createJob = async (...args) => { const job = await create(...args); acknowledge(job); return job; };
   const controller = new AbortController(); const pending = client.sync({ signal: controller.signal, pollMs: 10 });
-  let active;
-  for (let i = 0; i < 100; i++) { active = store.status(user.userId).activeJob; if (active) break; await new Promise((ok) => setTimeout(ok, 10)); }
+  const active = await acknowledged;
   assert.ok(active); controller.abort(); await assert.rejects(pending);
   assert.equal(store.job(user.userId, active.id).state, 'cancelled'); assert.equal(store.snapshot(user.userId).snapshotId, previous.snapshotId);
 });

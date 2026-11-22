@@ -147,7 +147,7 @@ test('只复制 CLI 自身文件到独立目录，也能完成演示同步', (t)
   const { directory, dataDir } = fixture(t);
   const portable = join(directory, 'portable-cli');
   mkdirSync(join(portable, 'lib'), { recursive: true });
-  const files = ['cli.mjs', 'runtime.mjs', 'package.json', ...['history-collector.mjs', 'history-data.mjs', 'record-ranking.mjs', 'content-policy.mjs', 'zhihu-sources.mjs'].map((name) => `lib/${name}`)];
+  const files = ['cli.mjs', 'runtime.mjs', 'package.json', ...['browser-runtime.mjs', 'history-collector.mjs', 'history-data.mjs', 'record-ranking.mjs', 'content-policy.mjs', 'zhihu-sources.mjs'].map((name) => `lib/${name}`)];
   for (const name of files) copyFileSync(fileURLToPath(new URL(`../${name}`, import.meta.url)), join(portable, name));
   const result = spawnSync(process.execPath, [join(portable, 'cli.mjs'), 'sync', '--demo', '--consent', '--json', '--data-dir', dataDir], {
     encoding: 'utf8', timeout: 15000, maxBuffer: 4_000_000, windowsHide: true,

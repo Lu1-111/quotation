@@ -2,13 +2,20 @@
 import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { CliError, createCliRuntime, safeCliError } from './runtime.mjs';
+import { BROWSERS, inspectEnvironment } from './lib/browser-runtime.mjs';
+
+// 先检查版本，再加载内置 SQLite，避免旧 Node.js 只报模块不存在。
+const runtimeModule = Number(process.versions.node.split('.')[0]) >= 24 ? await import('./runtime.mjs') : null;
+const CliError = runtimeModule?.CliError || class extends Error {
+  constructor(code, message, exitCode = 2) { super(message); this.code = code; this.exitCode = exitCode; }
+};
 
 const HELP = `知乎数据采集 CLI（Node.js 24+）
 
 用法：node cli.mjs <命令> [选项]
 
 命令：
+  doctor      检查 Node、浏览器与图形环境，不登录、不采集
   login       打开专用浏览器，等待本人登录，绑定当前档案
   sync        后台获取所选信息、过滤、排序并保存，单次执行
   config      查看或保存采集种类与浏览器选择
@@ -22,7 +29,8 @@ const HELP = `知乎数据采集 CLI（Node.js 24+）
 常用选项：
   --profile <name>       档案名称，默认 default，大小写不区分
   --data-dir <path>      数据根目录，默认模块内 .data
-  --browser <channel>    已安装的 msedge 或 chrome，按档案保存
+  --browser <channel>    auto、msedge、chrome、chromium；默认自动检测
+  --launch-check         仅 doctor：实际启动并关闭无头浏览器，不访问知乎
   --consent             同意采集所选信息并保存到本机，首次 login／sync 必需
   --history / --no-history
   --likes / --no-likes
@@ -53,27 +61,28 @@ export function parseCliArgs(args) {
   try {
     parsed = parseArgs({ args, allowPositionals: true, allowNegative: true, strict: true, options: {
       profile: { type: 'string' }, 'data-dir': { type: 'string' }, browser: { type: 'string' }, 'login-timeout': { type: 'string' }, output: { type: 'string' },
-      ...Object.fromEntries(['consent', 'history', 'likes', 'collections', 'knowledge-filter', 'overwrite', 'json', 'quiet', 'demo', 'yes', 'help'].map((key) => [key, { type: 'boolean' }])),
+      ...Object.fromEntries(['launch-check', 'consent', 'history', 'likes', 'collections', 'knowledge-filter', 'overwrite', 'json', 'quiet', 'demo', 'yes', 'help'].map((key) => [key, { type: 'boolean' }])),
     } });
   } catch { throw new CliError('INVALID_ARGUMENTS', '参数无效，请运行 node cli.mjs --help 查看格式。', 2); }
   const { values, positionals } = parsed;
   if (values.help || !positionals.length) return { command: 'help', options: values };
   const command = positionals[0];
-  if (positionals.length !== 1 || !['login', 'sync', 'config', 'status', 'profiles', 'export', 'logout', 'clear', 'unlock', 'help'].includes(command)) throw new CliError('INVALID_COMMAND', '未知命令，请运行 node cli.mjs --help。', 2);
+  if (positionals.length !== 1 || !['doctor', 'login', 'sync', 'config', 'status', 'profiles', 'export', 'logout', 'clear', 'unlock', 'help'].includes(command)) throw new CliError('INVALID_COMMAND', '未知命令，请运行 node cli.mjs --help。', 2);
   const optionError = () => { throw new CliError('INVALID_ARGUMENTS', '选项不适用于当前命令，请查看 --help。', 2); };
   const selectors = ['history', 'likes', 'collections', 'knowledge-filter'];
   if (selectors.some((key) => values[key] !== undefined) && !['login', 'sync', 'config'].includes(command)) optionError();
-  if (values.browser !== undefined && !['login', 'sync', 'config'].includes(command)) optionError();
+  if (values.browser !== undefined && !['doctor', 'login', 'sync', 'config'].includes(command)) optionError();
   if (values['login-timeout'] !== undefined && command !== 'login') optionError();
   if ((values.output !== undefined || values.overwrite) && !['sync', 'export'].includes(command)) optionError();
   if (values.overwrite && !values.output) optionError();
   if (values.consent !== undefined && !['login', 'sync'].includes(command)) optionError();
   if (values.yes !== undefined && !['clear', 'unlock'].includes(command)) optionError();
+  if (values['launch-check'] !== undefined && command !== 'doctor') optionError();
   const timeout = values['login-timeout'] ?? '180';
   if (!/^\d+$/.test(timeout) || Number(timeout) < 1 || Number(timeout) > 900) throw new CliError('INVALID_ARGUMENTS', 'login-timeout 必须为 1 至 900 秒的整数。', 2);
   if (values.output !== undefined && !values.output.trim()) optionError();
   if (values['data-dir'] !== undefined && !values['data-dir'].trim()) optionError();
-  if (values.browser !== undefined && !['chrome', 'msedge'].includes(values.browser)) throw new CliError('INVALID_BROWSER', 'browser 只支持已安装的 msedge 或 chrome。', 2);
+  if (values.browser !== undefined && !BROWSERS.includes(values.browser)) throw new CliError('INVALID_BROWSER', 'browser 只支持 auto、msedge、chrome、chromium。', 2);
   return { command, options: { ...values, dataDir: values['data-dir'], knowledgeFilter: values['knowledge-filter'], loginTimeout: Number(timeout) } };
 }
 
@@ -94,13 +103,19 @@ export async function runCli(args, { stdout = process.stdout, stderr = process.s
     parsed = parseCliArgs(args);
     if (parsed.command === 'help') { stdout.write(HELP); return 0; }
     const { command, options } = parsed;
-    const runtime = createCliRuntime({ dataDir: options.dataDir, demo: Boolean(options.demo) });
+    if (command === 'doctor') {
+      const value = await inspectEnvironment({ preference: options.browser || process.env.CLI_BROWSER_CHANNEL || 'auto', launchCheck: Boolean(options['launch-check']) });
+      stdout.write(options.json ? JSON.stringify(value) + '\n' : `Node.js：${value.nodeVersion}${value.nodeReady ? '（符合要求）' : '（需要 24+）'}\n系统：${value.platform}\n浏览器：${value.browser.selected || '未就绪'}\n图形环境：${value.displayReady ? '具备基本条件' : '未检测到 Linux 显示服务'}\n登录启动检查：${value.readyForLogin ? '通过，仍需本人登录和网络验证' : '未通过'}\n${value.browser.error?.message || value.launchCheck.error?.message || ''}\n`);
+      return value.readyForLogin ? 0 : 3;
+    }
+    if (!runtimeModule) throw new CliError('UNSUPPORTED_NODE', '本模块需要 Node.js 24+，请更新 Node.js 后重试。');
+    const runtime = runtimeModule.createCliRuntime({ dataDir: options.dataDir, demo: Boolean(options.demo) });
     const result = await runtime.execute(command, options, { signal, log: (message) => { if (!options.json && !options.quiet) stderr.write(message + '\n'); } });
     if (options.json || (command === 'export' && !options.output)) stdout.write(JSON.stringify(result.value) + '\n');
     else stdout.write(human(result) + '\n');
     return 0;
   } catch (error) {
-    const safe = safeCliError(error, signal);
+    const safe = runtimeModule ? runtimeModule.safeCliError(error, signal) : error instanceof CliError ? error : new CliError('STARTUP_ERROR', '启动失败，请检查 Node.js 版本和依赖。');
     if (parsed?.options.json || args.includes('--json')) stderr.write(JSON.stringify({ error: { code: safe.code, message: safe.message } }) + '\n');
     else stderr.write(`${safe.message}\n`);
     return safe.exitCode;

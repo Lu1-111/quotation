@@ -1,12 +1,13 @@
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
-import { closeSync, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, copyFileSync, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as pause } from 'node:timers/promises';
 import { createHistoryStore, HistoryError } from './lib/history-data.mjs';
 import { createBrowserGateway, createDemoHistoryGateway, createHistoryCollector } from './lib/history-collector.mjs';
 import { DEFAULT_SETTINGS } from './lib/record-ranking.mjs';
+import { BROWSERS, BrowserSetupError } from './lib/browser-runtime.mjs';
 
 export class CliError extends Error {
   constructor(code, message, exitCode = 1) { super(message); this.code = code; this.exitCode = exitCode; }
@@ -41,7 +42,7 @@ function forgetBrowser(profileRoot, browserDirectory) {
   rmSync(browserDirectory, { recursive: true, force: true });
 }
 
-export function writeSnapshot(filename, snapshot, { overwrite = false, protectedRoots = [] } = {}) {
+export function writeSnapshot(filename, snapshot, { overwrite = false, protectedRoots = [], linkFile = linkSync, copyFile = copyFileSync } = {}) {
   const target = resolve(filename);
   if (protectedRoots.some((root) => relative(root, target) === '' || inside(root, target))) fail('INVALID_OUTPUT', '导出文件不能写入 CLI 内部档案目录，请使用独立的 exports 目录。', 2);
   mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
@@ -53,7 +54,15 @@ export function writeSnapshot(filename, snapshot, { overwrite = false, protected
   try {
     writeFileSync(temporary, JSON.stringify(snapshot, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
     if (overwrite) renameSync(temporary, target);
-    else { try { linkSync(temporary, target); } catch (error) { if (error.code === 'EEXIST') fail('OUTPUT_EXISTS', '输出文件已存在，未覆盖。', 2); throw error; } }
+    else {
+      try { linkFile(temporary, target); }
+      catch (error) {
+        if (error.code === 'EEXIST') fail('OUTPUT_EXISTS', '输出文件已存在，未覆盖。', 2);
+        if (!['EPERM', 'EACCES', 'ENOTSUP', 'ENOSYS', 'EXDEV'].includes(error.code)) throw error;
+        try { copyFile(temporary, target, constants.COPYFILE_EXCL); }
+        catch (copyError) { if (copyError.code === 'EEXIST') fail('OUTPUT_EXISTS', '输出文件已存在，未覆盖。', 2); fail('OUTPUT_WRITE_FAILED', '无法写入导出文件，请选择本机可写目录并检查剩余空间。', 2); }
+      }
+    }
   }
   finally { if (existsSync(temporary)) unlinkSync(temporary); }
   return target;
@@ -75,8 +84,8 @@ export function createCliRuntime({ dataDir = process.env.CLI_DATA_DIR || fileURL
     if (!inside(realpathSync(profilesRoot), realpathSync(path.directory))) fail('UNSAFE_PATH', '档案目录越出数据根目录，操作已停止。');
   }
   function channel(value) {
-    const selected = value || browserChannel || (process.platform === 'win32' ? 'msedge' : 'chrome');
-    if (!['msedge', 'chrome'].includes(selected)) fail('INVALID_BROWSER', '浏览器仅支持已安装的 msedge 或 chrome。', 2);
+    const selected = value || browserChannel || 'auto';
+    if (!BROWSERS.includes(selected)) fail('INVALID_BROWSER', 'browser 只支持 auto、msedge、chrome、chromium。', 2);
     return selected;
   }
   return {
@@ -105,7 +114,7 @@ export function createCliRuntime({ dataDir = process.env.CLI_DATA_DIR || fileURL
         db.exec('PRAGMA secure_delete = ON; PRAGMA busy_timeout = 5000; CREATE TABLE IF NOT EXISTS cli_metadata (name TEXT PRIMARY KEY, value TEXT NOT NULL)');
         const store = createHistoryStore(db); if (!store.get(SOURCE_ID)) store.create(SOURCE_ID);
         const savedBrowser = db.prepare("SELECT value FROM cli_metadata WHERE name = 'browser'").get()?.value;
-        const browser = channel(options.browser || savedBrowser);
+        let browser = channel(options.browser || savedBrowser);
         if (['login', 'sync', 'config'].includes(command)) {
           const previous = store.settings(SOURCE_ID);
           const settings = { ...previous, aiReview: false };
@@ -136,8 +145,12 @@ export function createCliRuntime({ dataDir = process.env.CLI_DATA_DIR || fileURL
           const stop = () => { void gateway.close().catch(() => {}); };
           loginSignal.addEventListener('abort', stop, { once: true });
           try {
-            log(demo ? '正在连接合成演示账号。' : '已打开专用浏览器，请亲自完成知乎登录或验证，程序会检查登录结果。');
+            log(demo ? '正在连接合成演示账号。' : '正在打开专用浏览器，请在知乎页面完成登录或验证。');
             await gateway.open({ headless: false });
+            if (!demo && gateway.browserChannel) {
+              browser = gateway.browserChannel;
+              db.prepare("INSERT INTO cli_metadata VALUES ('browser', ?) ON CONFLICT(name) DO UPDATE SET value=excluded.value").run(browser);
+            }
             while (true) {
               loginSignal.throwIfAborted();
               let profile;
@@ -177,6 +190,7 @@ export function createCliRuntime({ dataDir = process.env.CLI_DATA_DIR || fileURL
 export function safeCliError(error, signal) {
   if (signal?.aborted) return new CliError('CANCELLED', '采集已取消，未完成的结果不会保存为新快照。', 130);
   if (error instanceof CliError) return error;
+  if (error instanceof BrowserSetupError) return new CliError(error.code, error.message, 3);
   if (error instanceof HistoryError) return new CliError(error.status === 409 ? 'ACCOUNT_OR_SESSION_MISMATCH' : error.status === 401 ? 'LOGIN_REQUIRED' : error.status === 429 ? 'RATE_LIMITED' : 'COLLECTION_ERROR', error.message, [401, 403, 409].includes(error.status) ? 3 : 1);
   return new CliError('LOCAL_IO_ERROR', '本机文件、数据库或浏览器操作失败，请检查路径、权限与依赖。');
 }

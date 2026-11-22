@@ -73,7 +73,9 @@ npm run cli -- worker
 | 桌面应用 | 嵌入 API 客户端；将 worker/local 核心随桌面运行时打包 | 桌面设备自己的专用浏览器会话 |
 | 本地 Agent | tools 或 MCP，凭证由宿主注入 | 同机或另一台已经授权在线的电脑采集器 |
 
-浏览器组件、登录验证、操作系统权限和平台接口可能不同，因此不保证“任何设备直接运行采集器”。当前真实采集适配的是装有 Edge/Chrome 的桌面系统；Node.js 服务协议可跨系统，手机端消费 API。需要手机独立采集时，另行开发获得平台支持的适配器，不能把桌面 Playwright 直接塞进手机网页。
+浏览器组件、登录验证、操作系统权限和平台接口可能不同，因此不保证“任何设备直接运行采集器”。当前真实采集适配的是具备 Node.js 24+、Edge/Chrome 或托管 Chromium 的桌面系统；系统版本以 [Playwright 要求](https://playwright.dev/docs/intro#system-requirements) 为准。Windows 已进行浏览器启动验收，macOS/Linux 只模拟验证了浏览器路径选择，尚无真机登录验收。新设备先运行 `npm run cli -- worker-doctor --launch-check`，图形环境、依赖和浏览器策略仍须满足条件。
+
+无浏览器时可在模块内运行 `npm run browser:install` 下载配套 Chromium。Linux 可能还需本人执行 `npx playwright-core install --with-deps chromium` 安装系统库；这可能要求系统权限。首次登录不能在没有显示服务的纯终端上完成。手机端消费 API；需要手机独立采集时，需另外开发获得平台支持的适配器，不能把桌面 Playwright 直接塞进手机网页。
 
 ## 配置和本地文件
 
@@ -88,8 +90,12 @@ npm run cli -- worker
 | DATA_SERVICE_DEVICE_TOKEN | 仅本机采集器使用 |
 | WORKER_DATA_DIR | 模块内 .data/worker，本机私有数据根目录 |
 | WORKER_PROFILE | default |
-| WORKER_BROWSER | Windows 默认 msedge，其他桌面系统默认 chrome |
+| WORKER_BROWSER | auto；自动检测，或指定 msedge/chrome/chromium；成功启动登录浏览器后按档案保存实际选择 |
 
 环境变量优先于 `--credentials` 文件中的服务地址和令牌。切换模式或设备前检查环境，防止旧配置覆盖文件。`.env` 由 npm 脚本中的 Node 参数加载；直接启动脚本时按需加 `--env-file-if-exists=.env`。
+
+Windows PowerShell 5.1 接收 Node 的 UTF-8 JSON 时可能使用旧代码页。本模块附 `.\cli.ps1` 入口，例如 `$result = .\cli.ps1 export --credentials .data/credentials-user.json | ConvertFrom-Json -ErrorAction Stop`。该入口与直接运行 Node 一样不自动加载 `.env`，可由当前进程环境传入配置；使用 `.env` 时继续通过 npm 脚本或显式 Node 参数启动。读取导出文件要用 `Get-Content -Raw -Encoding UTF8`。
+
+导出和开通凭证时，输出文件默认不覆盖；硬链接不受支持时使用独占复制兼容不同文件系统，仍不会覆盖已存在文件。复制期间文件可能可见，消费者应等待命令成功退出后读取。
 
 源码可上传 Git，`.env`、`.data`、会话、真实导出、令牌、日志与 node_modules 均不上传。文件权限参数在类 Unix 系统设置为仅当前用户读写；Windows 仍需由目录 ACL 控制访问。服务数据库不是加密数据库，磁盘加密和备份权限由宿主管理。

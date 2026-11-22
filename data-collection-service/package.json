@@ -7,6 +7,8 @@
     "start": "node --env-file-if-exists=.env cli.mjs serve",
     "demo": "node cli.mjs serve --demo",
     "cli": "node --env-file-if-exists=.env cli.mjs",
+    "worker:doctor": "node --env-file-if-exists=.env cli.mjs worker-doctor",
+    "browser:install": "playwright-core install chromium",
     "mcp": "node --env-file-if-exists=.env mcp-server.mjs",
     "test": "node --test"
   },

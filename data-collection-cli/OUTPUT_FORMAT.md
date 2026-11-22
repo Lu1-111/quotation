@@ -1,6 +1,6 @@
 # CLI 输出 JSON 格式
 
-CLI 有两种成功结果：采集快照与管理状态。只有前者使用采集版本 3；不要把 `status --json` 的版本 1 当作采集数据。
+CLI 的业务成功结果包括采集快照与管理状态，另提供环境检查诊断。只有采集快照使用版本 3；不要把 `status --json` 或 `doctor --json` 的版本 1 当作采集数据。
 
 ## 采集快照
 
@@ -72,6 +72,8 @@ Schema：[collection-output.schema.json](schemas/collection-output.schema.json)�
 
 管理状态不包含 Cookie、平台令牌或浏览器登录目录，不是用户内容分析输入。
 
+`doctor --json` 返回 `{ schemaVersion: 1, mode: "cli", kind: "environment_check", nodeVersion, platform, nodeReady, desktopPlatform, displayReady, browser, launchCheck, demoReady, readyForLogin, notes }`。`browser` 含选择偏好、选中浏览器和安全诊断错误；`launchCheck` 含 requested、ok、error，未执行启动检查时 ok 为 null。就绪返回码 0，不就绪返回码 3；即使返回码 3，stdout 仍为完整诊断对象，不是错误流。此命令不创建采集数据或证明知乎登录有效。
+
 ## 错误与流
 
 成功命令在 stdout 输出结果；使用 `--json` 时仅有一个 JSON 对象。失败时 stdout 为空，stderr 返回如下对象，并用非零退出码表示失败：
@@ -85,6 +87,6 @@ Schema：[collection-output.schema.json](schemas/collection-output.schema.json)�
 }
 ```
 
-先检查退出码，再解析 stdout。常见错误码有 `INVALID_ARGUMENTS`、`INVALID_PROFILE`、`CONSENT_REQUIRED`、`LOGIN_REQUIRED`、`ACCOUNT_OR_SESSION_MISMATCH`、`PROFILE_BUSY`、`NO_SNAPSHOT`、`OUTPUT_EXISTS`、`CANCELLED`。进度提示只写 stderr，`--json` 会隐藏普通进度；Node 本身的运行警告也可能出现在 stderr，宿主不应把所有 stderr 文本当成单一成功结果。
+先检查退出码，再解析 stdout。常见错误码有 `INVALID_ARGUMENTS`、`INVALID_PROFILE`、`UNSUPPORTED_NODE`、`DEPENDENCY_MISSING`、`BROWSER_NOT_FOUND`、`CONSENT_REQUIRED`、`LOGIN_REQUIRED`、`ACCOUNT_OR_SESSION_MISMATCH`、`PROFILE_BUSY`、`NO_SNAPSHOT`、`OUTPUT_EXISTS`、`OUTPUT_WRITE_FAILED`、`CANCELLED`。进度提示只写 stderr，`--json` 会隐藏普通进度；Node 本身的运行警告也可能出现在 stderr，宿主不应把所有 stderr 文本当成单一成功结果。
 
 SDK `runtime.execute()` 返回 `{ type: "snapshot" | "status", value, savedTo? }`，其中 `value` 才是上述业务对象；调用失败抛出异常，宿主可用 `safeCliError()` 转成稳定错误。示例与 Schema 允许适度扩展字段，消费方需识别版本并忽略不认识的可选扩展。

@@ -21,6 +21,8 @@
 
 推荐本地开发时服务与采集器同机；正式项目中把 API 放到统一后端，用户电脑只运行采集器。手机可以访问后端和已有结果，但不能直接读取手机知乎 App 的浏览记录。详见 [部署与适配](DEPLOYMENT.md)。
 
+**本模块现有的 Agent tools/MCP 走统一 API＋本机 worker，不会转调独立 CLI。** 根目录 `data-collection-cli/` 是单机备用入口，可由本地 Agent 直接导入 SDK 或执行子进程；它直接输出版本 3 JSON，不经过本服务。两种入口的默认数据目录、会话与同意记录独立，切换时需本人完成对应入口的登录。
+
 ## 快速验证完整链路
 
 需要 Node.js 24+。以下命令均在本目录执行。演示使用合成数据，不连接真实知乎，不下载浏览器或模型。
@@ -47,7 +49,9 @@ npm run cli -- export --credentials .data/credentials-demo.json --output .data/e
 
 服务默认只请求浏览记录。`worker-login` 中的类别是本机允许范围；网页勾选的实际请求还需通过 `saveSettings()` 或创建任务时的 `settings` 提交。只有允许范围内的种类才会被采集。`worker --once` 只检查并处理一次队列，没有任务就退出；正常运行使用前台 `worker`，Ctrl+C 停止。
 
-真实模式去掉服务、provision、worker-login 和 worker 的 `--demo`；使用另一份凭证。`npm start` 启动真实服务；同一端口同时只能运行一个模式。真实采集器还需要已安装的 Edge 或 Chrome，可指定 `--browser msedge` 或 `--browser chrome`。首次本人执行 `worker-login --consent` 即同意将所选数据保存本机并上传到配置的服务，之后可 `worker-revoke` 撤回本机同意和清除登录会话。服务端的数据另行通过删除接口清理。
+真实模式去掉服务、provision、worker-login 和 worker 的 `--demo`；使用另一份凭证。`npm start` 启动真实服务；同一端口同时只能运行一个模式。采集器默认自动检测 Edge／Chrome／托管 Chromium；可指定 `--browser msedge`、`chrome` 或 `chromium`。首次本人执行 `worker-login --consent` 即同意将所选数据保存本机并上传到配置的服务，之后可 `worker-revoke` 撤回本机同意和清除登录会话。服务端的数据另行通过删除接口清理。
+
+新设备安装 `npm ci` 后先运行 `npm run cli -- worker-doctor --launch-check` 检查本机启动条件；该命令不需要服务凭证，不连接知乎。没有浏览器时可 `npm run browser:install`，仅下载托管 Chromium。Linux 系统库缺失时按 [Playwright 文档](https://playwright.dev/docs/browsers) 补齐依赖；首次登录需要桌面／显示服务。Windows PowerShell 提供 `.\cli.ps1` UTF-8 入口，例如 `.\cli.ps1 worker-doctor --launch-check`；处理 JSON 管道时优先使用它。
 
 ## 网页与其他模块接入
 

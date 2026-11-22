@@ -5,11 +5,14 @@ import { HistoryError, parseHistoryJson } from './history-data.mjs';
 import { collectSelectedData } from './zhihu-sources.mjs';
 import { validateSettings } from './record-ranking.mjs';
 import { hasSelectedKinds } from './content-policy.mjs';
+import { BrowserSetupError, loadBrowser } from './browser-runtime.mjs';
 
-export function createBrowserGateway(profileDirectory, channel = 'msedge') {
+export function createBrowserGateway(profileDirectory, channel = 'auto') {
   let context;
   let page;
+  let selectedBrowser;
   return {
+    get browserChannel() { return selectedBrowser; },
     get active() { return Boolean(context && page && !page.isClosed()); },
     async open({ headless = false } = {}) {
       if (context && page && !page.isClosed()) {
@@ -19,9 +22,10 @@ export function createBrowserGateway(profileDirectory, channel = 'msedge') {
       if (context) await context.close();
       await mkdir(profileDirectory, { recursive: true, mode: 0o700 });
       try {
-        const { chromium } = await import('playwright-core');
+        const { chromium, selected } = await loadBrowser(channel);
+        selectedBrowser = selected.browser;
         context = await chromium.launchPersistentContext(profileDirectory, {
-          channel, headless, acceptDownloads: false, viewport: { width: 1100, height: 800 },
+          ...selected.launchOptions, headless, acceptDownloads: false, viewport: { width: 1100, height: 800 },
         });
         const opened = context;
         opened.on('close', () => {
@@ -29,11 +33,12 @@ export function createBrowserGateway(profileDirectory, channel = 'msedge') {
         });
         page = context.pages()[0] || await context.newPage();
         await page.goto('https://www.zhihu.com/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
-      } catch {
+      } catch (error) {
         await context?.close().catch(() => {});
         context = null;
         page = null;
-        throw new HistoryError('打开知乎失败，请确认本机已安装 Edge，或检查网络后重试。', 503);
+        if (error instanceof BrowserSetupError) throw error;
+        throw new HistoryError('启动浏览器或访问知乎失败。请运行环境检查；Linux 需图形环境和浏览器系统依赖，其他情况请检查网络、权限与浏览器策略。', 503);
       }
     },
     async request(path, { optional = false } = {}) {

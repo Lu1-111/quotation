@@ -3,7 +3,7 @@
    - 主题写入 localStorage；也支持 ?theme=dark 便于截图与分享
    - 登录入口目前是占位，后续接入后端 */
 
-import { createGalaxy } from "./galaxy.js?v=11";
+import { createGalaxy } from "./galaxy.js?v=12";
 
 const root = document.documentElement;
 const body = document.body;
@@ -347,7 +347,7 @@ function openGalaxy() {
   galaxy.style.setProperty("--gy", `${cy}px`);
   galaxy.style.setProperty("--gr", `${radius + 6}px`);
 
-  if (root.dataset.theme === "dark" && !reduceMotion.matches) {
+  if (!reduceMotion.matches) {
     playBlackHole(cx, cy);
   } else {
     beginGalaxyReveal();

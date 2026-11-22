@@ -777,6 +777,30 @@ body.bh-active .bh-veil { opacity: 1; }
   letter-spacing: .08em;
   color: rgba(232, 236, 244, .38);
 }
+.galaxy-reset {
+  margin-top: 16px;
+  padding: 7px 10px;
+  border: 1px solid rgba(232, 236, 244, .2);
+  border-radius: 999px;
+  background: rgba(7, 8, 15, .42);
+  color: rgba(232, 236, 244, .62);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: .08em;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color .2s, border-color .2s;
+}
+.galaxy-reset:hover,
+.galaxy-reset:focus-visible {
+  color: #ffd27a;
+  border-color: rgba(255, 210, 122, .7);
+}
+.galaxy-reset:disabled {
+  color: rgba(255, 210, 122, .7);
+  border-color: rgba(255, 210, 122, .35);
+  cursor: default;
+}
 
 .galaxy-hint {
   position: absolute;
@@ -859,6 +883,32 @@ body.bh-active .bh-veil { opacity: 1; }
   font-size: 10.5px;
   letter-spacing: .1em;
   color: rgba(232, 236, 244, .45);
+}
+.node-card-collapse {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 11px 14px;
+  border: 1px solid rgba(255, 210, 122, .45);
+  border-radius: 8px;
+  background: rgba(255, 210, 122, .07);
+  color: #ffd27a;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: .12em;
+  cursor: pointer;
+  transition: background .25s, border-color .25s;
+}
+.node-card-collapse[hidden] { display: none; }
+.node-card-collapse:hover,
+.node-card-collapse:focus-visible {
+  background: rgba(255, 210, 122, .17);
+  border-color: #ffd27a;
+}
+.node-card-rewind {
+  border-color: rgba(232, 236, 244, .35);
+  background: rgba(232, 236, 244, .06);
+  color: #e8ecf4;
 }
 
 .galaxy.on .galaxy-hud {

@@ -16,7 +16,7 @@
   } catch (e) {}
 </script>
 <link rel="stylesheet" href="./src/theme.css?v=13">
-<link rel="stylesheet" href="./src/cover.css?v=13">
+<link rel="stylesheet" href="./src/cover.css?v=16">
 </head>
 <body class="page-cover" data-view="cover">
 
@@ -188,6 +188,7 @@
   <div class="galaxy-hud">
     <p class="galaxy-eyebrow">MIND GALAXY</p>
     <p class="galaxy-user">林行 · 30 条判断</p>
+    <button class="galaxy-reset" id="galaxyReset" type="button">↺ 复位星图</button>
   </div>
 
   <p class="galaxy-hint" id="galaxyHint">
@@ -201,12 +202,14 @@
     <h3 class="node-card-name" id="cardName"></h3>
     <p class="node-card-text" id="cardText"></p>
     <p class="node-card-meta" id="cardMeta"></p>
+    <button class="node-card-collapse" id="nodeCardCollapse" type="button" hidden>坍缩这颗主星</button>
+    <button class="node-card-collapse node-card-rewind" id="nodeCardRewind" type="button" hidden>回溯这颗主星</button>
   </aside>
 
   <button class="galaxy-back" id="galaxyBack" type="button">← 返回</button>
 </section>
 
 <script type="module" src="./src/analysis.js?v=13"></script>
-<script type="module" src="./src/cover.js?v=13"></script>
+<script type="module" src="./src/cover.js?v=19"></script>
 </body>
 </html>

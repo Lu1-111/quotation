@@ -212,6 +212,53 @@ function makeGlow(color, size = 64) {
   return c;
 }
 
+/* 紫粉色的连续旋涡光场；不包含独立星点或闭合的行星环。 */
+function makeVortexCloud(size = 256) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext("2d");
+  const image = context.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (x + .5 - size / 2) / (size / 2);
+      const dy = (y + .5 - size / 2) / (size / 2);
+      const radius = Math.hypot(dx, dy);
+      if (radius >= 1) continue;
+      const angle = Math.atan2(dy, dx);
+      // 整数角频率让 atan2 两侧接合；中心逐渐抹去角向纹理。
+      const spiral = 2 * angle + 9.5 * Math.log(radius + .13);
+      const arm = Math.pow(.5 + .5 * Math.cos(spiral), 2.4);
+      const filament = Math.pow(.5 + .5 * Math.cos(spiral * 3 + radius * 16), 5);
+      const blend = clamp((radius - .06) / .24, 0, 1);
+      const angularBlend = blend * blend * (3 - 2 * blend);
+      const grain = .72 + .16 * Math.sin(x * .23 + y * .11)
+        + .12 * Math.sin(x * .57 - y * .31);
+      const envelope = Math.pow(1 - radius, 1.05);
+      const density = clamp(envelope * (
+        .22 + .67 * (.5 + (arm - .5) * angularBlend)
+        + .16 * (.5 + (filament - .5) * angularBlend)
+      ) * grain, 0, 1);
+      const index = (y * size + x) * 4;
+      image.data[index] = Math.round(124 + 96 * (1 - radius) + 20 * arm);
+      image.data[index + 1] = Math.round(52 + 93 * (1 - radius) + 23 * arm);
+      image.data[index + 2] = Math.round(220 + 28 * arm);
+      image.data[index + 3] = Math.round(density * 205);
+    }
+  }
+  context.putImageData(image, 0, 0);
+  return canvas;
+}
+
+function blurSprite(source, radius) {
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const context = canvas.getContext("2d");
+  context.filter = `blur(${radius}px)`;
+  context.drawImage(source, 0, 0);
+  return canvas;
+}
+
 function makeStars(count) {
   const rng = mulberry32(20261122);
   const out = [];
@@ -259,12 +306,36 @@ function makeDust(count) {
 export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, cardMeta, cardClose, hint }) {
   const ctx = canvas.getContext("2d");
   const { nodes, clusterCenters, dependents } = layout();
+  const mainIds = new Set(nodes.filter((n) => n.S >= 5).map((n) => n.id));
+  const neighbors = new Map(nodes.map((n) => [n.id, new Set()]));
+  for (const n of nodes) {
+    for (const dep of n.deps) {
+      neighbors.get(n.id).add(dep);
+      neighbors.get(dep)?.add(n.id);
+    }
+  }
+  const connectedMains = new Map(nodes.map((n) => [
+    n.id, [...neighbors.get(n.id)].filter((id) => mainIds.has(id)),
+  ]));
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const collapsedMains = new Map();
+  const absorbedStars = new Map();
+  const rewindingMains = new Map();
+  const returningStars = new Map();
+  const collapseButton = document.getElementById("nodeCardCollapse");
+  const rewindButton = document.getElementById("nodeCardRewind");
+  const resetButton = document.getElementById("galaxyReset");
+  const COLLAPSE_MS = 1150;
+  const collapseDuration = () => reduceMotion.matches ? 1 : COLLAPSE_MS;
   for (const n of nodes) {
     const rng = mulberry32(hashString(n.id) ^ 0x9e3779b9);
     n.tw = { phase: rng() * TAU, speed: 0.84 + rng() * 1.56 };
   }
   const stars = makeStars(1300);
   const dust = makeDust(340);
+  const vortexCloud = makeVortexCloud();
+  const vortexSoft = blurSprite(vortexCloud, 4);
+  const vortexHaze = blurSprite(vortexCloud, 9);
   const sprites = {
     1: makeGlow(CLUSTERS[1].color),
     2: makeGlow(CLUSTERS[2].color),
@@ -292,6 +363,94 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
   let downAt = 0;
   let moved = 0;
   let hintTimer = 0;
+  let cameraReturn = null;
+
+  const ease = (p) => p * p * (3 - 2 * p);
+  const progressSince = (start, now) => clamp((now - start) / collapseDuration(), 0, 1);
+  const isMainCollapsed = (id) => collapsedMains.has(id) && !rewindingMains.has(id);
+
+  function absorbedPositionAt(n, absorption, progress) {
+    const target = nodeById.get(absorption.target);
+    const from = absorption.from || n.pos;
+    const k = ease(progress);
+    const dx = from.x - target.pos.x;
+    const dy = from.y - target.pos.y;
+    const dz = from.z - target.pos.z;
+    const angle = k * Math.PI * 1.7;
+    const cs = Math.cos(angle);
+    const sn = Math.sin(angle);
+    return {
+      x: target.pos.x + (dx * cs - dy * sn) * (1 - k),
+      y: target.pos.y + (dx * sn + dy * cs) * (1 - k),
+      z: target.pos.z + dz * (1 - k),
+    };
+  }
+
+  function absorbedPosition(n, absorption, now) {
+    return absorbedPositionAt(n, absorption, progressSince(absorption.start, now));
+  }
+
+  function returningPosition(n, returning, now) {
+    const k = ease(progressSince(returning.start, now));
+    const position = absorbedPositionAt(
+      n, returning.absorption, returning.sourceProgress * (1 - k)
+    );
+    const origin = returning.absorption.from || n.pos;
+    return {
+      x: position.x + (n.pos.x - origin.x) * k,
+      y: position.y + (n.pos.y - origin.y) * k,
+      z: position.z + (n.pos.z - origin.z) * k,
+    };
+  }
+
+  function collapseMain() {
+    if (!selected || !mainIds.has(selected.id) || collapsedMains.has(selected.id) || cameraReturn) return;
+    const now = performance.now();
+    const center = selected;
+    collapsedMains.set(center.id, now);
+    for (const n of nodes) {
+      if (mainIds.has(n.id) || absorbedStars.has(n.id)) continue;
+      const mains = connectedMains.get(n.id);
+      if (mains.length && mains.includes(center.id) && mains.every(isMainCollapsed)) {
+        const returning = returningStars.get(n.id);
+        const from = returning ? returningPosition(n, returning, now) : n.pos;
+        returningStars.delete(n.id);
+        absorbedStars.set(n.id, { start: now, target: center.id, from });
+      }
+    }
+    selectNode(center);
+  }
+
+  function rewindMains(ids, now) {
+    const eligible = new Set(ids.filter((id) => collapsedMains.has(id) && !rewindingMains.has(id)));
+    for (const id of eligible) {
+      rewindingMains.set(id, {
+        start: now,
+        fromProgress: progressSince(collapsedMains.get(id), now),
+      });
+    }
+    for (const n of nodes) {
+      const absorption = absorbedStars.get(n.id);
+      if (!absorption || !connectedMains.get(n.id).some((id) => eligible.has(id))) continue;
+      if (!connectedMains.get(n.id).some((id) => !isMainCollapsed(id))) continue;
+      const absorbedProgress = progressSince(absorption.start, now);
+      returningStars.set(n.id, {
+        start: now,
+        absorption,
+        sourceProgress: absorbedProgress,
+        fromAlpha: 1 - absorbedProgress,
+        fromScale: 1 - absorbedProgress * .9,
+      });
+      absorbedStars.delete(n.id);
+    }
+  }
+
+  function rewindMain() {
+    if (!selected || !collapsedMains.has(selected.id) || rewindingMains.has(selected.id) || cameraReturn) return;
+    const center = selected;
+    rewindMains([center.id], performance.now());
+    selectNode(center);
+  }
 
   /* 屏幕投影 */
   function project(x, y, z) {
@@ -451,6 +610,79 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
     ctx.globalCompositeOperation = "source-over";
   }
 
+  function drawVortex(item, n, t, emergence) {
+    const prominence = n === selected ? 52 : n === hovered ? 36 : 27;
+    const radius = prominence * clamp(item.scale, .7, 1.2)
+      * (.25 + .75 * ease(emergence));
+    const phase = n.tw.phase;
+    ctx.save();
+    ctx.translate(item.x, item.y);
+
+    const halo = ctx.createRadialGradient(0, 0, radius * .1, 0, 0, radius * 1.55);
+    halo.addColorStop(0, `rgba(244,145,255,${(.18 * emergence).toFixed(3)})`);
+    halo.addColorStop(.5, `rgba(103,57,210,${(.13 * emergence).toFixed(3)})`);
+    halo.addColorStop(1, "rgba(64,38,149,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.55, 0, TAU);
+    ctx.fill();
+
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = .98 * emergence;
+    ctx.save();
+    ctx.rotate(phase + t * .22);
+    ctx.drawImage(vortexSoft, -radius, -radius, radius * 2, radius * 2);
+    ctx.restore();
+    ctx.globalAlpha = .33 * emergence;
+    ctx.save();
+    ctx.rotate(-phase * .4 - t * .12);
+    ctx.drawImage(vortexHaze, -radius * .82, -radius * .82, radius * 1.64, radius * 1.64);
+    ctx.restore();
+
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = emergence;
+    for (let arm = 0; arm < 9; arm++) {
+      const a = phase + t * .18 + arm * TAU / 9 + Math.sin(arm * 2.3) * .18;
+      const point = (r, angle) => [Math.cos(angle) * r, Math.sin(angle) * r];
+      const reach = radius * (.66 + .24 * ((arm * 7) % 9) / 9);
+      const start = point(reach, a);
+      const first = point(radius * .6, a + .46);
+      const second = point(radius * .34, a + 1.12);
+      const end = point(radius * .14, a + 1.72);
+      ctx.strokeStyle = arm % 2
+        ? "rgba(243,160,255,.13)" : "rgba(156,124,255,.12)";
+      ctx.lineWidth = Math.max(.65, radius * .019);
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(...start);
+      ctx.bezierCurveTo(...first, ...second, ...end);
+      ctx.stroke();
+    }
+
+    ctx.globalCompositeOperation = "screen";
+    const center = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * .62);
+    center.addColorStop(0, "rgba(206,133,247,.58)");
+    center.addColorStop(.32, "rgba(187,105,241,.39)");
+    center.addColorStop(.72, "rgba(119,64,207,.13)");
+    center.addColorStop(1, "rgba(119,64,207,0)");
+    ctx.fillStyle = center;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * .62, 0, TAU);
+    ctx.fill();
+    const light = ctx.createRadialGradient(-radius * .05, radius * .13, 0,
+      0, 0, radius * .43);
+    light.addColorStop(0, "rgba(255,236,255,.76)");
+    light.addColorStop(.23, "rgba(250,181,246,.58)");
+    light.addColorStop(.65, "rgba(191,105,232,.22)");
+    light.addColorStop(1, "rgba(157,85,232,0)");
+    ctx.fillStyle = light;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * .43, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+    return radius;
+  }
+
   function drawScene(t = 0) {
     drawBackground();
     drawNebula(t);
@@ -461,13 +693,42 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
     const breathScale = 0.988 + 0.024 * scaleBreath;
 
     projected = [];
+    const now = performance.now();
+    for (const [id, state] of rewindingMains) {
+      if (progressSince(state.start, now) < 1) continue;
+      rewindingMains.delete(id);
+      collapsedMains.delete(id);
+      if (selected?.id === id) selectNode(selected);
+    }
+    for (const [id, returning] of returningStars) {
+      if (progressSince(returning.start, now) >= 1) returningStars.delete(id);
+    }
     for (const n of nodes) {
+      const absorption = absorbedStars.get(n.id);
+      const absorbProgress = absorption
+        ? progressSince(absorption.start, now) : 0;
+      if (absorption && absorbProgress >= 1) continue;
+      const collapseStart = collapsedMains.get(n.id);
+      const rewindState = rewindingMains.get(n.id);
+      const collapseProgress = rewindState != null
+        ? rewindState.fromProgress * (1 - progressSince(rewindState.start, now))
+        : collapseStart == null ? 0 : progressSince(collapseStart, now);
+      const returning = returningStars.get(n.id);
+      const returnProgress = returning ? progressSince(returning.start, now) : 1;
+      const returnVisibility = returning
+        ? returning.fromAlpha + (1 - returning.fromAlpha) * returnProgress : 1;
+      const returnScale = returning
+        ? returning.fromScale + (1 - returning.fromScale) * returnProgress : 1;
+      const { x, y, z } = absorption
+        ? absorbedPosition(n, absorption, now)
+        : returning ? returningPosition(n, returning, now) : n.pos;
       const p = project(
-        n.pos.x * breathScale,
-        n.pos.y * breathScale,
-        n.pos.z * breathScale
+        x * breathScale,
+        y * breathScale,
+        z * breathScale
       );
-      if (p) projected.push({ n, ...p });
+      if (p) projected.push({ n, ...p, absorption, absorbProgress,
+        returning, returnVisibility, returnScale, collapseProgress });
     }
 
     const focus = selected || hovered;
@@ -479,6 +740,7 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
       for (const dep of n.deps) {
         const target = projected.find((q) => q.n.id === dep);
         if (!target) continue;
+        if (collapsedMains.has(n.id) || collapsedMains.has(dep) || item.absorption || target.absorption || item.returning || target.returning) continue;
         const related = isRelated(n, focus) || isRelated(target.n, focus);
         if (related) continue;
         const tw = n.tw
@@ -501,6 +763,7 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
         for (const dep of n.deps) {
           const target = projected.find((q) => q.n.id === dep);
           if (!target) continue;
+          if (collapsedMains.has(n.id) || collapsedMains.has(dep) || item.absorption || target.absorption || item.returning || target.returning) continue;
           if (!isRelated(n, focus) && !isRelated(target.n, focus)) continue;
           ctx.strokeStyle = "rgba(255,210,122,.55)";
           ctx.lineWidth = 1.4;
@@ -518,12 +781,36 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
 
     for (const item of projected) {
       const n = item.n;
+      if (collapsedMains.has(n.id)) {
+        if (item.collapseProgress < .25) {
+          const shrink = 1 - item.collapseProgress / .25;
+          const size = (16 + n.S * .7) * shrink;
+          ctx.globalCompositeOperation = "lighter";
+          ctx.globalAlpha = .55 + .45 * shrink;
+          ctx.drawImage(sprites[n.cluster] || sprites.gold,
+            item.x - size, item.y - size, size * 2, size * 2);
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = "source-over";
+          continue;
+        }
+        const emergence = clamp((item.collapseProgress - .25) / .45, 0, 1);
+        const r = drawVortex(item, n, t, emergence);
+        if (n === selected || n === hovered) {
+          ctx.fillStyle = "rgba(230,186,255,.92)";
+          ctx.font = '11px "PingFang SC","Microsoft YaHei",sans-serif';
+          ctx.textAlign = "center";
+          ctx.fillText(`${n.name} · 已坍缩`, item.x, item.y + r + 14);
+        }
+        continue;
+      }
       const color = CLUSTERS[n.cluster]?.color || [232, 238, 248];
-      const base = (2.2 + n.S * 0.5) * item.scale;
+      const base = (2.2 + n.S * 0.5) * item.scale
+        * (1 - item.absorbProgress * .9) * item.returnScale;
       const r = clamp(base, 1.5, 15);
       const glowR = clamp(r * 5.2, 12, 150);
       const dim = focus && !isRelated(n, focus) ? 0.35 : 1;
-      const alpha = depthAlpha(item.z, 0.95) * dim;
+      const alpha = depthAlpha(item.z, 0.95) * dim
+        * (1 - item.absorbProgress) * item.returnVisibility;
       const local = n.tw
         ? 0.5 + 0.5 * Math.sin(t * n.tw.speed + n.tw.phase)
         : 0.5;
@@ -578,7 +865,8 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
 
       /* 高承重节点常驻名字；悬停/选中时高亮 */
       const showLabel =
-        n === selected || n === hovered || (n.S >= 10 && W > 640);
+        !item.absorption && !item.returning
+        && (n === selected || n === hovered || (n.S >= 10 && W > 640));
       if (showLabel) {
         ctx.font = '11px "PingFang SC","Microsoft YaHei",sans-serif';
         ctx.textAlign = "center";
@@ -623,7 +911,23 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
     if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
     last = now;
-    updateCamera(dt);
+    if (cameraReturn) {
+      const p = clamp((now - cameraReturn.start) / cameraReturn.duration, 0, 1);
+      const k = ease(p);
+      for (const key of ["x", "y", "z", "yaw", "pitch"]) {
+        camera[key] = cameraReturn.from[key]
+          + (cameraReturn.to[key] - cameraReturn.from[key]) * k;
+      }
+      if (p >= 1) {
+        Object.assign(camera, cameraReturn.to);
+        cameraReturn = null;
+        resetButton.disabled = false;
+        resetButton.textContent = "↺ 复位星图";
+        keys.clear();
+      }
+    } else {
+      updateCamera(dt);
+    }
     drawScene(reduceMotion.matches ? 0 : now / 1000);
     raf = requestAnimationFrame(frame);
   }
@@ -636,12 +940,18 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
     cardName.textContent = n.name;
     cardText.textContent = `「${n.text}」`;
     cardMeta.textContent =
-      `承重 ${n.S} · 依赖 ${n.deps.length} 条 · 支撑 ${(dependents.get(n.id) || []).length} 条`;
+      `${mainIds.has(n.id) ? "主星 · " : ""}承重 ${n.S} · 依赖 ${n.deps.length} 条 · 支撑 ${(dependents.get(n.id) || []).length} 条`;
+    if (rewindingMains.has(n.id)) cardMeta.textContent += " · 正在回溯";
+    else if (collapsedMains.has(n.id)) cardMeta.textContent += " · 已坍缩为黑洞";
+    if (collapseButton) collapseButton.hidden = !mainIds.has(n.id) || collapsedMains.has(n.id);
+    if (rewindButton) rewindButton.hidden = !collapsedMains.has(n.id) || rewindingMains.has(n.id);
   }
 
   function clearSelection() {
     selected = null;
     card.hidden = true;
+    if (collapseButton) collapseButton.hidden = true;
+    if (rewindButton) rewindButton.hidden = true;
   }
 
   function pick(clientX, clientY) {
@@ -651,8 +961,11 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
     let best = null;
     let bestD = Infinity;
     for (const item of projected) {
+      if (item.absorption || item.returning) continue;
       const d = Math.hypot(item.x - x, item.y - y);
-      const radius = Math.max(14, clamp((2.2 + item.n.S * 0.5) * item.scale, 1.5, 15) + 9);
+      const radius = collapsedMains.has(item.n.id)
+        ? (item.n === selected ? 35 : 25)
+        : Math.max(14, clamp((2.2 + item.n.S * 0.5) * item.scale, 1.5, 15) + 9);
       if (d < radius && d < bestD) {
         best = item.n;
         bestD = d;
@@ -663,7 +976,7 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
 
   /* ---------- 交互 ---------- */
   function onPointerDown(e) {
-    if (!running || e.button !== 0) return;
+    if (!running || cameraReturn || e.button !== 0) return;
     dragging = true;
     pointerId = e.pointerId;
     downX = e.clientX;
@@ -676,6 +989,7 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
 
   function onPointerMove(e) {
     if (!running) return;
+    if (cameraReturn) return;
     if (dragging && e.pointerId === pointerId) {
       const dx = e.clientX - downX;
       const dy = e.clientY - downY;
@@ -802,7 +1116,21 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
   }
 
   function reset() {
-    Object.assign(camera, getHome());
+    if (cameraReturn) return;
+    const now = performance.now();
+    rewindMains([...collapsedMains.keys()], now);
+    const home = getHome();
+    const yaw = ((home.yaw - camera.yaw + Math.PI) % TAU + TAU) % TAU - Math.PI;
+    cameraReturn = {
+      start: now + (reduceMotion.matches ? 0 : 200),
+      duration: reduceMotion.matches ? 1 : COLLAPSE_MS * 1.35,
+      from: { ...camera },
+      to: { ...home, yaw: camera.yaw + yaw },
+    };
+    resetButton.disabled = true;
+    resetButton.textContent = "↶ 时间回溯中";
+    keys.clear();
+    hovered = null;
     clearSelection();
   }
 
@@ -817,11 +1145,27 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
   window.addEventListener("resize", onResize);
   window.addEventListener("blur", onBlur);
   cardClose.addEventListener("click", clearSelection);
+  collapseButton?.addEventListener("click", collapseMain);
+  rewindButton?.addEventListener("click", rewindMain);
+  resetButton?.addEventListener("click", reset);
 
   if (new URLSearchParams(location.search).has("debug")) {
     window.__galaxy = {
       nodes,
+      mainIds,
+      connectedMains,
+      collapsedMains,
+      absorbedStars,
+      rewindingMains,
+      returningStars,
+      collapseMain,
+      rewindMain,
+      reset,
+      selectNode,
       camera,
+      get cameraReturn() {
+        return cameraReturn;
+      },
       project,
       get projected() {
         return projected;

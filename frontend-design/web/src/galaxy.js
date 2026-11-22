@@ -227,7 +227,7 @@ function makeStars(count) {
       s: rng() < 0.07 ? 1.8 : rng() < 0.4 ? 1.15 : 0.8,
       gold: rng() < 0.12,
       phase: rng() * TAU,
-      speed: 0.18 + rng() * 0.62,
+      speed: 0.54 + rng() * 1.86,
       sparkle: rng() < 0.03,
     });
   }
@@ -249,7 +249,7 @@ function makeDust(count) {
       s: 0.6 + rng() * 0.9,
       gold: rng() < 0.2,
       phase: rng() * TAU,
-      speed: 0.12 + rng() * 0.34,
+      speed: 0.36 + rng() * 1.02,
     });
   }
   return out;
@@ -261,7 +261,7 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
   const { nodes, clusterCenters, dependents } = layout();
   for (const n of nodes) {
     const rng = mulberry32(hashString(n.id) ^ 0x9e3779b9);
-    n.tw = { phase: rng() * TAU, speed: 0.28 + rng() * 0.52 };
+    n.tw = { phase: rng() * TAU, speed: 0.84 + rng() * 1.56 };
   }
   const stars = makeStars(1300);
   const dust = makeDust(340);
@@ -353,16 +353,16 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
 
   function drawNebula(t = 0) {
     ctx.globalCompositeOperation = "lighter";
-    const breath = 0.5 + 0.5 * Math.sin(t * 0.4);
-    const scaleB = 0.988 + 0.024 * breath;
+    const breath = 0.5 + 0.5 * Math.sin(t * 1.2);
+    const scaleB = 0.976 + 0.048 * breath;
 
     for (const [cid, c] of Object.entries(clusterCenters)) {
       const p = project(c.x * scaleB, c.y * scaleB, c.z * scaleB);
       if (!p) continue;
       const color = CLUSTERS[cid]?.color || [255, 210, 122];
-      const local = 0.5 + 0.5 * Math.sin(t * 0.2 + Number(cid) * 1.7);
-      const k = 0.78 + 0.22 * (0.6 * local + 0.4 * breath);
-      const r = clamp(300 * p.scale, 60, H * 0.9) * (0.97 + 0.03 * breath);
+      const local = 0.5 + 0.5 * Math.sin(t * 0.6 + Number(cid) * 1.7);
+      const k = 0.56 + 0.44 * (0.6 * local + 0.4 * breath);
+      const r = clamp(300 * p.scale, 60, H * 0.9) * (0.94 + 0.06 * breath);
       const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
       grad.addColorStop(
         0,
@@ -381,8 +381,8 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
 
     const core = project(0, 0, 0);
     if (core) {
-      const coreK = 0.72 + 0.28 * breath;
-      const r = clamp(340 * core.scale, 60, H) * (0.96 + 0.04 * breath);
+      const coreK = 0.44 + 0.56 * breath;
+      const r = clamp(340 * core.scale, 60, H) * (0.92 + 0.08 * breath);
       const grad = ctx.createRadialGradient(core.x, core.y, 0, core.x, core.y, r);
       grad.addColorStop(
         0,
@@ -405,14 +405,14 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
     ctx.globalCompositeOperation = "lighter";
 
     /* 星尘盘缓慢自转，像银河在呼吸 */
-    const rot = t * 0.012;
+    const rot = t * 0.036;
     const rc = Math.cos(rot);
     const rs = Math.sin(rot);
 
     for (const d of dust) {
       const p = project(d.x * rc - d.z * rs, d.y, d.x * rs + d.z * rc);
       if (!p) continue;
-      const tw = 0.78 + 0.22 * Math.sin(t * d.speed + d.phase);
+      const tw = 0.56 + 0.44 * Math.sin(t * d.speed + d.phase);
       ctx.globalAlpha = d.a * tw * clamp(p.scale * 1.2, 0.25, 1);
       ctx.fillStyle = d.gold
         ? "rgba(255,210,122,1)"
@@ -424,7 +424,7 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
       const p = project(star.x, star.y, star.z);
       if (!p) continue;
       const s = Math.sin(t * star.speed + star.phase);
-      const tw = 0.7 + 0.3 * s;
+      const tw = 0.4 + 0.6 * s;
       ctx.globalAlpha = star.a * tw * clamp(p.scale * 1.4, 0.25, 1);
       ctx.fillStyle = star.gold
         ? "rgba(255,210,122,1)"
@@ -433,7 +433,7 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
 
       /* 少量星星偶尔闪一下四角星芒 */
       if (star.sparkle && s > 0.76) {
-        const a = ((s - 0.76) / 0.24) * 0.42;
+        const a = ((s - 0.76) / 0.24) * 0.55;
         const len = 3 + star.s * 3;
         ctx.globalAlpha = 1;
         ctx.strokeStyle = `rgba(255,240,214,${a.toFixed(3)})`;
@@ -455,8 +455,8 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
     drawNebula(t);
     drawStars(t);
 
-    const breath = 0.5 + 0.5 * Math.sin(t * 0.4);
-    const breathScale = 0.988 + 0.024 * breath;
+    const breath = 0.5 + 0.5 * Math.sin(t * 1.2);
+    const breathScale = 0.976 + 0.048 * breath;
 
     projected = [];
     for (const n of nodes) {
@@ -480,7 +480,7 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
         const related = isRelated(n, focus) || isRelated(target.n, focus);
         if (related) continue;
         const tw = n.tw
-          ? 0.82 + 0.18 * Math.sin(t * n.tw.speed + n.tw.phase)
+          ? 0.64 + 0.36 * Math.sin(t * n.tw.speed + n.tw.phase)
           : 1;
         const alpha = depthAlpha(Math.min(item.z, target.z), 0.16) * tw;
         ctx.strokeStyle = `rgba(168,188,220,${alpha.toFixed(3)})`;
@@ -529,10 +529,10 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
       const pulse = steady
         ? 1
         : n.S >= 10
-          ? 0.72 + 0.28 * local
-          : 0.84 + 0.16 * local;
-      const glowA = alpha * pulse * (0.94 + 0.06 * breath);
-      const glowSize = glowR * (0.96 + 0.04 * local);
+          ? 0.44 + 0.56 * local
+          : 0.68 + 0.32 * local;
+      const glowA = alpha * pulse * (0.88 + 0.12 * breath);
+      const glowSize = glowR * (0.92 + 0.08 * local);
 
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = glowA;
@@ -560,7 +560,7 @@ export function createGalaxy({ canvas, card, cardCluster, cardName, cardText, ca
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       ctx.fillStyle = `rgba(255,255,255,${(
-        0.9 * alpha * (steady ? 1 : 0.95 + 0.05 * local)
+        0.9 * alpha * (steady ? 1 : 0.9 + 0.1 * local)
       ).toFixed(3)})`;
       ctx.beginPath();
       ctx.arc(item.x, item.y, Math.max(0.7, r * 0.44), 0, TAU);

@@ -2,13 +2,14 @@
 
 本目录是「报价 / QUOTATION」的正式前端。
 
-当前 `web/index.html` 包含三个视图：
+当前 `web/index.html` 包含四个视图：
 
 - **封面（第 0 屏）**：白天 Neumorphism，夜晚 Liquid Glass，右上角切换主题；提供「使用演示账号」与「绑定知乎 · 即将开放」两个入口。
 - **信息页（第 1 屏）**：进入演示账号后，星球缩小并居中，显示「YOUR MIND GALAXY」、账号与判断数量。
 - **Mind Galaxy（第 2 屏）**：点击信息页的星球，圆形光晕展开为 30 条判断的三维星图。拖动转视角，WASD／方向键移动，Shift 加速；点击节点查看原话、承重与依赖关系。
+- **承重分析（信息页下滑）**：承重损失率、受影响判断、改写对比；可切换「换语气」与「缩小范围」。
 
-成本账单与改写对比在原 `src/demo.js` 中保留，后续接到新流程。
+原四屏演示 `src/demo.js` 仍保留作参考；新的封面、信息页、星图与承重分析分别在 `cover.js` / `galaxy.js` / `analysis.js`。
 
 ## 目录
 
@@ -19,6 +20,7 @@ frontend-design/
 │  └─ src/
 │     ├─ cover.js                # 封面/信息页交互、主题切换、玻璃折射
 │     ├─ galaxy.js               # 三维星图：布局、投影、漫游、节点卡
+│     ├─ analysis.js             # 承重账单、受影响判断与改写对比
 │     ├─ theme.css               # 白天 / 夜晚两套 token
 │     ├─ cover.css               # 封面布局与材质
 │     ├─ demo.js                 # 原四屏逻辑（待接入）
@@ -47,6 +49,7 @@ python -m http.server 5173 --bind 127.0.0.1 --directory frontend-design/web
 - 封面 → 信息页使用 View Transition：星球作为共享元素缩小，其余内容淡入淡出。
 - 信息页左上角箭头回到封面；星图左下角返回。Esc 先关闭节点卡，再退出星图，再回到封面。
 - Mind Galaxy 使用自研 canvas 透视投影，星图始终为深空配色；拖动／WASD 漫游，点击节点打开信息卡。
+- 信息页下滑进入承重分析；账单与改写卡片白天为 Neumorphism，夜晚为 Liquid Glass，滚动时淡入。
 - 右上角 `?` 打开说明面板，点外部或按 Esc 关闭。
 
 ## 验收脚本
@@ -60,7 +63,7 @@ node web/src/verify/verify-p2.mjs
 ## 已知限制
 
 - 登录入口目前是占位：演示账号进入信息页，绑定知乎待后端接入。
-- 成本账单与改写对比尚未接到新流程；原实现保留在 `src/demo.js`。
+- 改写版本 `scope` 当前为 0%，展示的是“不撞承重墙”的极端情况。
 - 页面数据仍是 `quotation-case.js` 的合成示例，尚未接入数据采集或搜索模块。
 - 鼠标视角目前是按住拖动，未启用 Pointer Lock；手机端为拖动转视角、点击节点。
 

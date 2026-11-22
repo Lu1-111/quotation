@@ -72,7 +72,12 @@
 
 * { box-sizing: border-box; }
 
-html { background: var(--bg); }
+html {
+  background: var(--bg);
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar { display: none; }
 
 html, body { min-height: 100%; }
 

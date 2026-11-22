@@ -3,7 +3,7 @@
    - 主题写入 localStorage；也支持 ?theme=dark 便于截图与分享
    - 登录入口目前是占位，后续接入后端 */
 
-import { createGalaxy } from "./galaxy.js?v=5";
+import { createGalaxy } from "./galaxy.js?v=7";
 
 const root = document.documentElement;
 const body = document.body;
@@ -43,6 +43,7 @@ function ensureGalaxy() {
 const pageChrome = [
   document.querySelector(".topbar"),
   document.querySelector(".cover"),
+  document.querySelector(".analysis"),
   document.querySelector(".foot"),
 ].filter(Boolean);
 
@@ -67,6 +68,17 @@ function applyTheme(theme, persist = true) {
 }
 
 syncChrome();
+
+/* 下滑后淡出信息页的“承重账单”提示 */
+let wasScrolled = false;
+function syncScrollCue() {
+  const scrolled = window.scrollY > 40;
+  if (scrolled === wasScrolled) return;
+  wasScrolled = scrolled;
+  body.classList.toggle("is-scrolled", scrolled);
+}
+addEventListener("scroll", syncScrollCue, { passive: true });
+syncScrollCue();
 
 let switching = false;
 let viewSwitching = false;
@@ -148,6 +160,11 @@ function applyView(view) {
     "aria-label",
     view === "info" ? "进入 Mind Galaxy" : "你的世界观星球"
   );
+  try {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  } catch (err) {
+    window.scrollTo(0, 0);
+  }
 }
 
 function transitionView(view) {

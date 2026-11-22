@@ -15,8 +15,8 @@
       p === "dark" || (!p && saved === "dark") ? "dark" : "light";
   } catch (e) {}
 </script>
-<link rel="stylesheet" href="./src/theme.css?v=5">
-<link rel="stylesheet" href="./src/cover.css?v=5">
+<link rel="stylesheet" href="./src/theme.css?v=7">
+<link rel="stylesheet" href="./src/cover.css?v=7">
 </head>
 <body class="page-cover" data-view="cover">
 
@@ -93,7 +93,84 @@
     <p class="hint">点击星球进入</p>
   </section>
 
+  <a class="scroll-cue" href="#analysis" aria-label="查看承重账单">
+    <span class="scroll-cue-label">承重账单</span>
+    <span class="scroll-cue-line" aria-hidden="true"></span>
+  </a>
+
 </main>
+
+<section class="analysis" id="analysis" aria-label="承重分析">
+  <section class="analysis-block" id="cost">
+    <div class="analysis-head reveal">
+      <p class="analysis-eyebrow">02 / COST</p>
+      <h2>这句话，对他来说要拆掉多少？</h2>
+    </div>
+
+    <div class="cost-grid reveal">
+      <div class="analysis-card cost-main">
+        <p class="card-label">承重损失率</p>
+        <p class="cost-rate"><span id="costRate">54</span><small>%</small></p>
+        <table class="cost-table">
+          <tbody>
+            <tr><td>要拆掉的判断</td><td id="costDirect">2</td></tr>
+            <tr><td>其中承重墙</td><td id="costWalls">2</td></tr>
+            <tr><td>损失承重 / 总承重</td><td id="costLost">77 / 142</td></tr>
+            <tr><td>连带塌陷</td><td id="costCollapsed">10</td></tr>
+            <tr><td>若按个数算</td><td id="costCount">12 / 30（40%）</td></tr>
+          </tbody>
+        </table>
+        <p class="cost-note">承重损失率按每条判断撑着多少条加权；按个数算只数条数。</p>
+      </div>
+
+      <div class="analysis-card cost-side">
+        <p class="card-label">冲突证据 · 来自星图</p>
+        <blockquote class="cost-quote" id="costQuote">「—」</blockquote>
+        <p class="cost-why" id="costWhy"></p>
+        <p class="cost-verdict">「只会」排除了他经历过的例外。</p>
+      </div>
+    </div>
+
+    <div class="analysis-card impact-card reveal">
+      <p class="card-label">受影响的 <span id="impactCount">12</span> 条判断</p>
+      <ul class="impact-list" id="impactList"></ul>
+    </div>
+
+    <p class="analysis-pull reveal">他不是不讲道理。你是在让他拆房子，还问他为什么不肯。</p>
+  </section>
+
+  <section class="analysis-block" id="rewrite">
+    <div class="analysis-head reveal">
+      <p class="analysis-eyebrow">03 / REWRITE</p>
+      <h2>同一个意思，换一种说法。</h2>
+    </div>
+
+    <div class="rewrite-grid reveal">
+      <div class="analysis-card rewrite-side">
+        <p class="card-label">原话</p>
+        <p class="rewrite-rate danger"><span id="oldRateValue">54</span><small>%</small></p>
+        <p class="rewrite-text" id="oldText"></p>
+        <button class="analysis-btn" id="copyOld" type="button">复制原话</button>
+      </div>
+
+      <div class="analysis-card rewrite-side">
+        <div class="rewrite-tabs" role="tablist" aria-label="改写方式">
+          <button class="rewrite-tab" type="button" data-mode="faithful" role="tab" aria-selected="false">换语气</button>
+          <button class="rewrite-tab is-on" type="button" data-mode="scope" role="tab" aria-selected="true">缩小范围</button>
+        </div>
+        <p class="rewrite-rate" id="newRate"><span id="newRateValue">0</span><small>%</small></p>
+        <p class="rewrite-text" id="newText"></p>
+        <p class="rewrite-note" id="newNote"></p>
+        <div class="rewrite-actions">
+          <button class="analysis-btn primary" id="copyNew" type="button">采用改写并复制</button>
+          <span class="copy-feedback" id="copyFeedback" role="status"></span>
+        </div>
+      </div>
+    </div>
+
+    <p class="analysis-caption reveal" id="rewriteCaption">换语气不降价；缩小主张范围，才从 54% 降到 0%。</p>
+  </section>
+</section>
 
 <footer class="foot">
   <span class="mono">v0.2 / cover</span>
@@ -126,6 +203,7 @@
   <button class="galaxy-back" id="galaxyBack" type="button">← 返回</button>
 </section>
 
-<script type="module" src="./src/cover.js?v=5"></script>
+<script type="module" src="./src/analysis.js?v=7"></script>
+<script type="module" src="./src/cover.js?v=7"></script>
 </body>
 </html>

@@ -1,0 +1,22 @@
+# API 服务的容器编排示例。
+# 采集器不在此编排内：它必须运行在用户桌面设备上（见 DEPLOYMENT.md）。
+services:
+  api:
+    build: .
+    image: quotation-data-collection-service:local
+    # 默认只绑定宿主回环；需要局域网或反代访问时改为 "3005:3005"
+    # 并同步调整 PUBLIC_ORIGIN，否则 Host 校验会返回 403 HOST_DENIED。
+    ports:
+      - "127.0.0.1:3005:3005"
+    environment:
+      # 必须与外部实际访问来源一致（含协议与端口）。
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://127.0.0.1:3005}
+      # 前端来源白名单，逗号分隔的精确 origin，不支持 *。
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+    volumes:
+      # 服务数据库持久化到命名卷，不写入镜像，也不读取本机目录。
+      - service-data:/data
+    restart: unless-stopped
+
+volumes:
+  service-data:

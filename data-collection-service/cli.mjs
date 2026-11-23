@@ -12,6 +12,7 @@ import { inspectEnvironment } from './local/lib/browser-runtime.mjs';
 
 const help = `知乎通用采集模块（Node.js 24+）
 node cli.mjs <命令> [选项]
+  desktop         启动用户图形界面、API 和本机采集器；默认打开页面
   serve           启动 API 服务；默认 127.0.0.1:3005
   provision       创建应用用户与设备，必须 --name <名称> --output <私有凭证文件>
   device-add      为已有用户增加设备，必须 --user-id <UUID> --output <私有凭证文件>
@@ -34,12 +35,19 @@ provision 的输出文件含用户、设备凭证，仅供本地开发；跨设�
 
 export async function main(args, { signal } = {}) {
   const { values: options, positionals } = parseArgs({ args, allowPositionals: true, allowNegative: true, options: {
-    ...Object.fromEntries(['name', 'device', 'user-id', 'device-id', 'output', 'credentials', 'data-dir', 'worker-data-dir', 'profile', 'browser'].map((key) => [key, { type: 'string' }])),
-    ...Object.fromEntries(['launch-check', 'demo', 'consent', 'once', 'history', 'likes', 'collections', 'knowledge-filter', 'help'].map((key) => [key, { type: 'boolean' }])),
+    ...Object.fromEntries(['port', 'name', 'device', 'user-id', 'device-id', 'output', 'credentials', 'data-dir', 'worker-data-dir', 'profile', 'browser'].map((key) => [key, { type: 'string' }])),
+    ...Object.fromEntries(['open', 'launch-check', 'demo', 'consent', 'once', 'history', 'likes', 'collections', 'knowledge-filter', 'help'].map((key) => [key, { type: 'boolean' }])),
   } });
   const command = positionals[0] || 'help';
   if (options.help || command === 'help') { process.stdout.write(help); return; }
   if (positionals.length !== 1) throw new Error('只允许一个命令。');
+  if (command === 'desktop') {
+    const { startDesktop, openDesktopPage } = await import('./desktop.mjs');
+    const app = await startDesktop({ demo: Boolean(options.demo), dataDir: options['data-dir'], profile: options.profile || 'default', browser: options.browser,
+      port: Number(options.port || process.env.PORT || 3005), signal, log: (message) => process.stderr.write(message + '\n') });
+    if (options.open !== false) openDesktopPage(app.baseUrl);
+    await app.done; return;
+  }
   if (command === 'worker-doctor') {
     const result = await inspectEnvironment({ preference: options.browser || process.env.WORKER_BROWSER || 'auto', launchCheck: Boolean(options['launch-check']) });
     process.stdout.write(JSON.stringify(result) + '\n'); if (!result.readyForLogin) process.exitCode = 3; return;

@@ -11,7 +11,8 @@
     "likes": true,
     "collections": true,
     "knowledgeFilter": true,
-    "aiReview": false
+    "aiReview": false,
+    "fetchFullText": true
   },
   "records": [
     {
@@ -32,7 +33,7 @@
           "name": "人工智能"
         }
       ],
-      "bodyStatus": "unavailable",
+      "bodyStatus": "available",
       "metadataStatus": "available",
       "analysis": {
         "policyVersion": "knowledge-v1",
@@ -78,7 +79,9 @@
         "themeBonus": 0.5,
         "ageDays": 1.0000005902777778,
         "timeFactor": 1
-      }
+      },
+      "bodyText": "示例正文：解释了推理框架与硬件选择的权衡，并给出可复现的测试步骤。",
+      "bodySource": "zhihu_api_content"
     },
     {
       "key": "article:102",

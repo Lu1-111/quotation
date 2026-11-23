@@ -20,6 +20,7 @@
       "likes": true,
       "collections": true,
       "knowledgeFilter": true,
+      "fetchFullText": true,
       "aiReview": false
     },
     "revision": "651a59597f5e515a0174ded841e63d414267b417262777b02cc8f264cd94bc20",
@@ -82,7 +83,7 @@
         "ageDays": 1.0000005902777778,
         "timeFactor": 1
       },
-      "bodyStatus": "unavailable",
+      "bodyStatus": "available",
       "summaryTruncated": false,
       "ruleDecision": "review",
       "contentTrust": "external_untrusted"

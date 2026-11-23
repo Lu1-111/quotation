@@ -2,10 +2,16 @@
   "name": "quotation-data-collection-service",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "start": "node --env-file-if-exists=.env cli.mjs serve",
-    "demo": "node cli.mjs serve --demo",
+    "start": "node --env-file-if-exists=.env cli.mjs desktop",
+    "desktop": "node --env-file-if-exists=.env cli.mjs desktop",
+    "shell": "electron shell.cjs",
+    "shell:demo": "electron shell.cjs --demo",
+    "server": "node --env-file-if-exists=.env cli.mjs serve",
+    "demo": "node cli.mjs desktop --demo",
     "cli": "node --env-file-if-exists=.env cli.mjs",
     "worker:doctor": "node --env-file-if-exists=.env cli.mjs worker-doctor",
     "browser:install": "playwright-core install chromium",
@@ -17,5 +23,8 @@
     "playwright-core": "1.65.1",
     "zod": "4.6.7"
   },
-  "devDependencies": { "@modelcontextprotocol/client": "2.4.0" }
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "electron": "^45.4.1"
+  }
 }

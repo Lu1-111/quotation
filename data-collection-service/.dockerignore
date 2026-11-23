@@ -1,0 +1,28 @@
+# 防止本机数据与凭证进入镜像层。
+.data/
+node_modules/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.log
+credentials*.json
+history-profiles/
+
+# 桌面与界面资源不属于 API 服务镜像
+public/
+shell.cjs
+desktop.mjs
+local/
+test/
+examples/
+scripts/
+
+# 文档与版本控制
+*.md
+.git/
+.gitignore
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -1,6 +1,6 @@
 import { DATA_KINDS, policyAllows, reviewRecord } from './content-policy.mjs';
 
-export const DEFAULT_SETTINGS = Object.freeze({ history: true, likes: false, collections: false, knowledgeFilter: true, aiReview: false });
+export const DEFAULT_SETTINGS = Object.freeze({ history: true, likes: false, collections: false, knowledgeFilter: true, fetchFullText: false, aiReview: false });
 export const BASE_WEIGHTS = Object.freeze({ pin: 1, article: 2, answer: 3 });
 export const ANSWER_MIN_VOTES = 5;
 export const ANSWER_MIN_COMMENTS = 2;
@@ -8,7 +8,7 @@ export const HISTORY_LIMIT = 50;
 
 export function validateSettings(value) {
   if (!value || DATA_KINDS.some((kind) => typeof value[kind] !== 'boolean')
-    || ['knowledgeFilter', 'aiReview'].some((key) => value[key] !== undefined && typeof value[key] !== 'boolean')) {
+    || ['knowledgeFilter', 'fetchFullText', 'aiReview'].some((key) => value[key] !== undefined && typeof value[key] !== 'boolean')) {
     throw new Error('请为浏览记录、点赞和收藏分别指定勾选状态。');
   }
   return { ...DEFAULT_SETTINGS, ...Object.fromEntries(Object.keys(DEFAULT_SETTINGS).filter((key) => value[key] !== undefined).map((key) => [key, value[key]])) };

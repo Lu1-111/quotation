@@ -4,17 +4,20 @@
 
 本文件的 tools/MCP 固定走 `Agent → tools/MCP → API → 本机 worker → 专用浏览器 → API → Agent`，不执行根目录的独立 CLI。若仅做本地单用户开发，独立 CLI 提供 SDK／子进程入口，需宿主自己注册工具；两者默认档案和登录状态独立。正式项目、多设备、网页对接优先用本模块链路。
 
-## 三个工具
+## 四个只读工具
 
 | 工具 | 参数 | 成功 data |
 | --- | --- | --- |
-| `zhihu_collection_status` | `{}` | 用户隔离范围内的设置、设备、任务与最近快照信息 |
-| `zhihu_collection_sync` | `settings?`、`deviceId?`、`timeoutSeconds?`、`limit?`、`summaryMaxChars?` | 同步完成后的有界第一页 |
-| `zhihu_collection_read` | `snapshotId?`、`offset?`、`limit?`、`summaryMaxChars?` | 已保存快照的分页 |
+| `zhihu_collection_status` | `{}` | 用户隔离范围内的交付状态与最近快照信息 |
+| `zhihu_collection_format` | `{}` | 模块自带的输出格式声明，含画像协议字段含义与注意事项 |
+| `zhihu_knowledge_profile` | `snapshotId?`、`offset?`、`limit?`、`summaryMaxChars?` | 画像协议分页，只含画像所需字段（推荐） |
+| `zhihu_collection_read` | `snapshotId?`、`offset?`、`limit?`、`summaryMaxChars?` | 完整字段分页，含排序明细 |
 
-同步默认等候 300 秒，范围 1～900 秒；每页默认 10 条，最大 20 条；摘要默认 600 码点，范围 0～1000。参数禁止未知字段，工具不接受 Cookie、密钥、任意目标 URL、文件路径或别人的 userId。完整定义见 [schemas/tools.json](schemas/tools.json)。
+做知识画像优先用 `zhihu_knowledge_profile`；需要权重拆解细节时才用 `zhihu_collection_read`。不清楚字段含义时先调 `zhihu_collection_format`，不要凭猜测解释字段。
 
-`sync` 会持续为调用方续期，结束后停止续期；请求取消、工具关闭或执行超时会尝试取消服务任务。调用进程直接退出时依靠服务端 90 秒租约。不要用无限重试掩盖登录或同意失效。采集器不在线时任务会等待，到时限后取消，不会给空数组冒充成功。
+每页默认 10 条、最大 20 条；摘要默认 600 码点，范围 0～1000。参数禁止未知字段，工具不接受 Cookie、密钥、任意目标 URL、文件路径或别人的 userId。完整定义见 [schemas/tools.json](schemas/tools.json)。
+
+四个工具全部为只读，均标注 `readOnlyHint: true`。登录、同意、设置和同步只能由用户在图形界面操作；Agent 调用同步会得到 `READ_ONLY` 回绝。数据过旧时应提示用户在界面点击同步，不要重试或绕行。
 
 ## 直接在 Node.js Agent 宿主注册
 

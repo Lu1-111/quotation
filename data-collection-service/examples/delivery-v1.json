@@ -20,6 +20,7 @@
       "likes": true,
       "collections": true,
       "knowledgeFilter": true,
+      "fetchFullText": true,
       "aiReview": false
     },
     "records": [
@@ -43,7 +44,9 @@
         "voteCount": 24,
         "commentCount": 5,
         "metricsMissing": false,
-        "bodyStatus": "unavailable",
+        "bodyText": "示例正文：解释了推理框架与硬件选择的权衡，并给出可复现的测试步骤。",
+        "bodyStatus": "available",
+        "bodySource": "zhihu_api_content",
         "metadataStatus": "available",
         "kinds": [
           "history",

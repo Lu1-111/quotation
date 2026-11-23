@@ -17,7 +17,7 @@ import { createApiServer } from '../server.mjs';
 import { createApiClient, startPageSync } from '../client.mjs';
 import { createWorker } from '../worker.mjs';
 import { createAgentTools } from '../agent-tools.mjs';
-import { collectionPageSchema, defaultSettings, deliverySchema } from '../contracts.mjs';
+import { KNOWLEDGE_PROFILE_PROTOCOL, collectionPageSchema, defaultSettings, deliverySchema, knowledgeProfileSchema } from '../contracts.mjs';
 
 const fixture = () => JSON.parse(readFileSync(new URL('../examples/snapshot-v3.json', import.meta.url), 'utf8'));
 const allSettings = fixture().settings;
@@ -120,19 +120,27 @@ test('SDK 取消任务，服务端保留上次快照', async (t) => {
   assert.equal(store.job(user.userId, active.id).state, 'cancelled'); assert.equal(store.snapshot(user.userId).snapshotId, previous.snapshotId);
 });
 
-test('完整演示链路：本机同意、后台采集、上传、Agent 分页；服务端不能扩大同意范围', async (t) => {
-  const { client, deviceClient, directory, store, user } = await api(t);
+test('完整演示链路：用户同步、后台采集、上传、Agent 只读分页；服务端不能扩大同意范围', async (t) => {
+  const { client, deviceClient, directory, store, user, baseUrl, fetchImpl } = await api(t);
   const worker = createWorker({ client: deviceClient, demo: true, dataDir: join(directory, 'worker') });
   await assert.rejects(worker.login(), { code: 'CONSENT_REQUIRED' });
   await worker.login({ consent: true, settings: defaultSettings });
   const forbidden = await client.createJob({ settings: allSettings });
   assert.equal((await worker.runOnce()).code, 'CONSENT_SCOPE_MISMATCH');
   assert.equal((await client.job(forbidden.id)).state, 'failed');
+  // 正文采集读取范围更大，服务端同样不能越过本机同意单方面开启。
+  const bodyJob = await client.createJob({ settings: { ...defaultSettings, fetchFullText: true } });
+  assert.equal((await worker.runOnce()).code, 'CONSENT_SCOPE_MISMATCH');
+  assert.equal((await client.job(bodyJob.id)).state, 'failed');
   await worker.login({ consent: true, settings: allSettings });
-  const tools = createAgentTools({ client }); const syncing = tools.call('zhihu_collection_sync', { limit: 1, timeoutSeconds: 15 });
+  const reader = store.createReader(user.userId);
+  const tools = createAgentTools({ client: createApiClient({ baseUrl, token: reader.agentToken, fetchImpl }) });
+  assert.equal((await tools.call('zhihu_collection_sync', {})).error.code, 'READ_ONLY');
+  const syncing = client.sync({ settings: allSettings, timeoutMs: 15_000, pollMs: 10 });
   for (let i = 0; i < 100; i++) { if (store.status(user.userId).activeJob) break; await new Promise((ok) => setTimeout(ok, 10)); }
   const worked = await worker.runOnce(); assert.equal(worked.state, 'succeeded');
-  const result = await syncing; assert.equal(result.ok, true, JSON.stringify(result.error)); assert.equal(result.data.items.length, 1);
+  const delivered = await syncing;
+  const result = await tools.call('zhihu_collection_read', { snapshotId: delivered.snapshotId, limit: 1 }); assert.equal(result.ok, true, JSON.stringify(result.error)); assert.equal(result.data.items.length, 1);
   assert.equal(collectionPageSchema.safeParse(result.data).success, true);
   assert.equal(deliverySchema.safeParse(await client.read(result.data.snapshotId)).success, true);
   const next = await tools.call('zhihu_collection_read', { snapshotId: result.data.snapshotId, offset: result.data.page.nextOffset, limit: 20 });
@@ -180,15 +188,34 @@ test('调用方失联会停止正在执行的本机任务，旧结果仍可读�
   assert.equal(store.job(user.userId, job.id).state, 'cancelled'); assert.equal(store.snapshot(user.userId).snapshotId, previous.snapshotId);
 });
 
-test('真实 MCP 标准输入输出连接可发现三个工具并读取有界快照', { timeout: 15_000 }, async (t) => {
-  const { baseUrl, store, user, device, credentials } = await api(t); complete(store, user, device);
+test('真实 MCP 标准输入输出连接只暴露只读工具，并交付画像协议与自描述格式', { timeout: 15_000 }, async (t) => {
+  const { baseUrl, store, user, device } = await api(t); complete(store, user, device);
+  const reader = store.createReader(user.userId);
   const transport = new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL('../mcp-server.mjs', import.meta.url))],
-    env: { ...process.env, DATA_SERVICE_URL: baseUrl, DATA_SERVICE_USER_TOKEN: credentials.userToken }, stderr: 'pipe' });
+    env: { ...process.env, DATA_SERVICE_URL: baseUrl, DATA_SERVICE_AGENT_TOKEN: reader.agentToken }, stderr: 'pipe' });
   const mcp = new Client({ name: 'collection-test', version: '1.0.0' }); t.after(() => mcp.close());
-  await mcp.connect(transport); const catalog = await mcp.listTools(); assert.equal(catalog.tools.length, 3);
+  await mcp.connect(transport); const catalog = await mcp.listTools(); assert.equal(catalog.tools.length, 4); assert.ok(catalog.tools.every((tool) => tool.annotations.readOnlyHint));
+  assert.deepEqual(catalog.tools.map((tool) => tool.name).sort(), ['zhihu_collection_format', 'zhihu_collection_read', 'zhihu_collection_status', 'zhihu_knowledge_profile']);
   const status = await mcp.callTool({ name: 'zhihu_collection_status', arguments: {} }); assert.equal(status.structuredContent.data.demo, true);
   const records = await mcp.callTool({ name: 'zhihu_collection_read', arguments: { limit: 1 } });
   assert.equal(records.isError, false); assert.equal(records.structuredContent.data.items.length, 1); assert.deepEqual(JSON.parse(records.content[0].text), records.structuredContent);
+  // Agent 可自行读取输出格式声明，无需外带文档。
+  const format = await mcp.callTool({ name: 'zhihu_collection_format', arguments: {} });
+  assert.equal(format.isError, false);
+  assert.ok(format.structuredContent.data.protocols.some((item) => item.protocolVersion === KNOWLEDGE_PROFILE_PROTOCOL));
+  // 画像协议只交付画像所需字段：保留溯源链接与作者，剔除排序明细和内部指纹。
+  const profile = await mcp.callTool({ name: 'zhihu_knowledge_profile', arguments: { limit: 1 } });
+  assert.equal(profile.isError, false);
+  const payload = profile.structuredContent.data;
+  assert.equal(payload.protocolVersion, KNOWLEDGE_PROFILE_PROTOCOL);
+  assert.equal(payload.kind, 'knowledge_profile_page');
+  assert.equal(payload.coverage.modelAnalysisApplied, false);
+  assert.equal(payload.coverage.fullTextGuaranteed, false);
+  const entry = payload.records[0];
+  assert.ok(entry.url && entry.author !== undefined);
+  assert.equal(entry.contentTrust, 'external_untrusted');
+  for (const dropped of ['key', 'kind', 'sourceReadTime', 'observedAt', 'metadataStatus', 'weightDetails', 'analysis']) assert.ok(!Object.hasOwn(entry, dropped), `画像记录不应包含 ${dropped}`);
+  assert.doesNotThrow(() => knowledgeProfileSchema.parse(payload));
   const invalid = await mcp.callTool({ name: 'zhihu_collection_read', arguments: { userId: randomUUID() } });
   assert.equal(invalid.isError, true); assert.equal(invalid.structuredContent.error.code, 'INVALID_ARGUMENTS');
 });

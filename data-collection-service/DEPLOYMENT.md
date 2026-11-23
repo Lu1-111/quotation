@@ -6,6 +6,26 @@
 
 本模块没有用户注册网页或新的可视化页面，使用既有前端即可。这里生成的应用凭证解决模块之间的访问权限，不等同于知乎 OAuth 或宿主网站的账号登录。宿主后端负责先验证自己的用户身份，再选择该用户的独立凭证、转发请求或交付受控会话；不应把一次 provision 的令牌共享给所有用户。
 
+## 桌面端外壳
+
+`shell.cjs` 把采集器作为组件随桌面应用启动：壳调用 `startDesktop()` 拉起回环服务与本机采集器，再在应用窗口内加载 `baseUrl`。界面、`client.mjs` 与 `/v1/ui/*` 的校验全部复用，不新增数据协议。
+
+```sh
+npm install --save-dev electron
+npm run shell          # 真实模式
+npm run shell:demo     # 合成演示
+```
+
+可用 `--profile=<英文档案名>`、`--port=<端口>` 指定档案与固定端口；`--port` 省略时取空闲端口。Electron 二进制从 GitHub Releases 下载，网络受限时该步骤会失败，此时仍可用 `npm run desktop` 在系统浏览器中使用同一界面。
+
+壳遵守三条既有约束：
+
+- **单实例**：`requestSingleInstanceLock()` 防止同档案重复启动。实测同档案同端口二次启动会得到 `EADDRINUSE`，锁不是可选项。
+- **关闭即停**：窗口关闭时 `before-quit` 等待 `service.close()` 完成再退出，进行中的任务被置为 `cancelled`。
+- **窗口不授予 Node 能力**：`nodeIntegration: false`、`contextIsolation: true`、`sandbox: true`；非同源导航与新窗口交给系统浏览器，壳内只保留本机界面。
+
+知乎登录窗口仍由采集器在本机拉起，与桌面壳窗口相互独立。
+
 ## 本机与局域网
 
 复制 `.env.example` 为 `.env`，安装依赖后启动 `npm start`。同机默认 `127.0.0.1:3005`。该地址只指访问设备自己，不能作为其他设备的入口。
@@ -32,6 +52,31 @@ ALLOWED_ORIGINS=http://192.168.1.20:5173
 4. 用进程管理工具运行 `npm start`，持久化并备份 SQLite 所在目录。当前实现推荐单 API 进程、同一台机器的本地磁盘，不支持跨主机共享 SQLite 网络盘。规模扩大时替换 store 为事务数据库和队列，保留当前 HTTP 协议。
 
 部署模板不会自动发布公网网址；域名、证书、服务器和网络条件需要由最终项目提供。宿主网页不要访问 HTTPS 页面中的 HTTP API，浏览器会阻止混合内容。
+
+## 容器部署（仅 API 服务）
+
+本目录提供 `Dockerfile` 与 `docker-compose.yml`，**只容器化 API 服务**。
+
+**采集器不能放进容器。** 首次知乎登录需要弹出可见浏览器窗口由本人输入账号并通过验证码（`local/runtime.mjs` 的 `gateway.open({ headless: false })`），容器内无桌面环境，该窗口无法显示也无法操作。因此职责按设备划分：
+
+| 组件 | 运行位置 | 是否容器化 |
+| --- | --- | --- |
+| API 服务 | 服务器或本机 | **是**，无需浏览器 |
+| 采集器 worker | 用户桌面设备 | 否，需浏览器与桌面 |
+| 桌面控制台 | 用户桌面设备 | 否 |
+
+```sh
+docker compose up -d --build
+curl http://127.0.0.1:3005/health
+```
+
+镜像以 `cli.mjs serve` 启动，不传 `localControl`，`/v1/ui/*` 一律拒绝，符合「登录只在采集设备完成」。服务数据库写入命名卷 `service-data`，不落在镜像层，也不读取宿主本机目录。容器以非 root 的 `node` 用户运行；挂载宿主目录时需赋予该 uid 写权限。
+
+对外暴露前必须同步设置 `PUBLIC_ORIGIN` 为实际访问来源（含协议与端口），否则 Host 校验返回 403 `HOST_DENIED`；前端来源写入 `ALLOWED_ORIGINS`，逗号分隔的精确 origin，不支持 `*`。反向代理需保留外部 Host，并把请求体上限放到至少 32 MiB。
+
+`.dockerignore` 排除 `.data/`、`.env`、`*.sqlite`、`credentials*.json`、`history-profiles/` 与 `node_modules/`，确保本机数据与凭证不进入镜像。
+
+采集器侧仍按本文其余章节在用户设备上安装运行，通过 `DATA_SERVICE_URL` 指向容器服务地址。
 
 ## 用户与设备开通
 

@@ -27,6 +27,8 @@
 
 需要 Node.js 24+。以下命令均在本目录执行。演示使用合成数据，不连接真实知乎，不下载浏览器或模型。
 
+新设备克隆后即可按下列步骤跑通「登录授权 → 同步 → 输出 JSON」。若本机 3005 端口已被其他实例占用，先用 `PORT` 与 `PUBLIC_ORIGIN` 换端口，并让采集器通过 `DATA_SERVICE_URL` 指向同一地址，否则会连到旧实例并返回 401 `UNAUTHORIZED`。
+
 ```sh
 npm ci
 npm run cli -- provision --demo --name demo-user --output .data/credentials-demo.json
@@ -55,6 +57,8 @@ npm run cli -- export --credentials .data/credentials-demo.json --output .data/e
 
 ## 网页与其他模块接入
 
+框架开发成员请先读 [组件集成规范](COMPONENT_GUIDE.md)：角色划分、数据流时序、全部接口清单、设置与协议、对接步骤、错误码与已知缺口。前端形态与凭证模型见 [接入正式前端](INTEGRATION.md)，历次改动与待办见 [工作记录](WORKLOG.md)。
+
 本目录的 [client.mjs](client.mjs) 使用标准 Web API，不导入 Node 内置模块，可由前端打包器导入。用户凭证由宿主应用提供，不能把管理员凭证、设备凭证或全站共用的用户凭证写进前端源码。
 
 ```js
@@ -62,7 +66,7 @@ import { createApiClient, startPageSync } from './client.mjs';
 
 // 每个登录用户创建独立客户端；生产项目建议经自己的后端验证用户会话后转发。
 const client = createApiClient({ baseUrl: 'https://collection.example.com', token: currentUserToken });
-await client.saveSettings({ history: true, likes: true, collections: true, knowledgeFilter: true, aiReview: false });
+await client.saveSettings({ history: true, likes: true, collections: true, knowledgeFilter: true, fetchFullText: false, aiReview: false });
 
 const task = startPageSync({ client, intervalMs: 300000,
   onData: (delivery) => saveForLocalAgent(delivery),

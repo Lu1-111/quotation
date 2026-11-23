@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light"><title>知序 · 数据采集控制台</title>
+  <link rel="icon" href="data:,"><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#overview"><span class="brand-mark">知</span><span>知序<small>个人数据工作台</small></span></a>
+    <div class="nav-caption">工作空间</div>
+    <nav aria-label="主导航">
+      <a class="nav-link active" href="#overview"><svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>同步与设置</a>
+      <a class="nav-link" href="#records"><svg viewBox="0 0 24 24"><path d="M6 3h10l3 3v15H6zM9 9h7M9 13h7M9 17h4"/></svg>采集记录<span id="nav-count">0</span></a>
+      <a class="nav-link" href="#agent"><svg viewBox="0 0 24 24"><path d="M7 8h10a3 3 0 0 1 3 3v6H4v-6a3 3 0 0 1 3-3ZM12 4v4M8 12v1M16 12v1M9 17v3M15 17v3"/></svg>Agent 交付</a>
+    </nav>
+    <div class="sidebar-bottom"><span class="privacy-icon">✓</span><div>采集由你掌控<small>登录会话仅保存在本机</small></div></div>
+    <div class="version">COLLECTION WORKSPACE · 1.0</div>
+  </aside>
+  <main>
+    <header class="topbar"><span>个人数据 <span class="separator">/</span> 采集控制台</span><span class="badge" id="mode-badge">本机模式</span></header>
+    <div class="content">
+      <section id="overview" class="overview">
+        <div class="page-heading"><div><div class="eyebrow">你的数据，你的选择</div><h1>管理你的知乎数据</h1><p>选择需要的信息，由你发起同步，再交付给 Agent。</p></div><button class="button primary sync-trigger" id="sync-top"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 2M4 16l2 2a7 7 0 0 0 12-1"/></svg>立即同步</button></div>
+        <div id="fatal" class="notice error" hidden></div>
+        <div class="account-card"><div class="account-avatar">知</div><div class="account-copy"><div class="account-title"><strong id="account-name">尚未连接知乎</strong><span class="badge muted" id="account-state">未登录</span></div><p id="account-description">在专用窗口完成登录，选择你的采集范围。</p></div><div class="account-actions"><button class="button secondary" id="login">登录知乎</button><button class="text-button" id="cancel-login" hidden>取消登录</button><button class="text-button danger" id="revoke" hidden>撤回同意</button></div></div>
+        <div class="stats-grid"><article class="stat-card"><span>已保存内容</span><div class="stat-value"><strong id="record-count">0</strong><span>条</span></div><small id="source-counts">浏览 0 · 点赞 0 · 收藏 0</small></article><article class="stat-card"><span>最近成功同步</span><strong class="stat-time" id="last-sync">尚未同步</strong><small id="sync-state">选择范围并登录后，即可开始</small></article><article class="stat-card"><span>Agent 访问</span><strong class="stat-time" id="reader-count">尚未开启</strong><small>只接收数据，不控制采集</small></article></div>
+        <div id="task-status" class="task-status" role="status" hidden><span class="spinner"></span><div><strong id="task-label">正在同步</strong><span id="task-note">完成后会更新采集记录，请保持页面打开。</span></div><button class="button secondary" id="stop-sync">停止同步</button></div>
+        <div class="settings-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>采集范围</h2><p>只读取你明确选择的信息类型</p></div><span class="small-badge">由本人确认</span></div>
+            <form id="settings-form">
+              <div class="type-options">
+                <label class="type-option"><span class="type-symbol blue">◷</span><span><strong>浏览记录</strong><small>最近最多 50 条合格内容</small></span><input type="checkbox" name="history" checked></label>
+                <label class="type-option"><span class="type-symbol coral">♡</span><span><strong>点赞内容</strong><small>读取当前可获取的点赞记录</small></span><input type="checkbox" name="likes"></label>
+                <label class="type-option"><span class="type-symbol gold">☆</span><span><strong>收藏内容</strong><small>读取本人收藏夹中的内容</small></span><input type="checkbox" name="collections"></label>
+              </div>
+              <div class="filter-row"><div><strong>知识内容过滤</strong><p>过滤无知识价值的内容，并按既定权重排序</p></div><label class="switch"><input type="checkbox" name="knowledgeFilter" checked aria-label="知识内容过滤"><span></span></label></div>
+              <div class="filter-row"><div><strong>获取正文</strong><p>保存接口返回的正文供 Agent 分析；会增加请求量与同步耗时，付费或受限内容仍可能不完整</p></div><label class="switch"><input type="checkbox" name="fetchFullText" aria-label="获取正文"><span></span></label></div>
+              <details class="rules"><summary>查看采集与排序规则</summary><p>过滤其他用户主页；回答在点赞少于 5 且评论少于 2 时排除，指标缺失保留并标注。想法、文章、回答基础权重分别为 1、2、3，热度和同主题内容加分。纯浏览记录超过 7 天衰减 10%，超过 14 天衰减 30%；点赞和收藏基础权重提升 1/3，不受时间衰减。</p><p>点赞和收藏没有业务条数上限，仍受平台可见范围、分页和任务时限影响。目前执行规则过滤，尚未启用 AI 全文总结。</p></details>
+              <label class="consent-row"><input type="checkbox" id="consent"><span>我同意读取已勾选的信息并保存到当前设备，可随时撤回。</span></label>
+              <div class="panel-footer"><span id="settings-hint">先确认采集同意，再登录知乎</span><button class="button primary" type="submit" id="save-settings">保存采集设置</button></div>
+            </form>
+          </section>
+          <section class="panel plan-panel"><div class="panel-heading"><div><h2>同步方式</h2><p>按需更新，或在页面打开时定时更新</p></div></div>
+            <form id="plan-form"><label class="plan-option"><input type="radio" name="mode" value="manual" checked><span><strong>手动同步</strong><small>点击“立即同步”时获取数据</small></span><span class="recommended">默认</span></label><label class="plan-option"><input type="radio" name="mode" value="page_interval"><span><strong>页面内定时同步</strong><small>当前页面保持打开时自动更新</small></span></label>
+              <label class="interval-label" for="interval">同步间隔</label><select id="interval"><option value="1">每 1 分钟</option><option value="5">每 5 分钟</option><option value="15" selected>每 15 分钟</option><option value="30">每 30 分钟</option><option value="60">每 60 分钟</option></select>
+              <div class="plan-note"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7v1"/></svg><p>关闭页面后停止定时同步。异常掉线时，任务会在租约失效后停止。</p></div>
+              <div class="schedule-state" id="schedule-state">当前为手动同步</div><button class="button secondary full" type="submit" id="save-plan">保存同步方式</button>
+            </form>
+          </section>
+        </div>
+      </section>
+      <section id="records" class="panel records-panel"><div class="panel-heading"><div><h2>采集记录 <span class="count-pill" id="table-count">0</span></h2><p>展示已保存的合格内容，按权重降序排列</p></div><div class="button-group"><button class="button secondary" id="refresh-records">刷新记录</button><button class="button secondary" id="export-json">导出 JSON</button></div></div>
+        <div class="empty-state" id="records-empty"><div class="empty-icon">▤</div><h3>还没有采集记录</h3><p>连接知乎并选择信息类型，首次同步后会在这里显示。</p></div>
+        <div class="table-wrap" id="records-table" hidden><table><thead><tr><th>内容</th><th>行为来源</th><th>互动数据</th><th class="weight-column">权重</th></tr></thead><tbody id="records-body"></tbody></table></div>
+        <div class="pagination" id="pagination" hidden><span id="page-info"></span><div><button class="button secondary" id="previous-page">上一页</button><button class="button secondary" id="next-page">下一页</button></div></div>
+      </section>
+      <section id="agent" class="panel agent-panel"><div class="panel-heading"><div><h2>交付给 Agent <span class="small-badge">只读</span></h2><p>用户负责采集，Agent 只接收你已经保存的数据</p></div><button class="button secondary" id="copy-data">复制数据给 Agent</button></div>
+        <div class="agent-layout"><div class="agent-explanation"><span class="agent-icon">⌘</span><h3>让 Agent 读取，不让它代替你决定</h3><p>只读入口支持查看交付状态和分页读取内容。它无法登录账号、更改范围、发起同步或删除数据。</p><div class="permissions"><span>✓ 读取已有结果</span><span>✓ 随时撤销入口</span><span>✓ 按用户隔离</span></div></div><div class="agent-controls"><form id="reader-form"><label for="reader-label">入口名称</label><div class="inline-form"><input id="reader-label" maxlength="80" value="我的本地 Agent" required><button class="button primary" id="create-reader" type="submit">创建只读入口</button></div></form>
+          <div id="reader-created" class="reader-created" hidden><strong>只读入口已创建</strong><p>现在可复制 MCP 配置到 Agent 宿主。密钥只在本次页面中可复制，不会交给模型作为工具参数。</p><button class="button secondary" id="copy-mcp">复制 MCP 配置</button></div>
+          <div id="reader-list" class="reader-list"></div><p class="agent-footnote">已有入口只显示名称，密钥不保存在网页中。刷新后需要配置时，可重新创建并撤销旧入口。</p>
+        </div></div>
+      </section>
+      <footer class="page-footer"><span>知乎登录会话保存在当前设备 · 帖子摘要不代表全文</span><button class="text-button danger" id="clear-data">清除已保存数据</button></footer>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title"></h2><p id="confirm-description"></p><div class="dialog-actions"><button class="button secondary" value="cancel">取消</button><button class="button danger-button" value="confirm">确认操作</button></div></form></dialog>
+</body></html>

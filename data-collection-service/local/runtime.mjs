@@ -13,7 +13,7 @@ export class CliError extends Error {
   constructor(code, message, exitCode = 1) { super(message); this.code = code; this.exitCode = exitCode; }
 }
 const SOURCE_ID = 'cli';
-const TYPES = ['history', 'likes', 'collections', 'knowledgeFilter'];
+const TYPES = ['history', 'likes', 'collections', 'knowledgeFilter', 'fetchFullText'];
 const fail = (code, message, exitCode) => { throw new CliError(code, message, exitCode); };
 
 function inside(parent, target) {

@@ -3,9 +3,10 @@
 - 文件夹和文件名使用英文，说明文档、协作规则和提交说明使用中文。代码标识、协议字段、依赖名称保持技术兼容。
 - 保留原有 `frontend-design/` 前端设计分区，`web/` 与 `shots/` 的内容不得因数据模块开发而移出远程仓库。
 - 通用采集实现位于 `data-collection-service/`，提供统一 API、本机采集器、客户端和 Agent tools / MCP，源码、测试、配置模板和对接文档保持在一起。
-- 原网页采集源码归档到 `legacy/data-collection/`；只移动已跟踪源码，不移动或提交私有运行数据。
-- `data-collection-cli/` 保留独立命令行采集方式；`information-search/` 保留既有搜索工具框架，不归档。
+- 原网页采集源码归档到 `legacy/data-collection/`，独立命令行采集归档到 `legacy/data-collection-cli/`；只移动已跟踪源码，不移动或提交私有运行数据。
+- `information-search/` 保留既有搜索工具框架，不归档。
 - `information-search/` 是官方接口的信息搜索分区，关键词与标签词匹配仅消费公开接口结果，不读取个人浏览器会话。
+- `data-collection-service/` 的 `Dockerfile` 只容器化 API 服务；采集器需桌面环境与可见浏览器窗口完成知乎登录，不进容器。
 - 活跃分区直接放在仓库第一级目录，不增加 `modules/` 中间层；各数据模块维护自己的输出格式文档、Schema 与合成示例。
 - 根目录仅放仓库导航、忽略规则和共享说明，不平铺各模块实现，也不移动不相关的既有文件。
 - 同步前检查远程更新与工作区差异；不使用强制推送覆盖其他成员的提交。

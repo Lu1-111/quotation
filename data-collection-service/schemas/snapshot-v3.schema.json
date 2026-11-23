@@ -48,6 +48,10 @@
         "knowledgeFilter": {
           "type": "boolean"
         },
+        "fetchFullText": {
+          "default": false,
+          "type": "boolean"
+        },
         "aiReview": {
           "type": "boolean",
           "const": false
@@ -58,6 +62,7 @@
         "likes",
         "collections",
         "knowledgeFilter",
+        "fetchFullText",
         "aiReview"
       ],
       "additionalProperties": false

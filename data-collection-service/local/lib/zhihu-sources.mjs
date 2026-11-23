@@ -53,7 +53,7 @@ export async function collectSelectedData(gateway, owner, settings, { checkActiv
         article: `https://zhuanlan.zhihu.com/api/articles/${id}`,
         pin: `/api/v4/pins/${id}?include=topics`,
       };
-      if (paths[record.contentType] && (settings.aiReview || record.voteCount == null || record.commentCount == null || !record.topics?.length)) {
+      if (paths[record.contentType] && (settings.fetchFullText || settings.aiReview || record.voteCount == null || record.commentCount == null || !record.topics?.length)) {
         checkActive();
         await pause();
         try {
@@ -81,7 +81,7 @@ export async function collectSelectedData(gateway, owner, settings, { checkActiv
       commentCount: metadata.commentCount ?? record.commentCount,
       topics: metadata.topics.length ? metadata.topics : record.topics || [],
       metadataStatus: 'available',
-      ...(settings.aiReview ? { bodyText, bodyStatus: partial ? 'partial' : bodyText ? 'available' : 'unavailable', bodySource: 'zhihu_api_content' } : {}),
+      ...(settings.fetchFullText || settings.aiReview ? { bodyText, bodyStatus: partial ? 'partial' : bodyText ? 'available' : 'unavailable', bodySource: 'zhihu_api_content' } : {}),
     };
   }
 

@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import * as z from 'zod/v4';
-import { createJobSchema, pageSchema, parse, parseSettings, uploadSchema } from './contracts.mjs';
+import { createJobSchema, localConsentSchema, pageSchema, parse, parseSettings, syncPlanSchema, uploadSchema } from './contracts.mjs';
 import { ServiceError, safeError } from './errors.mjs';
 
 const empty = z.object({}).strict();
@@ -13,7 +14,7 @@ function origin(value) {
   return url;
 }
 
-export function createApiServer({ store, publicOrigin = 'http://127.0.0.1:3005', allowedOrigins = [], maxBodyBytes = 32 * 1024 * 1024 } = {}) {
+export function createApiServer({ store, localControl, publicOrigin = 'http://127.0.0.1:3005', allowedOrigins = [], maxBodyBytes = 32 * 1024 * 1024 } = {}) {
   const canonical = origin(publicOrigin);
   const allowed = new Set([canonical.origin, ...allowedOrigins.map((value) => origin(value).origin)]);
   const server = createServer(async (request, response) => {
@@ -25,14 +26,28 @@ export function createApiServer({ store, publicOrigin = 'http://127.0.0.1:3005',
       if (requestOrigin && !allowed.has(requestOrigin)) throw new ServiceError('ORIGIN_DENIED', '网页来源不在允许列表。', 403);
       if (requestOrigin) response.setHeader('Access-Control-Allow-Origin', requestOrigin);
       if (request.method === 'OPTIONS') {
-        response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS'); response.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+        response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS'); response.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type,X-Local-UI');
         response.writeHead(204); response.end(); return;
       }
       const url = new URL(request.url, canonical); const path = url.pathname;
+      const assets = { '/': ['public/index.html', 'text/html'], '/app.js': ['public/app.js', 'text/javascript'], '/style.css': ['public/style.css', 'text/css'], '/client.mjs': ['client.mjs', 'text/javascript'] };
+      if (request.method === 'GET' && Object.hasOwn(assets, path)) {
+        const [file, mime] = assets[path];
+        response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+        response.writeHead(200, { 'Content-Type': `${mime}; charset=utf-8` }); response.end(readFileSync(new URL(file, import.meta.url))); return;
+      }
       if (path === '/health' && request.method === 'GET') { send(200, { schemaVersion: 1, ok: true, data: { service: 'data-collection-service', demo: store.demo } }); return; }
       const worker = path.startsWith('/v1/worker/');
       const header = request.headers.authorization;
-      const principal = store.authenticate(typeof header === 'string' && header.startsWith('Bearer ') ? header.slice(7) : null, worker ? 'device' : 'user');
+      const token = typeof header === 'string' && header.startsWith('Bearer ') ? header.slice(7) : null;
+      let principal;
+      if (request.headers['x-local-ui'] === '1') {
+        const loopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket.remoteAddress);
+        const sameOrigin = requestOrigin === canonical.origin || (!requestOrigin && request.method === 'GET' && request.headers['sec-fetch-site'] === 'same-origin');
+        if (!localControl || !loopback || !sameOrigin) throw new ServiceError('LOCAL_UI_DENIED', '本机界面仅允许同源页面在当前设备上操作。', 403);
+        principal = { userId: localControl.userId, role: 'user' };
+      } else principal = store.authenticate(token, token?.startsWith('agt_') ? 'reader' : worker ? 'device' : 'user');
+      if (principal.role === 'reader' && (!path.startsWith('/v1/agent/') || request.method !== 'GET')) throw new ServiceError('READ_ONLY', 'Agent 入口只读取已采集数据，请由用户在界面中控制同步。', 403);
       async function body() {
         if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] || '')) throw new ServiceError('CONTENT_TYPE', '请求体需为 application/json。', 415);
         if (Number(request.headers['content-length']) > maxBodyBytes) throw new ServiceError('BODY_TOO_LARGE', '单次上传超过 32 MiB，请拆分或调整部署限制。', 413);
@@ -44,7 +59,45 @@ export function createApiServer({ store, publicOrigin = 'http://127.0.0.1:3005',
       const userId = principal.userId;
       const userJob = path.match(/^\/v1\/jobs\/([^/]+)(\/keepalive)?$/);
       const workerJob = path.match(/^\/v1\/worker\/jobs\/([^/]+)\/(heartbeat|complete|fail)$/);
-      if (!worker && path === '/v1/status' && method === 'GET') data = store.status(userId);
+      if (path.startsWith('/v1/agent/')) {
+        if (principal.role !== 'reader') throw new ServiceError('UNAUTHORIZED', 'Agent 接口需要独立的只读凭证。', 401);
+        if (path === '/v1/agent/status') data = store.readerStatus(userId);
+        else if (path === '/v1/agent/format') data = store.outputFormat();
+        else if (path === '/v1/agent/profile') {
+          const query = Object.fromEntries(url.searchParams);
+          for (const key of ['offset', 'limit', 'summaryMaxChars', 'bodyMaxChars']) if (Object.hasOwn(query, key)) query[key] = /^\d+$/.test(query[key]) ? Number(query[key]) : NaN;
+          data = store.profilePage(userId, parse(pageSchema, query));
+        } else if (path === '/v1/agent/records') {
+          const query = Object.fromEntries(url.searchParams);
+          for (const key of ['offset', 'limit', 'summaryMaxChars', 'bodyMaxChars']) if (Object.hasOwn(query, key)) query[key] = /^\d+$/.test(query[key]) ? Number(query[key]) : NaN;
+          data = store.page(userId, parse(pageSchema, query));
+        } else if (/^\/v1\/agent\/snapshots\/[^/]+$/.test(path)) {
+          const id = path.split('/').at(-1); data = store.snapshot(userId, id === 'latest' ? undefined : parse(idSchema, id));
+        } else throw new ServiceError('NOT_FOUND', '只读接口不存在。', 404);
+      } else if (path === '/v1/ui/context' && method === 'GET') {
+        if (!localControl || principal.userId !== localControl.userId || request.headers['x-local-ui'] !== '1') throw new ServiceError('LOCAL_UI_REQUIRED', '请通过 npm run desktop 启动当前设备的操作界面。', 403);
+        data = { state: store.status(userId), local: await localControl.status(), syncPlan: store.syncPlan(userId), readers: store.readers(userId) };
+      } else if (path === '/v1/ui/login' && method === 'POST') {
+        if (!localControl || request.headers['x-local-ui'] !== '1') throw new ServiceError('LOCAL_UI_REQUIRED', '登录需在采集设备的图形界面完成。', 403);
+        data = await localControl.login(parse(localConsentSchema, await body())); status = 202;
+      } else if (path === '/v1/ui/login' && method === 'DELETE') {
+        if (!localControl || request.headers['x-local-ui'] !== '1') throw new ServiceError('LOCAL_UI_REQUIRED', '此操作仅在本机界面可用。', 403);
+        data = await localControl.cancelLogin();
+      } else if (path === '/v1/ui/consent' && ['POST', 'DELETE'].includes(method)) {
+        if (!localControl || request.headers['x-local-ui'] !== '1') throw new ServiceError('LOCAL_UI_REQUIRED', '采集同意需由本人在本机确认。', 403);
+        data = method === 'POST' ? await localControl.authorize(parse(localConsentSchema, await body())) : await localControl.revoke();
+      } else if (path === '/v1/ui/stop' && method === 'POST') {
+        if (!localControl || request.headers['x-local-ui'] !== '1') throw new ServiceError('LOCAL_UI_REQUIRED', '此操作仅在本机界面可用。', 403);
+        parse(empty, await body()); data = await localControl.stopSync();
+      } else if (path === '/v1/ui/data' && method === 'DELETE') {
+        if (!localControl || request.headers['x-local-ui'] !== '1') throw new ServiceError('LOCAL_UI_REQUIRED', '此操作仅在本机界面可用。', 403);
+        parse(z.object({ confirm: z.literal(true) }).strict(), await body()); data = await localControl.clearData();
+      } else if (path === '/v1/sync-plan' && method === 'GET') data = store.syncPlan(userId);
+      else if (path === '/v1/sync-plan' && method === 'PUT') data = store.syncPlan(userId, parse(syncPlanSchema, await body()));
+      else if (path === '/v1/readers' && method === 'GET') data = store.readers(userId);
+      else if (path === '/v1/readers' && method === 'POST') { const input = parse(z.object({ label: z.string().trim().min(1).max(80) }).strict(), await body()); data = store.createReader(userId, input.label); }
+      else if (/^\/v1\/readers\/[^/]+$/.test(path) && method === 'DELETE') data = store.revokeReader(userId, parse(idSchema, path.split('/').at(-1)));
+      else if (!worker && path === '/v1/status' && method === 'GET') data = store.status(userId);
       else if (!worker && path === '/v1/settings' && method === 'GET') data = store.settings(userId);
       else if (!worker && path === '/v1/settings' && method === 'PUT') data = store.settings(userId, parseSettings(await body()));
       else if (!worker && path === '/v1/jobs' && method === 'POST') { data = store.createJob(userId, parse(createJobSchema, await body())); status = 202; }
@@ -58,7 +111,7 @@ export function createApiServer({ store, publicOrigin = 'http://127.0.0.1:3005',
         const id = path.split('/').at(-1); data = store.snapshot(userId, id === 'latest' ? undefined : parse(idSchema, id));
       } else if (!worker && path === '/v1/records' && method === 'GET') {
         const query = Object.fromEntries(url.searchParams);
-        for (const key of ['offset', 'limit', 'summaryMaxChars']) if (Object.hasOwn(query, key)) query[key] = /^\d+$/.test(query[key]) ? Number(query[key]) : NaN;
+        for (const key of ['offset', 'limit', 'summaryMaxChars', 'bodyMaxChars']) if (Object.hasOwn(query, key)) query[key] = /^\d+$/.test(query[key]) ? Number(query[key]) : NaN;
         data = store.page(userId, parse(pageSchema, query));
       } else if (!worker && path === '/v1/data' && method === 'DELETE') { parse(z.object({ confirm: z.literal(true) }).strict(), await body()); data = store.clear(userId); }
       else if (worker && path === '/v1/worker/info' && method === 'GET') data = { userId, deviceId: principal.deviceId, demo: store.demo };

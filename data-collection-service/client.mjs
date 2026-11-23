@@ -14,12 +14,15 @@ const sleep = (ms, signal) => new Promise((resolve, reject) => {
   const timer = setTimeout(() => { signal?.removeEventListener('abort', stop); resolve(); }, ms);
   signal?.addEventListener('abort', stop, { once: true });
 });
-export function createApiClient({ baseUrl, token, fetchImpl = globalThis.fetch } = {}) {
+export function createApiClient({ baseUrl, token, localUi = false, fetchImpl = globalThis.fetch } = {}) {
   const base = validateServiceUrl(baseUrl);
-  if (typeof token !== 'string' || !/^(usr|dev)_[A-Za-z0-9_-]{43}$/.test(token)) throw new ApiError('NOT_CONFIGURED', '需要宿主提供用户或设备凭证。');
+  if (localUi && !['127.0.0.1', 'localhost', '[::1]'].includes(new URL(base).hostname)) throw new ApiError('LOCAL_UI_DENIED', '本机界面只能连接回环地址。');
+  if (!localUi && (typeof token !== 'string' || !/^(usr|dev|agt)_[A-Za-z0-9_-]{43}$/.test(token))) throw new ApiError('NOT_CONFIGURED', '需要宿主提供对应角色的访问凭证。');
+  const readOnly = !localUi && token.startsWith('agt_');
   const request = async (path, { method = 'GET', body, signal } = {}) => {
+    if (readOnly && (method !== 'GET' || !path.startsWith('/v1/agent/'))) throw new ApiError('READ_ONLY', 'Agent 只读入口不允许登录、设置或同步。', 403);
     let response;
-    try { response = await fetchImpl(base + path, { method, headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+    try { response = await fetchImpl(base + path, { method, headers: { ...(localUi ? { 'X-Local-UI': '1' } : { Authorization: `Bearer ${token}` }), ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]), redirect: 'error', credentials: 'omit' }); }
     catch (error) { if (signal?.aborted) throw signal.reason; throw new ApiError('NETWORK_ERROR', '无法连接采集服务，或请求超时。'); }
     let result; try { result = await response.json(); } catch { throw new ApiError('INVALID_RESPONSE', '服务没有返回预期 JSON。', response.status); }
@@ -27,16 +30,18 @@ export function createApiClient({ baseUrl, token, fetchImpl = globalThis.fetch }
     return result.data;
   };
   const client = {
-    request,
-    status: (options) => request('/v1/status', options),
+    request, readOnly,
+    status: (options) => request(readOnly ? '/v1/agent/status' : '/v1/status', options),
     settings: (options) => request('/v1/settings', options),
     saveSettings: (body, options) => request('/v1/settings', { ...options, method: 'PUT', body }),
     createJob: (body = {}, options) => request('/v1/jobs', { ...options, method: 'POST', body }),
     job: (id, options) => request(`/v1/jobs/${encodeURIComponent(id)}`, options),
     cancel: (id, options) => request(`/v1/jobs/${encodeURIComponent(id)}`, { ...options, method: 'DELETE' }),
     keepalive: (id, options) => request(`/v1/jobs/${encodeURIComponent(id)}/keepalive`, { ...options, method: 'POST', body: {} }),
-    read: (id = 'latest', options) => request(`/v1/snapshots/${encodeURIComponent(id)}`, options),
-    readPage: (query = {}, options) => request(`/v1/records?${new URLSearchParams(query)}`, options),
+    read: (id = 'latest', options) => request(`${readOnly ? '/v1/agent' : '/v1'}/snapshots/${encodeURIComponent(id)}`, options),
+    readPage: (query = {}, options) => request(`${readOnly ? '/v1/agent' : '/v1'}/records?${new URLSearchParams(query)}`, options),
+    format: (options) => request('/v1/agent/format', options),
+    readProfile: (query = {}, options) => request(`/v1/agent/profile?${new URLSearchParams(query)}`, options),
     async sync({ settings, deviceId, timeoutMs = 300_000, pollMs = 2000, signal, fullSnapshot = true } = {}) {
       if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 900_000 || !Number.isInteger(pollMs) || pollMs < 10 || pollMs > 5000) throw new ApiError('INVALID_ARGUMENTS', '同步时限或轮询间隔无效。');
       const active = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(signal ? [signal] : [])]);

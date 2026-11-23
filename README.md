@@ -5,10 +5,9 @@
 | 模块 | 功能 | 输出说明 |
 | --- | --- | --- |
 | [`frontend-design/`](frontend-design/README.md) | 原有前端页面、样式与 `shots` 预览素材 | 页面设计，不提供数据 JSON |
-| [`data-collection-service/`](data-collection-service/README.md) | 通用个人采集：统一 API、本机采集器、网页调度、Agent tools / MCP | [输出 JSON](data-collection-service/OUTPUT_FORMAT.md)、[API](data-collection-service/API.md)、[部署适配](data-collection-service/DEPLOYMENT.md) |
-| [`data-collection-cli/`](data-collection-cli/README.md) | 独立命令行个人采集，本机单次同步与导出 | [CLI 输出 JSON](data-collection-cli/OUTPUT_FORMAT.md) |
+| [`data-collection-service/`](data-collection-service/README.md) | 通用个人采集：统一 API、本机采集器、桌面控制台、Agent tools / MCP | [组件集成规范](data-collection-service/COMPONENT_GUIDE.md)、[输出 JSON](data-collection-service/OUTPUT_FORMAT.md)、[API](data-collection-service/API.md)、[部署适配](data-collection-service/DEPLOYMENT.md) |
 | [`information-search/`](information-search/README.md) | 知乎官方 API 搜索、关键词与标签词匹配，支持 Agent tools 和 MCP | [搜索 JSON 格式](information-search/OUTPUT_FORMAT.md) |
-| [`legacy/`](legacy/README.md) | 旧网页采集框架源码归档 | 新项目优先使用通用采集模块 |
+| [`legacy/`](legacy/README.md) | 旧网页采集框架与独立 CLI 的源码归档 | 新项目优先使用通用采集模块 |
 
 ```text
 quotation/
@@ -17,18 +16,20 @@ quotation/
 │  ├─ shots/
 │  └─ README.md
 ├─ data-collection-service/
+│  ├─ COMPONENT_GUIDE.md
 │  ├─ OUTPUT_FORMAT.md
+│  ├─ Dockerfile
 │  ├─ schemas/
 │  ├─ examples/
 │  └─ README.md
-├─ data-collection-cli/
 ├─ information-search/
 │  ├─ OUTPUT_FORMAT.md
 │  ├─ schemas/
 │  ├─ examples/
 │  └─ README.md
 ├─ legacy/
-│  └─ data-collection/
+│  ├─ data-collection/
+│  └─ data-collection-cli/
 ├─ AGENTS.md
 ├─ README.md
 └─ .gitignore

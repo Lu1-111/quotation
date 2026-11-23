@@ -18,11 +18,16 @@ export function createWorker({ client, dataDir, profile = 'default', demo = fals
     return value;
   };
   const readGrant = () => { try { return JSON.parse(readFileSync(grantPath, 'utf8')); } catch { throw new ApiError('CONSENT_REQUIRED', '请本人先执行 worker-login --consent，确认账号与采集范围。'); } };
+  function saveGrant(value) {
+    mkdirSync(scope, { recursive: true, mode: 0o700 }); const temporary = `${grantPath}.${randomUUID()}.tmp`;
+    writeFileSync(temporary, JSON.stringify(value), { flag: 'wx', mode: 0o600 }); renameSync(temporary, grantPath);
+  }
   async function checkGrant(identity, selected, signal) {
     const grant = readGrant();
     if (grant.userId !== identity.userId || grant.deviceId !== identity.deviceId || grant.demo !== demo) throw new ApiError('CONSENT_REQUIRED', '本机同意记录不属于当前设备或用户。');
     const allowed = parseSettings(grant.settings);
-    if (['history', 'likes', 'collections'].some((key) => selected[key] && !allowed[key]) || (allowed.knowledgeFilter && !selected.knowledgeFilter)) throw new ApiError('CONSENT_SCOPE_MISMATCH', '服务器请求超出本机允许范围。');
+    // 正文读取范围大于摘要，必须同样受本机同意约束，服务端不能单方面开启。
+    if (['history', 'likes', 'collections', 'fetchFullText'].some((key) => selected[key] && !allowed[key]) || (allowed.knowledgeFilter && !selected.knowledgeFilter)) throw new ApiError('CONSENT_SCOPE_MISMATCH', '服务器请求超出本机允许范围。');;
     const status = await local.execute('status', { profile }, { signal });
     if (!status.value.consented || !status.value.bound) throw new ApiError('LOGIN_REQUIRED', '本机尚未登录或已撤回同意。');
     if (status.value.accountRef !== grant.accountRef) throw new ApiError('ACCOUNT_MISMATCH', '本机账号与同意记录不一致。');
@@ -37,14 +42,29 @@ export function createWorker({ client, dataDir, profile = 'default', demo = fals
       catch (error) { throw safeCliError(error, signal); }
       if (!result.value.accountRef) throw new ApiError('LOGIN_REQUIRED', '无法绑定本机账号。');
       const grant = { schemaVersion: 1, ...identity, profile, accountRef: result.value.accountRef, settings: selected, consentedAt: new Date().toISOString() };
-      mkdirSync(scope, { recursive: true, mode: 0o700 }); const temporary = `${grantPath}.${randomUUID()}.tmp`;
-      writeFileSync(temporary, JSON.stringify(grant), { flag: 'wx', mode: 0o600 }); renameSync(temporary, grantPath);
+      saveGrant(grant);
       return { deviceId: identity.deviceId, profile, demo, settings: selected, consented: true };
+    },
+    async status({ signal } = {}) {
+      const state = (await local.execute('status', { profile }, { signal })).value;
+      let grant = null; try { grant = readGrant(); } catch {}
+      return { profile, demo, consented: Boolean(state.consented && grant), bound: Boolean(state.bound), nickname: state.nickname || '',
+        settings: grant?.settings || state.settings, browser: state.browser || browser || 'auto', lastSyncedAt: state.lastSyncedAt || null };
+    },
+    async authorize({ consent = false, settings = defaultSettings, signal } = {}) {
+      if (!consent) throw new ApiError('CONSENT_REQUIRED', '请本人确认修改后的采集范围。');
+      const selected = parseSettings(settings), identity = await info(signal), previous = readGrant();
+      const state = (await local.execute('status', { profile }, { signal })).value;
+      if (!state.consented || !state.bound || identity.userId !== previous.userId || identity.deviceId !== previous.deviceId || state.accountRef !== previous.accountRef) throw new ApiError('LOGIN_REQUIRED', '请先在当前设备完成登录和采集同意。');
+      await local.execute('config', { profile, ...selected }, { signal });
+      saveGrant({ ...previous, settings: selected, consentedAt: new Date().toISOString() });
+      return { profile, settings: selected, consented: true };
     },
     async revoke({ signal } = {}) {
       // runtime 撤回同意并删除会话；残留的 grant 不足以再次启动采集。
       await local.execute('logout', { profile }, { signal }); return { profile, revoked: true };
     },
+    async clearData({ signal } = {}) { await local.execute('clear', { profile, yes: true }, { signal }); return { profile, cleared: true }; },
     async runOnce({ signal } = {}) {
       const identity = await info(signal);
       const claimed = await client.request('/v1/worker/claim', { method: 'POST', body: {}, signal });

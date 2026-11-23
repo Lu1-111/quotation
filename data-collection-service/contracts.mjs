@@ -1,8 +1,11 @@
 import * as z from 'zod/v4';
 import { invalid } from './errors.mjs';
 
-export const defaultSettings = Object.freeze({ history: true, likes: false, collections: false, knowledgeFilter: true, aiReview: false });
-export const settingsSchema = z.object({ history: z.boolean(), likes: z.boolean(), collections: z.boolean(), knowledgeFilter: z.boolean(), aiReview: z.literal(false) }).strict();
+export const defaultSettings = Object.freeze({ history: true, likes: false, collections: false, knowledgeFilter: true, fetchFullText: false, aiReview: false });
+// fetchFullText 与 aiReview 解耦：正文获取不依赖模型，开启后也不代表已做模型分析。
+export const settingsSchema = z.object({ history: z.boolean(), likes: z.boolean(), collections: z.boolean(), knowledgeFilter: z.boolean(), fetchFullText: z.boolean().default(false), aiReview: z.literal(false) }).strict();
+export const syncPlanSchema = z.object({ mode: z.enum(['manual', 'page_interval']), intervalMinutes: z.number().int().min(1).max(1440) }).strict();
+export const localConsentSchema = z.object({ consent: z.literal(true), settings: settingsSchema }).strict();
 const nullableNumber = z.number().finite().nullable();
 const time = z.union([z.string(), z.number(), z.null()]);
 const sourceKind = z.enum(['history', 'likes', 'collections']);
@@ -33,8 +36,31 @@ export const collectionPageSchema = z.object({ schemaVersion: z.literal(1), modu
     sourceReadTime: true, signals: true, topics: true, voteCount: true, commentCount: true, metricsMissing: true, weight: true, weightDetails: true, bodyStatus: true })
     .extend({ summaryTruncated: z.boolean(), ruleDecision: z.enum(['keep', 'exclude', 'review']).optional(), contentTrust: z.literal('external_untrusted') })) }).strict();
 export const createJobSchema = z.object({ settings: settingsSchema.optional(), deviceId: z.string().uuid().optional() }).strict();
+// 画像协议：只保留用户知识画像所需的语义、行为证据与可核验溯源字段。
+export const KNOWLEDGE_PROFILE_PROTOCOL = 'zhihu-knowledge-profile/v1';
+export const profileRecordSchema = z.object({
+  contentId: z.string(), contentType: z.string(), title: z.string(), summary: z.string(), summaryTruncated: z.boolean(),
+  url: z.string().nullable(), author: z.string().nullable(),
+  topics: z.array(z.string()), kinds: z.array(sourceKind), signals: z.array(z.object({ kind: sourceKind, time })),
+  voteCount: nullableNumber, commentCount: nullableNumber, metricsMissing: z.boolean(),
+  weight: nullableNumber, ruleDecision: z.enum(['keep', 'exclude', 'review']).nullable(),
+  domains: z.array(z.string()), tags: z.array(z.string()),
+  bodyStatus: z.string(), fullTextAvailable: z.boolean(), bodyText: z.string().optional(), bodyChars: z.number().int().nonnegative().optional(), contentTrust: z.literal('external_untrusted'),
+}).strict();
+export const knowledgeProfileSchema = z.object({
+  schemaVersion: z.literal(1), protocolVersion: z.literal(KNOWLEDGE_PROFILE_PROTOCOL), module: z.literal('data-collection-service'),
+  kind: z.literal('knowledge_profile_page'), userId: z.string().uuid(), snapshotId: z.string().uuid(),
+  syncedAt: z.string().datetime(), policyVersion: z.string(),
+  coverage: z.object({ settings: settingsSchema, counts: z.object({ history: z.number().int().nonnegative(), likes: z.number().int().nonnegative(), collections: z.number().int().nonnegative() }),
+    excludedCount: z.number().int().nonnegative(), knowledgeFilterApplied: z.boolean(), modelAnalysisApplied: z.literal(false),
+    historyScope: z.literal('latest_50_qualified'), completeHistory: z.literal(false), fullTextGuaranteed: z.literal(false) }),
+  page: z.object({ offset: z.number().int().nonnegative(), limit: z.number().int().min(1).max(20), total: z.number().int().nonnegative(),
+    returned: z.number().int().nonnegative(), hasMore: z.boolean(), nextOffset: z.number().int().nonnegative().nullable() }),
+  records: z.array(profileRecordSchema),
+}).strict();
 export const pageSchema = z.object({ snapshotId: z.string().uuid().optional(), offset: z.number().int().min(0).max(1_000_000).default(0),
-  limit: z.number().int().min(1).max(20).default(10), summaryMaxChars: z.number().int().min(0).max(1000).default(600) }).strict();
+  limit: z.number().int().min(1).max(20).default(10), summaryMaxChars: z.number().int().min(0).max(1000).default(600),
+  bodyMaxChars: z.number().int().min(0).max(50_000).default(0) }).strict();
 export const uploadSchema = z.object({ leaseToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/), accountRef: z.string().regex(/^[a-f0-9]{64}$/), snapshot: snapshotSchema }).strict();
 export function parse(schema, value) { const result = schema.safeParse(value); if (!result.success) throw invalid('参数结构不符合接口 Schema。'); return result.data; }
 export function parseSettings(value) { const result = parse(settingsSchema, value); if (!['history', 'likes', 'collections'].some((kind) => result[kind])) throw invalid('至少需要选择一种采集类别。'); return result; }

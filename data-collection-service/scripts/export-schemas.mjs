@@ -2,12 +2,12 @@ import * as z from 'zod/v4';
 import { readFileSync, mkdirSync, writeFileSync, mkdtempSync, readdirSync, unlinkSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { snapshotSchema, deliverySchema, collectionPageSchema } from '../contracts.mjs';
+import { snapshotSchema, deliverySchema, collectionPageSchema, knowledgeProfileSchema } from '../contracts.mjs';
 import { getToolDefinitions } from '../agent-tools.mjs';
 import { createServiceStore } from '../store.mjs';
 
 const directory = new URL('../schemas/', import.meta.url); mkdirSync(directory, { recursive: true });
-for (const [name, schema] of Object.entries({ 'snapshot-v3': snapshotSchema, 'delivery-v1': deliverySchema, 'collection-page-v1': collectionPageSchema })) {
+for (const [name, schema] of Object.entries({ 'snapshot-v3': snapshotSchema, 'delivery-v1': deliverySchema, 'collection-page-v1': collectionPageSchema, 'knowledge-profile-v1': knowledgeProfileSchema })) {
   writeFileSync(new URL(`${name}.schema.json`, directory), JSON.stringify(z.toJSONSchema(schema, { target: 'draft-2020-12', io: 'output' }), null, 2) + '\n');
 }
 writeFileSync(new URL('tools.json', directory), JSON.stringify(getToolDefinitions(), null, 2) + '\n');
@@ -25,4 +25,8 @@ try {
   const page = store.page(credentials.userId, { offset: 0, limit: 10, summaryMaxChars: 600 });
   for (const key of ['userId', 'snapshotId', 'deviceId', 'jobId']) page[key] = example[key];
   writeFileSync(new URL('../examples/collection-page-v1.json', import.meta.url), JSON.stringify(collectionPageSchema.parse(page), null, 2) + '\n');
+  const profile = store.profilePage(credentials.userId, { offset: 0, limit: 10, summaryMaxChars: 600 });
+  for (const key of ['userId', 'snapshotId']) profile[key] = example[key];
+  writeFileSync(new URL('../examples/knowledge-profile-v1.json', import.meta.url), JSON.stringify(knowledgeProfileSchema.parse(profile), null, 2) + '\n');
+  writeFileSync(new URL('../examples/output-format.json', import.meta.url), JSON.stringify(store.outputFormat(), null, 2) + '\n');
 } finally { store.close(); for (const name of readdirSync(temporary)) unlinkSync(join(temporary, name)); rmdirSync(temporary); }

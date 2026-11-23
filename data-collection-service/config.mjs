@@ -11,6 +11,6 @@ export function configuredClient(role = 'user', credentialsFile) {
   let saved = {};
   if (credentialsFile) saved = JSON.parse(readFileSync(resolve(credentialsFile), 'utf8'));
   return createApiClient({ baseUrl: process.env.DATA_SERVICE_URL || saved.baseUrl || 'http://127.0.0.1:3005',
-    token: role === 'user' ? process.env.DATA_SERVICE_USER_TOKEN || saved.userToken : process.env.DATA_SERVICE_DEVICE_TOKEN || saved.deviceToken });
+    token: role === 'user' ? process.env.DATA_SERVICE_USER_TOKEN || saved.userToken : role === 'reader' ? process.env.DATA_SERVICE_AGENT_TOKEN || saved.agentToken : process.env.DATA_SERVICE_DEVICE_TOKEN || saved.deviceToken });
 }
 export const defaultWorkerDir = () => resolve(process.env.WORKER_DATA_DIR || fileURLToPath(new URL('./.data/worker', import.meta.url)));

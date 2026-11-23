@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "zhihu-knowledge-profile/v1",
+  "module": "data-collection-service",
+  "kind": "knowledge_profile_page",
+  "userId": "00000000-0000-4000-8000-000000000001",
+  "snapshotId": "00000000-0000-4000-8000-000000000002",
+  "syncedAt": "2026-11-21T14:05:16.051Z",
+  "policyVersion": "knowledge-v1",
+  "coverage": {
+    "settings": {
+      "history": true,
+      "likes": true,
+      "collections": true,
+      "knowledgeFilter": true,
+      "fetchFullText": true,
+      "aiReview": false
+    },
+    "counts": {
+      "history": 3,
+      "likes": 1,
+      "collections": 1
+    },
+    "excludedCount": 0,
+    "knowledgeFilterApplied": true,
+    "modelAnalysisApplied": false,
+    "historyScope": "latest_50_qualified",
+    "completeHistory": false,
+    "fullTextGuaranteed": false
+  },
+  "page": {
+    "offset": 0,
+    "limit": 10,
+    "total": 3,
+    "returned": 3,
+    "hasMore": false,
+    "nextOffset": null
+  },
+  "records": [
+    {
+      "contentId": "101",
+      "contentType": "answer",
+      "title": "本地大模型推理如何加速",
+      "summary": "比较推理框架和硬件配置。",
+      "summaryTruncated": false,
+      "url": "https://www.zhihu.com/answer/101",
+      "author": "演示作者",
+      "topics": [
+        "人工智能"
+      ],
+      "kinds": [
+        "history",
+        "likes"
+      ],
+      "signals": [
+        {
+          "kind": "history",
+          "time": "1795183516"
+        },
+        {
+          "kind": "likes",
+          "time": 1792677916
+        }
+      ],
+      "voteCount": 24,
+      "commentCount": 5,
+      "metricsMissing": false,
+      "weight": 5.014615,
+      "ruleDecision": "review",
+      "domains": [
+        "计算机与人工智能"
+      ],
+      "tags": [
+        "信息不足"
+      ],
+      "bodyStatus": "available",
+      "fullTextAvailable": true,
+      "bodyText": "示例正文：解释了推理框架与硬件选择的权衡，并给出可复现的测试步骤。",
+      "bodyChars": 33,
+      "contentTrust": "external_untrusted"
+    },
+    {
+      "contentId": "102",
+      "contentType": "article",
+      "title": "本地大模型部署实践",
+      "summary": "从模型选择到部署。",
+      "summaryTruncated": false,
+      "url": "https://zhuanlan.zhihu.com/p/102",
+      "author": "演示作者",
+      "topics": [
+        "人工智能"
+      ],
+      "kinds": [
+        "history",
+        "collections"
+      ],
+      "signals": [
+        {
+          "kind": "history",
+          "time": "1794492316"
+        },
+        {
+          "kind": "collections",
+          "time": "2026-11-21T14:05:16.051Z"
+        }
+      ],
+      "voteCount": 12,
+      "commentCount": 3,
+      "metricsMissing": false,
+      "weight": 3.592856,
+      "ruleDecision": "review",
+      "domains": [
+        "计算机与人工智能"
+      ],
+      "tags": [
+        "信息不足"
+      ],
+      "bodyStatus": "unavailable",
+      "fullTextAvailable": false,
+      "contentTrust": "external_untrusted"
+    },
+    {
+      "contentId": "103",
+      "contentType": "pin",
+      "title": "阅读笔记的整理方法",
+      "summary": "保留观点与原文链接。",
+      "summaryTruncated": false,
+      "url": "https://www.zhihu.com/pin/103",
+      "author": "演示作者",
+      "topics": [
+        "笔记"
+      ],
+      "kinds": [
+        "history"
+      ],
+      "signals": [
+        {
+          "kind": "history",
+          "time": "1793887516"
+        }
+      ],
+      "voteCount": 2,
+      "commentCount": 1,
+      "metricsMissing": false,
+      "weight": 0.863069,
+      "ruleDecision": "review",
+      "domains": [
+        "教育与学习"
+      ],
+      "tags": [
+        "信息不足"
+      ],
+      "bodyStatus": "unavailable",
+      "fullTextAvailable": false,
+      "contentTrust": "external_untrusted"
+    }
+  ]
+}

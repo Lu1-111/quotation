@@ -31,7 +31,7 @@
 | 变量 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `AGENT_BASE_URL` | 是 | 无 | OpenAI 兼容接口地址，例如 `https://host/v1`；可被 `--base-url` 覆盖 |
-| `AGENT_MODEL` | 是 | 无 | 模型名；可被 `--model` 覆盖 |
+| `AGENT_MODEL` | 是 | 无 | 模型名；可被 `--model` 覆盖。**必须是支持工具调用（function calling）的模型** |
 | `AGENT_API_KEY` | 否 | 无 | 模型服务密钥，本地服务可为空；只走环境变量 |
 | `AGENT_MAX_STEPS` | 否 | 8 | 步数上限，范围 1 到 20；可被 `--max-steps` 覆盖 |
 | `AGENT_TOTAL_TIMEOUT_MS` | 否 | 600000 | 一次提问的总超时，单位毫秒 |
@@ -43,6 +43,14 @@
 | `DATA_FILE` | 否 | 无 | 搜索服务的数据文件路径，只传给搜索子进程 |
 | `DATA_SERVICE_URL` | 否 | `http://127.0.0.1:3005` | 采集服务地址，只传给采集子进程 |
 | `DATA_SERVICE_AGENT_TOKEN` | 否 | 无 | 采集 **agt_ 只读凭证**，由用户在采集界面「Agent 交付」创建；非空且已同意个人数据发送时才启用采集。只传给采集子进程。该入口不接受 usr_ 用户令牌 |
+
+### 模型必须支持工具调用
+
+`agent.mjs` 通过 `generateText({ model, tools, stopWhen: isStepCount(maxSteps) })` 让模型自行决定调用哪个工具、调用几次。**不支持 function calling 的模型接上后不会报错，但永远拿不到数据，只会凭空作答。**
+
+本机部署时可用 `qwen2.5`、`qwen3`、`llama3.1`、`mistral-nemo` 等具备工具调用能力的模型；`gemma2`、`phi3` 等不支持工具调用的模型不要用于本模块。
+
+模型就绪的判定条件是 `AGENT_BASE_URL` 与 `AGENT_MODEL` 同时非空，缺任一项 `ask`／`chat` 以退出码 3 结束。`AGENT_API_KEY` 缺省时不发送 Authorization 头，适合本机服务。
 
 ## 快速开始
 

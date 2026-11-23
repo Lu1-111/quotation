@@ -23,6 +23,19 @@
 
 ## 2026-11-23
 
+### Agent 平台对接（agent/ 模块）
+
+仓库新增的 `agent/` 采用 Vercel AI SDK v7（`ai` 7.0.179 + `@ai-sdk/mcp` 2.0.103 + `@ai-sdk/openai-compatible` 3.0.94 + zod 4.6.7），通过 stdio 连接搜索与采集两个 MCP 子进程。技术栈与本模块天然一致（Node 24+、ESM、同版本 zod、同为 MCP），无需额外统一。
+
+**修复一处真实对接缺陷**：`agent/config.mjs` 原先向采集子进程下发 `DATA_SERVICE_USER_TOKEN`（`usr_`），而本模块 `agent-tools.mjs` 的 `createAgentTools` 校验 `client.readOnly`，要求 `agt_` 只读凭证，导致子进程启动失败并被归并成笼统的 `MCP_START_FAILED`。已改为 `DATA_SERVICE_AGENT_TOKEN`，并同步 `cli.mjs` 脱敏白名单、`.env.example`、README 与三份测试。提交 `ed269d1`。
+
+**实测结果**：两个 MCP 同时握手成功，暴露 7 个工具（搜索 3 个 + 采集 4 个），全部 `readOnlyHint: true`。画像工具返回真实数据 26 条、含正文（最长 6795 字），`capabilities` 为 `{readSavedData:true, sync:false, login:false, settings:false}`。越权调用同步与改设置均被 403 `READ_ONLY` 拦截；`zhihu_collection_sync` 已不在工具列表中，连调用入口都不存在。agent 自带 72 项测试通过。
+
+**模型未接入**：本机无 OpenAI 兼容服务，Ollama 官方安装包 1.77 GB、实测下载速率约 2 MB/分钟（预计 14 小时），本轮未安装。平台除模型自主编排外的全部链路已验证可用。
+
+模型配置要求见 `agent/README.md`：必填 `AGENT_BASE_URL` 与 `AGENT_MODEL`，且**模型必须支持工具调用**，否则不报错但永远拿不到数据。个人数据需显式开启 `AGENT_ALLOW_PERSONAL_DATA`，因为数据会发送至所配置的模型服务。
+
+
 ### 正文采集（fetchFullText）
 
 **背景**：正文其实一直被采到并清洗好，但 `zhihu-sources.mjs` 中被 `settings.aiReview` 绑定，`aiReview` 在 schema 层锁死为 `false`，导致每次采集后原地丢弃。这正是 README 长期标注的"全文获取需与模型分析解耦"。

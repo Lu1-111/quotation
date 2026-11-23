@@ -60,13 +60,15 @@ function searchServer(env, demo, dir) {
 }
 
 function collectionServer(env, allowPersonalData, dir) {
-  const token = text(env.DATA_SERVICE_USER_TOKEN);
+  // 采集 MCP 要求用户在界面创建的 agt_ 只读凭证（见 data-collection-service/agent-tools.mjs），
+  // 它只能读已保存的数据，无法登录、改设置或发起同步。usr_ 用户令牌不被该入口接受。
+  const token = text(env.DATA_SERVICE_AGENT_TOKEN);
   const enabled = allowPersonalData && token !== null;
-  let reason = '已启用：已同意个人数据发送给所配置的模型服务，并配置了 DATA_SERVICE_USER_TOKEN。';
+  let reason = '已启用：已同意个人数据发送给所配置的模型服务，并配置了 DATA_SERVICE_AGENT_TOKEN。';
   if (!allowPersonalData) reason = '未启用：未同意把个人浏览数据发送给模型服务。';
-  else if (token === null) reason = '未启用：缺少 DATA_SERVICE_USER_TOKEN。';
+  else if (token === null) reason = '未启用：缺少 DATA_SERVICE_AGENT_TOKEN，请在采集界面创建只读入口。';
   const childEnv = enabled
-    ? { DATA_SERVICE_URL: text(env.DATA_SERVICE_URL) ?? DEFAULT_DATA_SERVICE_URL, DATA_SERVICE_USER_TOKEN: token }
+    ? { DATA_SERVICE_URL: text(env.DATA_SERVICE_URL) ?? DEFAULT_DATA_SERVICE_URL, DATA_SERVICE_AGENT_TOKEN: token }
     : {};
   return { id: 'collection', enabled, reason, command: process.execPath, args: [path.join(dir, 'mcp-server.mjs')], env: childEnv };
 }

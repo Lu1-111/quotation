@@ -6,7 +6,7 @@ import { buildChildEnv, connectServers } from '../mcp-servers.mjs';
 // 只用假传输与假客户端：不启动子进程，不依赖真实模型与知乎。
 const SECRET = 'secret-token-xyz';
 const capture = (promise) => promise.then(() => null, (error) => error);
-const server = (id, over = {}) => ({ id, enabled: true, reason: '测试', command: process.execPath, args: [`${id}-mcp-server.mjs`], env: { DATA_SERVICE_USER_TOKEN: SECRET }, ...over });
+const server = (id, over = {}) => ({ id, enabled: true, reason: '测试', command: process.execPath, args: [`${id}-mcp-server.mjs`], env: { DATA_SERVICE_AGENT_TOKEN: SECRET }, ...over });
 
 function harness({ failOn, toolsFail, tools = {} } = {}) {
   const log = { transports: [], clients: [] };

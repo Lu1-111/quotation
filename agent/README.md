@@ -19,9 +19,9 @@
 
 采集工具返回的个人浏览数据会作为上下文发送给你所配置的模型服务。为此：
 
-- 该功能默认关闭。只有设置环境变量 `AGENT_ALLOW_PERSONAL_DATA=true`，或在命令行加 `--allow-personal-data`，并且提供了 `DATA_SERVICE_USER_TOKEN` 时，才会启用采集服务。
+- 该功能默认关闭。只有设置环境变量 `AGENT_ALLOW_PERSONAL_DATA=true`，或在命令行加 `--allow-personal-data`，并且提供了 `DATA_SERVICE_AGENT_TOKEN`（采集界面创建的 agt_ 只读凭证）时，才会启用采集服务。
 - 想避免数据发往外部网络，可把 `AGENT_BASE_URL` 指向本机运行的模型服务，例如 `http://127.0.0.1:11434/v1`。是否真的没有外发，取决于该本地服务本身，本模块未做网络层面的验证。
-- 密钥与令牌只通过环境变量提供，命令行不接受明文参数。命令行在写出 stdout 与 stderr 前，会把 `AGENT_API_KEY`、`ZHIHU_ACCESS_SECRET`、`DATA_SERVICE_USER_TOKEN` 中长度不少于 6 个字符的值替换为占位文字。这只是兜底措施，不能替代妥善保管密钥。
+- 密钥与令牌只通过环境变量提供，命令行不接受明文参数。命令行在写出 stdout 与 stderr 前，会把 `AGENT_API_KEY`、`ZHIHU_ACCESS_SECRET`、`DATA_SERVICE_AGENT_TOKEN`、`DATA_SERVICE_USER_TOKEN` 中长度不少于 6 个字符的值替换为占位文字。这只是兜底措施，不能替代妥善保管密钥。
 - `chat` 的对话历史只保存在内存里，退出即丢弃；命令行本身不把对话写入文件。
 
 ## 环境变量
@@ -42,7 +42,7 @@
 | `ZHIHU_ACCESS_SECRET` | 否 | 无 | 搜索服务凭证；非空时启用搜索，`--demo` 时也启用。只传给搜索子进程 |
 | `DATA_FILE` | 否 | 无 | 搜索服务的数据文件路径，只传给搜索子进程 |
 | `DATA_SERVICE_URL` | 否 | `http://127.0.0.1:3005` | 采集服务地址，只传给采集子进程 |
-| `DATA_SERVICE_USER_TOKEN` | 否 | 无 | 采集用户令牌；非空且已同意个人数据发送时才启用采集。只传给采集子进程 |
+| `DATA_SERVICE_AGENT_TOKEN` | 否 | 无 | 采集 **agt_ 只读凭证**，由用户在采集界面「Agent 交付」创建；非空且已同意个人数据发送时才启用采集。只传给采集子进程。该入口不接受 usr_ 用户令牌 |
 
 ## 快速开始
 
@@ -136,7 +136,7 @@ printf '你好\n再详细说说\nexit\n' | npm run cli -- chat
 | 选项 | 类型 | 说明 |
 | --- | --- | --- |
 | `--demo` | 布尔 | 使用合成演示数据，不访问真实知乎 |
-| `--allow-personal-data` | 布尔 | 同意把个人浏览数据发送给模型服务；需配合 `DATA_SERVICE_USER_TOKEN` 才启用采集工具 |
+| `--allow-personal-data` | 布尔 | 同意把个人浏览数据发送给模型服务；需配合 `DATA_SERVICE_AGENT_TOKEN` 才启用采集工具 |
 | `--json` | 布尔 | `ask` 和 `doctor` 输出统一 JSON 外层；`chat` 不支持 |
 | `--max-steps <n>` | 整数 | 覆盖最大步数，取值范围由 `config.mjs` 校验 |
 | `--base-url <url>` | 字符串 | 覆盖 `AGENT_BASE_URL` |
@@ -155,7 +155,7 @@ printf '你好\n再详细说说\nexit\n' | npm run cli -- chat
 
 ## 采集同步耗时与超时
 
-调用采集工具（`DATA_SERVICE_USER_TOKEN` 已配置且 `--allow-personal-data` 已开启的情况下）时，同步操作会触发远端采集任务，等待时间通常较长。接口契约中 `limits.collectionSyncMs` 固定为 900000（15 分钟），供引擎（`agent.mjs`）针对同步工具单独放宽单步超时。超时后命令行会收到 `TIMEOUT` 错误并以退出码 1 退出。上述行为来自接口契约，尚未在真实采集流程中验证。
+调用采集工具（`DATA_SERVICE_AGENT_TOKEN` 已配置且 `--allow-personal-data` 已开启的情况下）时，同步操作会触发远端采集任务，等待时间通常较长。接口契约中 `limits.collectionSyncMs` 固定为 900000（15 分钟），供引擎（`agent.mjs`）针对同步工具单独放宽单步超时。超时后命令行会收到 `TIMEOUT` 错误并以退出码 1 退出。上述行为来自接口契约，尚未在真实采集流程中验证。
 
 ## 提示注入
 

@@ -24,7 +24,7 @@ const HELP = `智能体命令行（Node.js 24+）
   --model <name>            覆盖 AGENT_MODEL
   --help                    显示帮助
 
-密钥与令牌只通过环境变量提供（AGENT_API_KEY、ZHIHU_ACCESS_SECRET、DATA_SERVICE_USER_TOKEN），不接受命令行参数。
+密钥与令牌只通过环境变量提供（AGENT_API_KEY、ZHIHU_ACCESS_SECRET、DATA_SERVICE_AGENT_TOKEN），不接受命令行参数。
 退出码：0 成功，1 运行失败，2 参数或配置错误，3 缺模型配置或没有可用工具，130 取消。
 `;
 
@@ -78,7 +78,7 @@ export function buildOverrides(options) {
 
 // ===== 输出与脱敏 =====
 // 只从环境变量里收集这三类密钥；它们没有命令行选项，也不应出现在任何输出里。
-const SECRET_ENV_KEYS = ['AGENT_API_KEY', 'ZHIHU_ACCESS_SECRET', 'DATA_SERVICE_USER_TOKEN'];
+const SECRET_ENV_KEYS = ['AGENT_API_KEY', 'ZHIHU_ACCESS_SECRET', 'DATA_SERVICE_AGENT_TOKEN', 'DATA_SERVICE_USER_TOKEN'];
 // 过短的值替换后会破坏正常文本，因此只处理不短于 6 个字符的值。
 const MIN_SECRET_LENGTH = 6;
 const REDACTED = '[已隐藏]';

@@ -28,26 +28,26 @@ test('空环境下使用默认值，且整个对象被冻结', () => {
 });
 
 test('采集工具默认不启用：缺少同意或令牌都不启用', () => {
-  const noConsent = server(load({ DATA_SERVICE_USER_TOKEN: USER_TOKEN }), 'collection');
+  const noConsent = server(load({ DATA_SERVICE_AGENT_TOKEN: USER_TOKEN }), 'collection');
   assert.equal(noConsent.enabled, false);
   assert.deepEqual(noConsent.env, {});
   assert.match(noConsent.reason, /未同意/);
   const noToken = server(load({ AGENT_ALLOW_PERSONAL_DATA: 'true' }), 'collection');
   assert.equal(noToken.enabled, false);
   assert.deepEqual(noToken.env, {});
-  assert.match(noToken.reason, /DATA_SERVICE_USER_TOKEN/);
+  assert.match(noToken.reason, /DATA_SERVICE_AGENT_TOKEN/);
 });
 
 test('同时同意个人数据并提供用户令牌才启用采集', () => {
-  const env = { AGENT_ALLOW_PERSONAL_DATA: 'TRUE', DATA_SERVICE_USER_TOKEN: USER_TOKEN };
-  const viaOverride = load({ DATA_SERVICE_USER_TOKEN: USER_TOKEN }, { allowPersonalData: true });
+  const env = { AGENT_ALLOW_PERSONAL_DATA: 'TRUE', DATA_SERVICE_AGENT_TOKEN: USER_TOKEN };
+  const viaOverride = load({ DATA_SERVICE_AGENT_TOKEN: USER_TOKEN }, { allowPersonalData: true });
   for (const config of [load(env), viaOverride]) {
     const collection = server(config, 'collection');
     assert.equal(config.allowPersonalData, true);
     assert.equal(collection.enabled, true);
     assert.equal(collection.command, process.execPath);
     assert.deepEqual(collection.args, [path.join(AGENT_DIR, '..', 'data-collection-service', 'mcp-server.mjs')]);
-    assert.deepEqual(collection.env, { DATA_SERVICE_URL: 'http://127.0.0.1:3005', DATA_SERVICE_USER_TOKEN: USER_TOKEN });
+    assert.deepEqual(collection.env, { DATA_SERVICE_URL: 'http://127.0.0.1:3005', DATA_SERVICE_AGENT_TOKEN: USER_TOKEN });
   }
   assert.equal(server(load(env, { allowPersonalData: false }), 'collection').enabled, false);
   assert.equal(server(load({ ...env, DATA_SERVICE_URL: 'http://127.0.0.1:4000' }), 'collection').env.DATA_SERVICE_URL, 'http://127.0.0.1:4000');
@@ -73,13 +73,13 @@ test('搜索在有访问密钥或演示模式时启用', () => {
 test('子进程 env 只含契约变量，绝不含模型密钥', () => {
   const config = load({
     AGENT_API_KEY: MODEL_KEY, AGENT_BASE_URL: 'https://llm.example/v1', AGENT_MODEL: 'm', AGENT_ALLOW_PERSONAL_DATA: 'true',
-    ZHIHU_ACCESS_SECRET: ACCESS_SECRET, DATA_SERVICE_USER_TOKEN: USER_TOKEN, UNRELATED_VAR: 'x',
+    ZHIHU_ACCESS_SECRET: ACCESS_SECRET, DATA_SERVICE_AGENT_TOKEN: USER_TOKEN, UNRELATED_VAR: 'x',
   });
   const search = server(config, 'search');
   const collection = server(config, 'collection');
   assert.equal(search.enabled && collection.enabled, true);
   assert.deepEqual(Object.keys(search.env), ['ZHIHU_ACCESS_SECRET']);
-  assert.deepEqual(Object.keys(collection.env), ['DATA_SERVICE_URL', 'DATA_SERVICE_USER_TOKEN']);
+  assert.deepEqual(Object.keys(collection.env), ['DATA_SERVICE_URL', 'DATA_SERVICE_AGENT_TOKEN']);
   assert.equal(JSON.stringify(config.servers).includes(MODEL_KEY), false);
 });
 
@@ -133,7 +133,7 @@ test('合法边界值被接受，覆盖项优先于环境变量', () => {
 test('describeConfig 可安全打印：不含密钥与令牌的值', () => {
   const config = load({
     AGENT_BASE_URL: 'https://user:pw-DDDD4444@llm.example/v1?key=EEEE5555', AGENT_MODEL: 'm', AGENT_API_KEY: MODEL_KEY,
-    AGENT_ALLOW_PERSONAL_DATA: 'true', ZHIHU_ACCESS_SECRET: ACCESS_SECRET, DATA_SERVICE_USER_TOKEN: USER_TOKEN,
+    AGENT_ALLOW_PERSONAL_DATA: 'true', ZHIHU_ACCESS_SECRET: ACCESS_SECRET, DATA_SERVICE_AGENT_TOKEN: USER_TOKEN,
   });
   const described = describeConfig(config);
   const printed = JSON.stringify(described);
@@ -143,7 +143,7 @@ test('describeConfig 可安全打印：不含密钥与令牌的值', () => {
   assert.equal(Object.hasOwn(described.model, 'apiKey'), false);
   assert.equal(described.model.apiKeyConfigured, true);
   assert.equal(described.model.baseURL, 'https://llm.example/v1');
-  assert.deepEqual(server(described, 'collection').env, ['DATA_SERVICE_URL', 'DATA_SERVICE_USER_TOKEN']);
+  assert.deepEqual(server(described, 'collection').env, ['DATA_SERVICE_URL', 'DATA_SERVICE_AGENT_TOKEN']);
   assert.deepEqual(server(described, 'search').env, ['ZHIHU_ACCESS_SECRET']);
   assert.equal(describeConfig(load()).model.apiKeyConfigured, false);
 });

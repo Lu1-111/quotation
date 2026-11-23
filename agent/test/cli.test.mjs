@@ -8,7 +8,7 @@ import { AgentError } from '../errors.mjs';
 const API_KEY = 'sk-test-api-key-0123456789';
 const ACCESS_SECRET = 'access-secret-abcdef123456';
 const USER_TOKEN = 'user-token-zyxwvu987654';
-const SECRET_ENV = { AGENT_API_KEY: API_KEY, ZHIHU_ACCESS_SECRET: ACCESS_SECRET, DATA_SERVICE_USER_TOKEN: USER_TOKEN };
+const SECRET_ENV = { AGENT_API_KEY: API_KEY, ZHIHU_ACCESS_SECRET: ACCESS_SECRET, DATA_SERVICE_AGENT_TOKEN: USER_TOKEN };
 const SECRETS = [API_KEY, ACCESS_SECRET, USER_TOKEN];
 
 // 内存输出流：只记录写入的文本。

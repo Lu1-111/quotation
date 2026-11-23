@@ -7,6 +7,7 @@
 | [`frontend-design/`](frontend-design/README.md) | 原有前端页面、样式与 `shots` 预览素材 | 页面设计，不提供数据 JSON |
 | [`data-collection-service/`](data-collection-service/README.md) | 通用个人采集：统一 API、本机采集器、桌面控制台、Agent tools / MCP | [组件集成规范](data-collection-service/COMPONENT_GUIDE.md)、[输出 JSON](data-collection-service/OUTPUT_FORMAT.md)、[API](data-collection-service/API.md)、[部署适配](data-collection-service/DEPLOYMENT.md) |
 | [`information-search/`](information-search/README.md) | 知乎官方 API 搜索、关键词与标签词匹配，支持 Agent tools 和 MCP | [搜索 JSON 格式](information-search/OUTPUT_FORMAT.md) |
+| [`agent/`](agent/README.md) | 命令行智能体：封装 Vercel AI SDK，连接搜索与采集两个 MCP，提供 ask / chat / doctor 入口 | [说明](agent/README.md) |
 | [`legacy/`](legacy/README.md) | 旧网页采集框架与独立 CLI 的源码归档 | 新项目优先使用通用采集模块 |
 
 ```text

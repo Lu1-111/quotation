@@ -1,0 +1,17 @@
+{
+  "name": "quotation-agent",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "cli": "node --env-file-if-exists=.env cli.mjs",
+    "doctor": "node --env-file-if-exists=.env cli.mjs doctor",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@ai-sdk/mcp": "2.0.103",
+    "@ai-sdk/openai-compatible": "3.0.94",
+    "ai": "7.0.179",
+    "zod": "4.6.7"
+  }
+}

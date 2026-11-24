@@ -17,6 +17,7 @@
 | 知识画像协议 | 已实现 `zhihu-knowledge-profile/v1` |
 | 正文采集 | 已实现 `fetchFullText`，真实数据 20 条中 19 条取到正文 |
 | Agent 只读接入 | 已实现，4 个只读工具 + MCP |
+| Agent 平台（`agent/`）对接 | **已端到端跑通**：7 个工具握手、真实数据 26 条、云端模型正确归纳 |
 | 接入正式前端 | 契约已固化为 [INTEGRATION.md](INTEGRATION.md)，待前端架构确定后执行 |
 
 ---
@@ -31,9 +32,23 @@
 
 **实测结果**：两个 MCP 同时握手成功，暴露 7 个工具（搜索 3 个 + 采集 4 个），全部 `readOnlyHint: true`。画像工具返回真实数据 26 条、含正文（最长 6795 字），`capabilities` 为 `{readSavedData:true, sync:false, login:false, settings:false}`。越权调用同步与改设置均被 403 `READ_ONLY` 拦截；`zhihu_collection_sync` 已不在工具列表中，连调用入口都不存在。agent 自带 72 项测试通过。
 
-**模型未接入**：本机无 OpenAI 兼容服务，Ollama 官方安装包 1.77 GB、实测下载速率约 2 MB/分钟（预计 14 小时），本轮未安装。平台除模型自主编排外的全部链路已验证可用。
+**模型已接入并端到端验证**：Ollama 0.40.17 已装（官方包 1.77 GB，GitHub Releases 对单 IP 限速，四路并发分段约 0.7 MB/s、耗时约 40 分钟；静默安装参数为 Inno Setup 的 `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`）。本机拉取 `qwen2.5:3b`、`qwen2.5:7b`，另接入 DeepSeek 云端模型完成真实对话。
 
-模型配置要求见 `agent/README.md`：必填 `AGENT_BASE_URL` 与 `AGENT_MODEL`，且**模型必须支持工具调用**，否则不报错但永远拿不到数据。个人数据需显式开启 `AGENT_ALLOW_PERSONAL_DATA`，因为数据会发送至所配置的模型服务。
+**本地小模型读不穿画像返回结构**，这是本轮最重要的发现：
+
+| 模型 | 对「我最近在看哪些主题」的回答 |
+| --- | --- |
+| qwen2.5:3b | 「尚无对应采集结果」 |
+| qwen2.5:7b | 「没有找到你的浏览数据快照」 |
+| deepseek-flash | 正确解析 26 条，归纳出 6 个领域 |
+
+排查确认管道无问题：工具被调用（`toolCalls` 含 `zhihu_knowledge_profile`）、HTTP 直读 `ok:true, total:26`、`content[0].text` 1577 字符且 `ok:true`、`structuredContent` 存在、`isError:false`、`resultType:complete`。原因是返回结构有三层（`{ok,data}` 外层 + `coverage`/`page`/`records` 中层 + 每条 22 字段），7B 量级模型看到 `coverage.completeHistory:false` 之类字段即误判为无数据。**选型时必须考虑模型的嵌套 JSON 解析能力，不只是是否支持 tool calling。**
+
+DeepSeek 的实际模型 ID 需从 `/models` 接口确认：当前为 `deepseek-flash`（显示名 DeepSeek-V4.1-Flash）与 `deepseek-v4-pro`，上下文均 1048576。
+
+云端模型回答质量符合预期：主动声明 `coverage` 的数据边界（最近 50 条、规则生成而非模型分析）、识别出同题多条不同回答、未对用户身份性格做过度推断——说明 `prompt.mjs` 的约束生效。
+
+模型配置要求见 `agent/README.md`：必填 `AGENT_BASE_URL` 与 `AGENT_MODEL`，且**模型必须支持工具调用**，否则不报错但永远拿不到数据。个人数据需显式开启 `AGENT_ALLOW_PERSONAL_DATA`，因为数据会发送至所配置的模型服务——用云端模型即意味着浏览记录与正文离开本机。
 
 
 ### 正文采集（fetchFullText）

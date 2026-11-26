@@ -28,11 +28,15 @@ export function buildTimeout(limits, toolNames = []) {
   return timeout;
 }
 
-function createDefaultModel(modelConfig) {
+export function createModel(modelConfig, { disableThinking = false } = {}) {
+  const isDeepSeek = /deepseek/i.test(`${modelConfig.baseURL ?? ''} ${modelConfig.modelName ?? ''}`);
   const provider = createOpenAICompatible({
     name: modelConfig.providerName ?? 'openai-compatible',
     baseURL: modelConfig.baseURL,
     apiKey: modelConfig.apiKey ?? undefined,
+    ...(disableThinking && isDeepSeek
+      ? { transformRequestBody: (args) => ({ ...args, thinking: { type: 'disabled' } }) }
+      : {}),
   });
   return provider.chatModel(modelConfig.modelName);
 }
@@ -90,7 +94,7 @@ export function createAgent(config, { connect = connectServers, model, buildProm
       if (!resolvedModel) {
         // 注入的 model 视为已就绪；否则必须有 baseURL 与模型名，先于连接检查，避免白白启动子进程。
         if (!config.model?.ready) throw new AgentError('MODEL_NOT_CONFIGURED', '尚未配置模型：请设置 AGENT_BASE_URL 与 AGENT_MODEL。', 3);
-        resolvedModel = createDefaultModel(config.model);
+        resolvedModel = createModel(config.model);
       }
       signal?.throwIfAborted();
       const active = await connectOnce(signal);

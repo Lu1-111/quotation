@@ -15,7 +15,8 @@ export const okEnvelope = (data) => ({ schemaVersion: 1, ok: true, data, error: 
 export const errorEnvelope = (error) => ({ schemaVersion: 1, ok: false, data: null, error: { code: error.code, message: error.message } });
 
 // 把任意异常转成可展示的 AgentError；消息固定为中文短句，不回显上游响应体、密钥或堆栈。
-export function safeAgentError(error, signal) {
+export function safeAgentError(rawError, signal) {
+  const error = rawError?.name === 'AI_RetryError' && rawError.lastError ? rawError.lastError : rawError;
   if (error instanceof AgentError) return error;
   if (signal?.reason?.name === 'TimeoutError' || error?.name === 'TimeoutError') return new AgentError('TIMEOUT', '智能体执行超时，已中止。', 1);
   if (signal?.aborted || error?.name === 'AbortError') return new AgentError('CANCELLED', '智能体已取消，未完成的回答不会保存。', 130);

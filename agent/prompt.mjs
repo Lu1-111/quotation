@@ -36,11 +36,15 @@ const NONE = [
 const block = (lines) => lines.join('\n');
 
 // enabled 是已启用服务器 id 数组；不认识的 id 直接忽略。
-export function buildSystemPrompt({ enabled = [] } = {}) {
+// profile 是后台生成的用户画像文本块，可为空——为空时提示词里不会出现画像段落。
+export function buildSystemPrompt({ enabled = [], profile = '' } = {}) {
   const ids = new Set(Array.isArray(enabled) ? enabled : []);
   const sections = [];
   if (ids.has('search')) sections.push(SEARCH);
   if (ids.has('collection')) sections.push(COLLECTION);
   if (sections.length === 0) sections.push(NONE);
-  return [BASE, ...sections].map(block).join('\n\n');
+  const blocks = [BASE, ...sections].map(block);
+  const trimmed = typeof profile === 'string' ? profile.trim() : '';
+  if (trimmed) blocks.push(trimmed);
+  return blocks.join('\n\n');
 }

@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
-import { createOfficialClient, createDemoClient, SearchError } from './official-client.mjs';
+import { createDemoClient, SearchError } from './official-client.mjs';
+import { createSkillClient } from './skill-client.mjs';
 import { createInformationSearch } from './search.mjs';
 import { createSearchStore } from './store.mjs';
 import { getToolDefinitions, toolSchemas } from './tool-schemas.mjs';
@@ -15,6 +16,8 @@ const safeMessages = {
   INVALID_RESPONSE: '知乎返回非预期结果，暂时无法完成搜索。',
   UPSTREAM_PARAMETERS: '知乎拒绝了搜索参数，请调整条件。',
   UPSTREAM_ERROR: '知乎搜索暂时不可用。',
+  SKILL_RUNTIME_MISSING: '本机缺少可用的 Python 3 环境，无法运行知乎搜索 Skill 脚本。',
+  SKILL_MISSING: '未找到知乎搜索 Skill 脚本文件，请检查 skills/zhihu-search 目录。',
 };
 
 function pageOf(snapshot, { offset = 0, limit, excerptMaxChars }) {
@@ -105,9 +108,19 @@ export function createAgentTools({ service, store, configured = false, demo = fa
   };
 }
 
-export function createLocalAgentTools({ accessSecret = process.env.ZHIHU_ACCESS_SECRET, demo = false,
-  dataFile = process.env.DATA_FILE || fileURLToPath(new URL(demo ? './.data/demo.sqlite' : './.data/search.sqlite', import.meta.url)), timeoutMs = 90_000 } = {}) {
-  const client = demo ? createDemoClient() : createOfficialClient({ accessSecret });
+export function createLocalAgentTools({
+  accessSecret = process.env.ZHIHU_ACCESS_SECRET,
+  openApiBaseUrl = process.env.ZHIHU_OPENAPI_BASE_URL,
+  searchUrl = process.env.ZHIHU_ZHIHU_SEARCH_URL,
+  skillDir = process.env.ZHIHU_SEARCH_SKILL_DIR,
+  pythonBin = process.env.ZHIHU_SKILL_PYTHON,
+  demo = false,
+  dataFile = process.env.DATA_FILE || fileURLToPath(new URL(demo ? './.data/demo.sqlite' : './.data/search.sqlite', import.meta.url)),
+  timeoutMs = 90_000,
+} = {}) {
+  const client = demo
+    ? createDemoClient()
+    : createSkillClient({ accessSecret, openApiBaseUrl, searchUrl, skillDir, pythonBin });
   const store = createSearchStore(dataFile);
   try {
     const service = createInformationSearch({ client, store, demo });

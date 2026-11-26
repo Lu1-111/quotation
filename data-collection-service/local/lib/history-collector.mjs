@@ -179,11 +179,20 @@ export function createHistoryCollector(store, { directory, channel, gatewayFacto
         }
         const fetchedCounts = {};
         const runAnalysis = contentAgent?.createRun();
+        // 详情缓存过期数据不会自己消失，每个同步周期清一次。
+        store.pruneDetails(id);
         const items = await collectSelectedData(worker.gateway, owner, settings, {
           checkActive,
           analyze: runAnalysis ? (record) => runAnalysis(record, { checkActive,
             cached: (hash) => store.cachedReview(id, hash), save: (hash, analysis) => store.saveReview(id, hash, analysis) }) : undefined,
           pause: async () => { checkActive(); if (pageDelay > 0) await delay(pageDelay); checkActive(); },
+          // 详情缓存：同一内容在有效期内不再向知乎取详情，也不等待节流。
+          cache: {
+            get: (contentKey) => store.cachedDetail(id, contentKey),
+            set: (contentKey, payload) => store.saveDetail(id, contentKey, payload),
+          },
+          // 增量扫描：带着上次落库的浏览记录，扫到上次的边界就停，已采集的直接复用。
+          previous: settings.history ? { records: store.dataset(id, 'history') } : undefined,
           progress(kind, count) {
             if (kind !== 'analysis') fetchedCounts[kind] = count;
             worker.stage = kind;

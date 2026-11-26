@@ -5,6 +5,35 @@ export const BASE_WEIGHTS = Object.freeze({ pin: 1, article: 2, answer: 3 });
 export const ANSWER_MIN_VOTES = 5;
 export const ANSWER_MIN_COMMENTS = 2;
 export const HISTORY_LIMIT = 50;
+// 每个类别在库里最多保留多少条，超出时按 keepScore 淘汰。
+export const PART_LIMIT = 50;
+// 淘汰时"采集新鲜度"最多能加多少分：30 天内线性衰减到 0。
+export const FRESHNESS_WEIGHT = 1;
+export const FRESHNESS_DAYS = 30;
+
+// 淘汰分数：类型/行为/互动 + 采集新鲜度。
+// 快照里的 weight 还含"同主题加分"，那是窗口内的相对信号、会随批次变化，
+// 不适合用来决定长期存储取舍，所以这里单独算一个稳定的分数。
+export function keepScore(record, now = Date.now()) {
+  const base = BASE_WEIGHTS[record.contentType] ?? 0;
+  const kinds = record.kinds ?? (record.kind ? [record.kind] : ['history']);
+  const action = kinds.some((kind) => kind === 'likes' || kind === 'collections') ? 4 / 3 : 1;
+  const engagement = Math.min(1, Math.log1p((record.voteCount || 0) + 2 * (record.commentCount || 0)) / Math.log1p(1000));
+  const seen = Date.parse(record.observedAt ?? '');
+  const ageDays = Number.isFinite(seen) ? Math.max(0, (now - seen) / 86_400_000) : FRESHNESS_DAYS;
+  const freshness = Math.max(0, 1 - ageDays / FRESHNESS_DAYS);
+  return base * action + engagement + FRESHNESS_WEIGHT * freshness;
+}
+
+// 超过上限时保留分数最高的若干条；同分时保留采集时间更近的，再按 key 定序保证可复现。
+export function trimToLimit(records, { limit = PART_LIMIT, now = Date.now() } = {}) {
+  if (records.length <= limit) return records;
+  const scored = records.map((record) => ({ record, score: keepScore(record, now) }));
+  scored.sort((left, right) => right.score - left.score
+    || (Date.parse(right.record.observedAt ?? '') || 0) - (Date.parse(left.record.observedAt ?? '') || 0)
+    || String(left.record.key).localeCompare(String(right.record.key)));
+  return scored.slice(0, limit).map((entry) => entry.record);
+}
 
 export function validateSettings(value) {
   if (!value || DATA_KINDS.some((kind) => typeof value[kind] !== 'boolean')

@@ -24,7 +24,7 @@ function* activities(entries) {
   }
 }
 
-export async function collectSelectedData(gateway, owner, settings, { checkActive, pause, progress, analyze }) {
+export async function collectSelectedData(gateway, owner, settings, { checkActive, pause, progress, analyze, cache, previous }) {
   const metadataCache = new Map();
   const collected = [];
 
@@ -46,14 +46,16 @@ export async function collectSelectedData(gateway, owner, settings, { checkActiv
   async function enrich(record) {
     const key = postKey(record);
     if (!metadataCache.has(key)) {
-      let detail = null;
       const id = encodeURIComponent(record.contentId);
       const paths = {
         answer: `/api/v4/answers/${id}?include=content,excerpt,voteup_count,comment_count,question.topics`,
         article: `https://zhuanlan.zhihu.com/api/articles/${id}`,
         pin: `/api/v4/pins/${id}?include=topics`,
       };
-      if (paths[record.contentType] && (settings.fetchFullText || settings.aiReview || record.voteCount == null || record.commentCount == null || !record.topics?.length)) {
+      // 命中详情缓存就不再发请求、也不走节流等待，这是增量同步变快的主要来源。
+      let detail = cache?.get(key) ?? null;
+      if (!detail && paths[record.contentType]
+        && (settings.fetchFullText || settings.aiReview || record.voteCount == null || record.commentCount == null || !record.topics?.length)) {
         checkActive();
         await pause();
         try {
@@ -62,7 +64,10 @@ export async function collectSelectedData(gateway, owner, settings, { checkActiv
           if ([401, 429].includes(error.status)) throw error;
         }
       }
-      metadataCache.set(key, detail?.id ? detail : null);
+      // 只缓存能确认属于这条内容的响应；失败与 403/404 不入缓存，下次仍会重试。
+      const usable = detail?.id ? detail : null;
+      if (usable) cache?.set(key, usable);
+      metadataCache.set(key, usable);
     }
     const detail = metadataCache.get(key);
     if (!detail) return { ...record, bodyStatus: 'unavailable', metadataStatus: record.voteCount != null && record.commentCount != null ? 'available' : 'partial' };
@@ -98,9 +103,20 @@ export async function collectSelectedData(gateway, owner, settings, { checkActiv
   if (settings.history) {
     const history = new Map();
     const seenPosts = new Set();
+    // 增量：上一次采集落库的浏览记录。能直接复用的就不取详情，也不占请求预算。
+    const known = new Map();
+    let watermark = null;
+    for (const record of Array.isArray(previous?.records) ? previous.records : []) {
+      if (!record || record.contentId == null || !record.contentType) continue;
+      const at = readTimestamp(record);
+      if (at != null && (watermark == null || at < watermark)) watermark = at;
+      known.set(postKey(record), record);
+    }
+    const wantBody = Boolean(settings.fetchFullText || settings.aiReview);
     let offset = '0';
     const seen = new Set();
-    while (offset !== null && history.size < HISTORY_LIMIT) {
+    let reachedFrontier = false;
+    while (offset !== null && history.size < HISTORY_LIMIT && !reachedFrontier) {
       checkActive();
       if (seen.has(offset)) throw new HistoryError('知乎返回了重复历史分页，同步已停止。');
       seen.add(offset);
@@ -108,19 +124,46 @@ export async function collectSelectedData(gateway, owner, settings, { checkActiv
       if (!Array.isArray(result?.data)) throw new HistoryError('知乎历史字段发生变化，请检查取数适配。');
       const sorted = result.data.map(normalizeHistoryItem).sort((a, b) => (readTimestamp(b) || 0) - (readTimestamp(a) || 0));
       for (const record of sorted) {
-        if (record.contentType === 'profile' || seenPosts.has(postKey(record))) continue;
-        seenPosts.add(postKey(record));
+        if (record.contentType === 'profile') continue;
+        const key = postKey(record);
+        if (seenPosts.has(key)) continue;
+        seenPosts.add(key);
+        const carried = known.get(key);
+        // 已经采过：沿用旧记录。除非这次要求正文而旧记录没有正文，才继续取详情补齐。
+        const needsBody = carried && wantBody && carried.bodyText == null;
+        if (carried && !needsBody) {
+          // 上次被知识过滤排除的，只补回审计列表，不占 50 条窗口。
+          if (carried.analysis?.decision === 'exclude') { collected.push(carried); continue; }
+          history.set(key, carried);
+          progress('history', history.size);
+          if (history.size === HISTORY_LIMIT) break;
+          continue;
+        }
+        const at = readTimestamp(record);
+        // 比上次最旧一条还早，说明已经越过上次的结束位置：再往前不会有新内容。
+        if (!carried && watermark != null && at != null && at < watermark) { reachedFrontier = true; break; }
         const enriched = await enrich(record);
         if (!eligibleHistory(enriched)) continue;
         const reviewed = await prepare(enriched);
         if (!policyAllows(reviewed, settings)) { collected.push(reviewed); continue; }
-        history.set(postKey(reviewed), reviewed);
+        history.set(key, reviewed);
         progress('history', history.size);
         if (history.size === HISTORY_LIMIT) break;
       }
-      if (history.size === HISTORY_LIMIT) break;
+      if (history.size === HISTORY_LIMIT || reachedFrontier) break;
       offset = nextHistoryOffset(result.paging);
       if (offset !== null) await pause();
+    }
+    // 到达边界后把更早、但已经采过的记录补回来，窗口才不会因为增量而缩水。
+    if (history.size < HISTORY_LIMIT && known.size) {
+      const older = [...known.values()].sort((a, b) => (readTimestamp(b) || 0) - (readTimestamp(a) || 0));
+      for (const record of older) {
+        const key = postKey(record);
+        if (seenPosts.has(key) || record.analysis?.decision === 'exclude' || !eligibleHistory(record)) continue;
+        seenPosts.add(key);
+        history.set(key, record);
+        if (history.size === HISTORY_LIMIT) break;
+      }
     }
     collected.push(...newestHistory([...history.values()]));
   }

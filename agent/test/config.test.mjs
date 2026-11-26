@@ -58,10 +58,20 @@ test('搜索在有访问密钥或演示模式时启用', () => {
   assert.equal(off.enabled, false);
   assert.deepEqual(off.env, {});
   assert.equal(server(load({ ZHIHU_ACCESS_SECRET: '   ' }), 'search').enabled, false);
-  const secret = server(load({ ZHIHU_ACCESS_SECRET: ACCESS_SECRET, DATA_FILE: 'data/tags.json' }), 'search');
+  const secret = server(load({
+    ZHIHU_ACCESS_SECRET: ACCESS_SECRET,
+    ZHIHU_OPENAPI_BASE_URL: 'https://developer.zhihu.com',
+    ZHIHU_ZHIHU_SEARCH_URL: 'https://developer.zhihu.com/api/v1/content/zhihu_search',
+    DATA_FILE: 'data/tags.json',
+  }), 'search');
   assert.equal(secret.enabled, true);
   assert.deepEqual(secret.args, [SEARCH_MAIN]);
-  assert.deepEqual(secret.env, { ZHIHU_ACCESS_SECRET: ACCESS_SECRET, DATA_FILE: 'data/tags.json' });
+  assert.deepEqual(secret.env, {
+    ZHIHU_ACCESS_SECRET: ACCESS_SECRET,
+    ZHIHU_OPENAPI_BASE_URL: 'https://developer.zhihu.com',
+    ZHIHU_ZHIHU_SEARCH_URL: 'https://developer.zhihu.com/api/v1/content/zhihu_search',
+    DATA_FILE: 'data/tags.json',
+  });
   const demoConfig = load({}, { demo: true });
   const demo = server(demoConfig, 'search');
   assert.equal(demo.enabled, true);

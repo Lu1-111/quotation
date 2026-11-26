@@ -2,7 +2,8 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { createOfficialClient, createDemoClient, SearchError } from './official-client.mjs';
+import { createDemoClient, SearchError } from './official-client.mjs';
+import { createSkillClient } from './skill-client.mjs';
 import { createSearchStore } from './store.mjs';
 import { createInformationSearch } from './search.mjs';
 import { toMarkdown } from './report.mjs';
@@ -72,7 +73,15 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
   if (!['127.0.0.1', 'localhost', '::1'].includes(host) || !['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname)
     || origin.protocol !== 'http:' || origin.href !== `${origin.origin}/` || Number(origin.port || 80) !== port) throw new Error('信息搜索模块仅支持匹配端口的本机 HTTP 地址。');
   const store = createSearchStore(process.env.DATA_FILE || (demo ? '.data/demo.sqlite' : '.data/search.sqlite'));
-  const client = demo ? createDemoClient() : createOfficialClient({ accessSecret: process.env.ZHIHU_ACCESS_SECRET });
+  const client = demo
+    ? createDemoClient()
+    : createSkillClient({
+        accessSecret: process.env.ZHIHU_ACCESS_SECRET,
+        openApiBaseUrl: process.env.ZHIHU_OPENAPI_BASE_URL,
+        searchUrl: process.env.ZHIHU_ZHIHU_SEARCH_URL,
+        skillDir: process.env.ZHIHU_SEARCH_SKILL_DIR,
+        pythonBin: process.env.ZHIHU_SKILL_PYTHON,
+      });
   const service = createInformationSearch({ client, store, demo });
   createSearchHttpServer({ origin: origin.origin, service, store, configured: client.configured, demo }).listen(port, host, () => {
     console.log(`知乎信息搜索${demo ? '（演示）' : ''} ${origin.origin}`);

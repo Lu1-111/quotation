@@ -104,7 +104,7 @@ export function createInformationSearch({ client, store, now = Date.now, queryDe
       signal?.throwIfAborted();
       const evaluated = [...merged.values()].map((item) => ({ ...item, matches: matchItem(item, criteria) }));
       const items = evaluated.filter((item) => item.matches.accepted).sort((a, b) => (b.rankingScore ?? -Infinity) - (a.rankingScore ?? -Infinity) || a.key.localeCompare(b.key));
-      const snapshot = { schemaVersion: 1, module: 'information-search', provider: demo ? 'demo' : 'zhihu_official_search', requestId: randomUUID(), createdAt: new Date(now()).toISOString(), criteria,
+      const snapshot = { schemaVersion: 1, module: 'information-search', provider: demo ? 'demo' : (client?.provider || 'zhihu_official_search'), requestId: randomUUID(), createdAt: new Date(now()).toISOString(), criteria,
         queryPlan, coverage: { paginationSupported: false, perQueryLimit: criteria.countPerQuery, platformTagsAvailable: false, tagMatching: 'local_title_excerpt_match', textKind: 'excerpt', hasMoreReported: searches.some((search) => search.hasMoreReported) },
         searches, stats: { apiCalls, cacheHits, rawCount, uniqueCount: merged.size, matchedCount: items.length, filteredCount: merged.size - items.length }, items };
       store?.save(snapshot);

@@ -6,6 +6,7 @@
   "scripts": {
     "cli": "node --env-file-if-exists=.env cli.mjs",
     "doctor": "node --env-file-if-exists=.env cli.mjs doctor",
+    "web": "node --env-file-if-exists=.env web.mjs",
     "test": "node --test"
   },
   "dependencies": {

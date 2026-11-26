@@ -1,0 +1,1616 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>知乎数据助手 · 本机工作台</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{
+    --bg:#0b1220; --panel:#111c2e; --panel2:#16233a; --line:#22304a;
+    --ink:#e6edf7; --muted:#8fa3bf; --dim:#63758f;
+    --accent:#4f7cff; --accent2:#38bdf8; --ok:#34d399; --warn:#fbbf24; --err:#f87171;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.65 "Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  header{
+    display:flex; align-items:center; gap:22px; padding:10px 18px;
+    background:linear-gradient(180deg,#0e1830,#0b1220); border-bottom:1px solid var(--line); flex:0 0 auto;
+  }
+  .brand{display:flex; align-items:baseline; gap:10px; font-weight:650; letter-spacing:.3px; white-space:nowrap}
+  .brand small{color:var(--dim); font-weight:400; font-size:12px}
+  nav.tabs{display:flex; gap:4px; background:#0d1728; border:1px solid var(--line); border-radius:11px; padding:3px}
+  nav.tabs button{
+    border:0; background:transparent; color:var(--muted); font:inherit; font-size:13.5px;
+    padding:6px 16px; border-radius:8px; cursor:pointer;
+  }
+  nav.tabs button:hover{color:var(--ink)}
+  nav.tabs button.active{background:var(--panel2); color:var(--ink); box-shadow:0 0 0 1px #2b3f63 inset}
+  nav.tabs button .dot{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--warn); margin-left:6px; vertical-align:middle}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; margin-left:auto}
+  .chip{
+    font-size:12px; padding:4px 10px; border-radius:999px; border:1px solid var(--line);
+    background:var(--panel); color:var(--muted); white-space:nowrap;
+  }
+  .chip b{color:var(--ink); font-weight:600}
+  .chip.on{border-color:#2b6b52; background:#0f2a22; color:#8ee9c4}
+  .chip.off{border-color:#5a3030; background:#2a1416; color:#f6a6a6}
+  button{
+    font:inherit; font-size:13px; color:var(--ink); background:var(--panel2);
+    border:1px solid var(--line); border-radius:10px; padding:7px 14px; cursor:pointer;
+    transition:background .15s,border-color .15s,opacity .15s;
+  }
+  button:hover:not(:disabled){background:#1d2c47; border-color:#2f4368}
+  button:disabled{opacity:.45; cursor:not-allowed}
+  button.primary{background:linear-gradient(180deg,#4f7cff,#3b63d8); border-color:#4f7cff; color:#fff; font-weight:600}
+  button.primary:hover:not(:disabled){background:linear-gradient(180deg,#5b86ff,#4570e6)}
+  button.danger{border-color:#6b3030; color:#f7b3b3}
+  button.ghost{background:transparent}
+
+  main{flex:1 1 auto; min-height:0; display:flex}
+  .page{display:none; flex:1 1 auto; min-height:0; min-width:0}
+  .page.active{display:flex}
+  #page-chat.active{display:grid; grid-template-columns:352px 1fr}
+  main.solo #page-chat.active{grid-template-columns:0 1fr}
+  main.solo #page-chat aside{display:none}
+
+  aside{
+    border-right:1px solid var(--line); background:var(--panel);
+    overflow-y:auto; padding:16px; min-height:0;
+  }
+  aside h2{font-size:12px; text-transform:uppercase; letter-spacing:1.2px; color:var(--dim); margin:18px 0 8px}
+  aside h2:first-child{margin-top:0}
+  label.field{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px}
+  input[type=text],input[type=password],input[type=number]{
+    width:100%; font:inherit; font-size:13px; color:var(--ink); background:#0d1728;
+    border:1px solid var(--line); border-radius:9px; padding:8px 10px; outline:none;
+  }
+  input:focus,textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,124,255,.15)}
+  .row{display:flex; gap:8px}
+  .row>*{flex:1}
+  .check{display:flex; align-items:flex-start; gap:9px; margin:11px 0; font-size:13px; color:var(--ink); cursor:pointer}
+  .check input{margin:3px 0 0; accent-color:var(--accent); width:15px; height:15px; flex:0 0 auto}
+  .check span small{display:block; color:var(--dim); font-size:11.5px; line-height:1.5}
+  .serverbox{margin-top:10px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#0d1728; font-size:12px; color:var(--muted)}
+  .serverbox div+div{margin-top:6px}
+  .serverbox b{color:var(--ink)}
+  .hint{font-size:11.5px; color:var(--dim); margin-top:10px; line-height:1.55}
+  .toolist{margin-top:10px; display:flex; flex-direction:column; gap:6px}
+  .toolist code{font-size:12px; color:#9fc8ff; background:#0d1728; border:1px solid var(--line); border-radius:7px; padding:4px 8px; word-break:break-all}
+
+  /* ===== 对话 ===== */
+  #page-chat{display:none}
+  section.thread{display:flex; flex-direction:column; min-height:0; min-width:0}
+  #thread{flex:1 1 auto; overflow-y:auto; padding:26px max(24px,6vw); display:flex; flex-direction:column; gap:18px}
+  .msg{max-width:min(820px,100%)}
+  .msg.user{align-self:flex-end; background:#1b2b47; border:1px solid #27395a; border-radius:14px 14px 4px 14px; padding:11px 15px; white-space:pre-wrap; word-break:break-word}
+  .msg.bot{align-self:stretch; background:var(--panel); border:1px solid var(--line); border-radius:4px 14px 14px 14px; padding:15px 17px}
+  .msg.bot .body{white-space:pre-wrap; word-break:break-word}
+  .meta{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; padding-top:10px; border-top:1px dashed var(--line); font-size:11.5px; color:var(--dim)}
+  .meta span{padding:2px 8px; border-radius:999px; background:#0d1728; border:1px solid var(--line)}
+  .msg.error{border-color:#6b3030; background:#1d1216}
+  .msg.error .body{color:#f7b3b3}
+  .msg.error .code{font-size:11.5px; color:#f87171; font-family:ui-monospace,Consolas,monospace; margin-bottom:6px}
+  .guide{align-self:center; max-width:640px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:var(--radius); padding:26px 24px; background:#0d1728}
+  .guide h3{margin:0 0 8px; color:var(--ink); font-size:16px}
+  .guide p{margin:6px 0; font-size:13px}
+  form.composer{flex:0 0 auto; border-top:1px solid var(--line); background:var(--panel); padding:14px max(24px,6vw) 18px; display:flex; gap:12px; align-items:flex-end}
+  textarea{flex:1 1 auto; min-height:46px; max-height:190px; resize:none; font:inherit; color:var(--ink); background:#0d1728; border:1px solid var(--line); border-radius:12px; padding:11px 14px; outline:none; line-height:1.55}
+  .sendbar{display:flex; flex-direction:column; gap:6px; flex:0 0 auto}
+  .timer{font-size:11.5px; color:var(--accent2); text-align:center; min-height:16px; font-variant-numeric:tabular-nums}
+
+  /* ===== 采集 ===== */
+  #page-collection{display:none}
+  #page-collection.active{display:grid; grid-template-columns:330px 1fr}
+  .col-main{display:flex; flex-direction:column; min-height:0; min-width:0}
+  .toolbar{display:flex; gap:8px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap}
+  .toolbar .grow{flex:1 1 auto}
+  .acct{border:1px solid var(--line); border-radius:12px; background:#0d1728; padding:12px; font-size:13px}
+  .acct .name{font-weight:600; margin-bottom:4px}
+  .acct .sub{color:var(--dim); font-size:12px}
+  .notice{margin:0 20px 0; padding:10px 14px; border-radius:10px; font-size:12.5px; border:1px solid var(--line); background:#0d1728; color:var(--muted)}
+  .notice.warn{border-color:#5a4a1f; background:#241d0d; color:#f3d08a}
+  .notice.err{border-color:#6b3030; background:#1d1216; color:#f7b3b3}
+  .notice.ok{border-color:#2b6b52; background:#0f2a22; color:#8ee9c4}
+  #syncBar{margin:12px 20px 0}
+  .records{flex:1 1 auto; overflow-y:auto; padding:16px 20px 20px; display:flex; flex-direction:column; gap:10px}
+  .rec{border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:12px 14px}
+  .rec h4{margin:0 0 6px; font-size:14px; font-weight:600; line-height:1.45}
+  .rec h4 a{color:var(--ink); text-decoration:none}
+  .rec h4 a:hover{color:#9fc8ff}
+  .rec .sum{color:var(--muted); font-size:12.5px; line-height:1.6; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .rec .tags{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; font-size:11px; color:var(--dim)}
+  .rec .tags span{border:1px solid var(--line); border-radius:999px; padding:1px 8px; background:#0d1728}
+  .rec .tags .w{color:#9fc8ff}
+  .pager{display:flex; align-items:center; gap:10px; justify-content:center; padding:10px 20px 16px; border-top:1px solid var(--line); color:var(--dim); font-size:12px}
+  .empty{color:var(--dim); text-align:center; padding:48px 20px; font-size:13px}
+
+  /* ===== 交付 ===== */
+  #page-delivery{display:none}
+  #page-delivery.active{display:block; overflow-y:auto}
+  .deliv{max-width:900px; margin:0 auto; padding:26px 24px 60px}
+  .deliv h2{font-size:17px; margin:0 0 6px}
+  .deliv h3{font-size:14px; margin:26px 0 8px; color:var(--ink)}
+  .deliv p{color:var(--muted); font-size:13px; margin:6px 0}
+  .card{border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:14px 16px; margin-top:10px}
+  .reader{display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13px}
+  .reader:last-child{border-bottom:0}
+  .reader .lbl{font-weight:600}
+  .reader .when{color:var(--dim); font-size:11.5px}
+  .reader .grow{flex:1 1 auto}
+  .badge{font-size:11px; color:#8ee9c4; border:1px solid #2b6b52; background:#0f2a22; border-radius:999px; padding:1px 8px}
+  pre{background:#0d1728; border:1px solid var(--line); border-radius:10px; padding:12px 14px; overflow-x:auto; font-size:12px; line-height:1.6; color:#cfe0f7}
+  .tokenbox{margin-top:8px; padding:10px 12px; border:1px solid #5a4a1f; background:#241d0d; border-radius:10px; font-size:12px; color:#f3d08a; word-break:break-all; font-family:ui-monospace,Consolas,monospace}
+
+  .toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#1d2c47; border:1px solid #2f4368; color:var(--ink); padding:9px 16px; border-radius:10px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:9}
+  .toast.show{opacity:1}
+  .toast.ok{border-color:#2b6b52; background:#0f2a22; color:#8ee9c4}
+  .toast.err{border-color:#6b3030; background:#1d1216; color:#f7b3b3}
+
+  /* ===== 画像 ===== */
+  #page-profile{display:none}
+  #page-profile.active{display:block; overflow-y:auto}
+  .pf{max-width:900px; margin:0 auto; padding:24px 24px 64px}
+  .pf-head{display:flex; align-items:flex-start; gap:12px; margin-bottom:6px}
+  .pf-head h2{font-size:17px; margin:0}
+  .pf-head .grow{flex:1 1 auto}
+  .pf-meta{color:var(--dim); font-size:12px; margin:2px 0 16px}
+  .pf-card{border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:14px 16px; margin-bottom:12px}
+  .pf-card h3{font-size:13px; margin:0 0 10px; color:var(--muted); font-weight:600; letter-spacing:.3px}
+  .pf-summary{font-size:14px; line-height:1.75; white-space:pre-wrap}
+  .pf-domain{display:flex; align-items:center; gap:10px; margin:9px 0}
+  .pf-domain .nm{width:190px; font-size:13px; flex:0 0 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .pf-domain .bar{height:8px; border-radius:5px; background:linear-gradient(90deg,#4f7cff,#38bdf8); flex:0 0 auto}
+  .pf-domain .pct{width:44px; text-align:right; color:var(--accent2); font-size:12px; font-variant-numeric:tabular-nums}
+  .pf-domain .ev{color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto}
+  .taglist{display:flex; gap:6px; flex-wrap:wrap}
+  .taglist span{border:1px solid var(--line); border-radius:999px; padding:3px 10px; font-size:12px; background:#0d1728; color:var(--muted)}
+  .pf-list{margin:0; padding-left:18px; font-size:13px; line-height:1.8; color:var(--muted)}
+  .pf-empty{color:var(--dim); font-size:13px; text-align:center; padding:40px 16px}
+
+  /* ===== 交互（选择 / 交锋 / 总结）===== */
+  #page-interaction{display:none}
+  #page-interaction.active{display:block; overflow-y:auto}
+  .ix{max-width:980px; margin:0 auto; padding:24px 24px 72px}
+  .ix-top{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:18px}
+  .ix-steps{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .ix-step{
+    font-size:12.5px; padding:5px 12px; border-radius:999px; border:1px solid var(--line);
+    background:var(--panel); color:var(--dim); display:flex; align-items:center; gap:6px;
+  }
+  .ix-step.on{border-color:var(--accent); background:#132342; color:var(--ink); font-weight:600}
+  .ix-step.done{border-color:#2b6b52; background:#0f2a22; color:#8ee9c4}
+  .ix-arrow{color:var(--dim); font-size:12px}
+  .ix-actions{display:flex; align-items:center; gap:8px}
+  .ix-ext{font-size:12px; color:var(--muted); text-decoration:none; padding:5px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel)}
+  .ix-ext:hover{color:var(--ink); border-color:#2f4368}
+
+  .ix-banner{border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap}
+  .ix-banner p{margin:4px 0 0; font-size:12.5px; color:var(--muted)}
+  .ix-loading{border:1px dashed #2f4a78; border-radius:12px; background:#0e1a2f; padding:20px; text-align:center; color:#9fc8ff; font-size:13.5px; margin-bottom:16px}
+
+  .vp-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px}
+  .vp-card{
+    border:1px solid var(--line); border-radius:14px; background:var(--panel); padding:18px;
+    display:flex; flex-direction:column; gap:10px; transition:border-color .16s, transform .16s;
+  }
+  .vp-card:hover{border-color:#355284; transform:translateY(-2px)}
+  .vp-card.hot{border-color:#4d3b1e; background:linear-gradient(180deg,#191824,var(--panel))}
+  .vp-badge{align-self:flex-start; font-size:11.5px; padding:2px 10px; border-radius:999px; border:1px solid #2b4570; background:#10203a; color:#9fc8ff}
+  .vp-card.hot .vp-badge{border-color:#6b4f1d; background:#291e0c; color:#fbbf24}
+  .vp-topic{font-size:12.5px; color:var(--muted); font-weight:600}
+  .vp-claim{font-size:15.5px; font-weight:650; line-height:1.55; color:var(--ink); margin:2px 0}
+  .vp-opp{font-size:12.5px; color:var(--muted); background:#0d1728; border:1px solid var(--line); border-radius:10px; padding:9px 11px; line-height:1.55}
+  .vp-opp b{color:var(--ink); display:block; margin-bottom:2px}
+  .vp-refs{font-size:11.5px; color:var(--dim); margin-top:auto; padding-top:4px}
+  .vp-refs span{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+  .clash-head{border:1px solid var(--line); border-radius:14px; background:var(--panel); padding:16px 18px; margin-bottom:14px}
+  .clash-row{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap}
+  .clash-claim{font-size:14.5px; font-weight:600; color:var(--ink); margin-top:6px}
+  .will-wrap{margin-top:14px}
+  .will-top{display:flex; justify-content:space-between; align-items:baseline; font-size:13px; margin-bottom:6px}
+  .will-num{font-weight:700; font-variant-numeric:tabular-nums; font-size:15px}
+  .will-track{height:12px; border-radius:999px; background:#0b1322; border:1px solid var(--line); overflow:hidden}
+  .will-fill{height:100%; border-radius:999px; transition:width .35s ease, background .35s ease; background:linear-gradient(90deg,#3b82f6,#38bdf8)}
+  .will-fill.over{background:linear-gradient(90deg,#7c3aed,#ec4899)}
+  .will-fill.mid{background:linear-gradient(90deg,#d97706,#fbbf24)}
+  .will-fill.low{background:linear-gradient(90deg,#dc2626,#f87171)}
+  .pillars{display:flex; gap:6px; flex-wrap:wrap; margin-top:12px}
+  .pillars span{font-size:11.5px; padding:2px 9px; border-radius:999px; background:#0d1728; border:1px solid var(--line); color:var(--dim)}
+
+  .clash-delta{border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:14px; border:1px solid #2b4570; background:#10203a; color:#cfe0f7}
+  .clash-delta.gain{border-color:#6b4f1d; background:#291e0c; color:#fde68a}
+  .clash-log{margin-bottom:14px}
+  .clash-log summary{cursor:pointer; font-size:12.5px; color:var(--muted); padding:6px 2px; user-select:none}
+  .clash-log-list{display:flex; flex-direction:column; gap:8px; margin-top:8px}
+  .clash-log-item{border:1px solid var(--line); border-radius:10px; background:#0d1728; padding:10px 12px; font-size:12.5px; color:var(--muted)}
+  .clash-log-item b{color:var(--ink)}
+
+  .opp-box{border:1px solid #3c4d70; border-left:4px solid var(--accent); border-radius:12px; background:var(--panel2); padding:15px 18px; margin-bottom:16px}
+  .opp-box .who{font-size:12px; color:var(--accent2); font-weight:600; margin-bottom:6px}
+  .opp-box .arg{font-size:15px; line-height:1.7; color:var(--ink)}
+
+  .diff-hint{border:1px solid #5a4a1f; background:#241d0d; color:#f3d08a; border-radius:10px; padding:9px 13px; font-size:12.5px; margin-bottom:12px}
+  .opt-list{display:flex; flex-direction:column; gap:10px}
+  .opt-btn{
+    width:100%; text-align:left; border:1px solid var(--line); border-radius:12px; background:var(--panel);
+    padding:14px 16px; display:flex; align-items:flex-start; gap:12px; cursor:pointer;
+    transition:border-color .15s, background .15s, transform .1s;
+  }
+  .opt-btn:hover:not(:disabled){border-color:var(--accent); background:#15243d}
+  .opt-btn.picked{border-color:var(--accent2); background:#132a46}
+  .opt-key{
+    width:26px; height:26px; border-radius:8px; background:#0d1728; border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12.5px; color:var(--accent2); flex:0 0 auto; margin-top:1px;
+  }
+  .opt-text{flex:1 1 auto; font-size:14px; line-height:1.65; color:var(--ink)}
+  .diff-tag{flex:0 0 auto; font-size:11.5px; font-weight:600; padding:3px 10px; border-radius:999px; border:1px solid var(--line); white-space:nowrap}
+  .diff-tag.d1{border-color:#2b6b52; background:#0f2a22; color:#8ee9c4}
+  .diff-tag.d2{border-color:#26537c; background:#0f243a; color:#7dd3fc}
+  .diff-tag.d3{border-color:#6b4f1d; background:#291e0c; color:#fbbf24}
+  .diff-tag.d4{border-color:#6b3030; background:#2a1416; color:#f87171}
+
+  .sum-hero{border:1px solid #2b6b52; border-radius:14px; background:linear-gradient(180deg,#0f2a22,var(--panel)); padding:20px 22px; margin-bottom:18px}
+  .sum-hero h2{margin:0 0 6px; font-size:19px; color:#8ee9c4}
+  .sum-hero.defeat{border-color:#6b3030; background:linear-gradient(180deg,#2a1416,var(--panel))}
+  .sum-hero.defeat h2{color:#fca5a5}
+  .sum-hero p{margin:6px 0 0; font-size:13.5px; color:var(--ink); line-height:1.7}
+  .sum-stats{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+  .sum-sec-title{font-size:15px; font-weight:650; margin:22px 0 10px; color:var(--ink)}
+  .rev-card{border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:14px 16px; margin-bottom:10px}
+  .rev-card.good{border-left:4px solid var(--ok)}
+  .rev-card.bad{border-left:4px solid var(--warn)}
+  .rev-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; font-size:12.5px}
+  .rev-verdict{font-weight:700; padding:2px 9px; border-radius:999px; font-size:11.5px}
+  .rev-verdict.good{background:#0f2a22; border:1px solid #2b6b52; color:#8ee9c4}
+  .rev-verdict.bad{background:#291e0c; border:1px solid #6b4f1d; color:#fbbf24}
+  .rev-quote{font-size:13.5px; color:var(--ink); background:#0d1728; border:1px solid var(--line); border-radius:9px; padding:8px 11px; margin:6px 0}
+  .rev-reason{font-size:13px; color:var(--muted); line-height:1.65; margin-top:6px}
+  .rev-better{font-size:12.5px; color:#9fc8ff; margin-top:6px; padding-top:6px; border-top:1px dashed var(--line)}
+  .kp-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px}
+  .kp-card{border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:14px 16px}
+  .kp-card h4{margin:0 0 6px; font-size:14px; color:var(--accent2)}
+  .kp-card p{margin:0; font-size:13px; color:var(--ink); line-height:1.65}
+  .kp-refs{margin-top:8px; font-size:11.5px; color:var(--dim)}
+  .kp-refs a{color:#9fc8ff; text-decoration:none}
+  .kp-refs a:hover{text-decoration:underline}
+
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#22304a; border-radius:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @media (max-width:900px){
+    #page-chat.active,#page-collection.active{grid-template-columns:1fr}
+    .vp-grid,.kp-grid{grid-template-columns:1fr}
+    aside{position:absolute; inset:53px 0 0 0; z-index:5; border-right:0}
+    main:not(.solo) #page-chat aside{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">知乎数据助手 <small>本机工作台</small></div>
+  <nav class="tabs" id="tabs">
+    <button data-page="chat" class="active">对话</button>
+    <button data-page="interaction">交互</button>
+    <button data-page="collection">采集</button>
+    <button data-page="profile">画像</button>
+    <button data-page="delivery">交付</button>
+  </nav>
+  <div class="chips" id="chips"></div>
+  <button id="toggleSide">配置</button>
+</header>
+
+<main id="main">
+  <!-- ================= 对话 ================= -->
+  <section class="page active" id="page-chat">
+    <aside>
+      <h2>模型</h2>
+      <label class="field" for="baseURL">接口地址（AGENT_BASE_URL）</label>
+      <input id="baseURL" type="text" placeholder="https://api.deepseek.com/v1" autocomplete="off" spellcheck="false">
+      <label class="field" for="modelName">模型名（AGENT_MODEL）</label>
+      <input id="modelName" type="text" placeholder="deepseek-flash" autocomplete="off" spellcheck="false">
+      <label class="field" for="apiKey">模型密钥（AGENT_API_KEY）</label>
+      <input id="apiKey" type="password" placeholder="本地模型可留空；DeepSeek 密钥以 sk- 开头" autocomplete="off">
+      <label class="field" for="maxSteps">步数上限（1–20，留空用默认 8）</label>
+      <input id="maxSteps" type="number" min="1" max="20" step="1" placeholder="8">
+
+      <h2>工具</h2>
+      <label class="check"><input id="demo" type="checkbox"><span>演示模式<small>搜索工具改用合成数据，不访问真实知乎</small></span></label>
+      <label class="check"><input id="allowPersonalData" type="checkbox"><span>允许个人数据发给模型<small>把浏览记录交给模型服务；用云端模型前请确认</small></span></label>
+      <label class="field" for="searchSecret">知乎搜索凭证（可留空）</label>
+      <input id="searchSecret" type="password" placeholder="官方开放平台 Access Secret" autocomplete="off">
+
+      <div class="row" style="margin-top:14px">
+        <button class="primary" id="save">保存并应用</button>
+        <button id="probe">连接测试</button>
+      </div>
+      <div class="serverbox" id="servers"></div>
+      <div class="toolist" id="tools"></div>
+      <p class="hint" id="secretHint"></p>
+      <div class="row" style="margin-top:6px"><button class="danger" id="reset">清空对话</button></div>
+      <div class="row" style="margin-top:6px"><button class="danger" id="clearSecrets">清除已保存的密钥</button></div>
+    </aside>
+
+    <section class="thread">
+      <div id="thread"></div>
+      <form class="composer" id="composer">
+        <textarea id="input" rows="1" placeholder="问点什么，Enter 发送，Shift+Enter 换行"></textarea>
+        <div class="sendbar">
+          <div class="timer" id="timer"></div>
+          <button class="primary" id="send" type="submit">发送</button>
+        </div>
+      </form>
+    </section>
+  </section>
+
+  <!-- ================= 采集 ================= -->
+  <section class="page" id="page-collection">
+    <aside>
+      <h2>知乎账号</h2>
+      <div class="acct" id="acctCard"><div class="sub">读取中…</div></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="btnLogin">登录知乎</button>
+        <button id="btnCancelLogin" style="display:none">取消登录</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnAuthorize">保存范围并授权</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="danger" id="btnRevoke">撤回同意</button>
+      </div>
+
+      <h2>采集范围</h2>
+      <label class="check"><input id="cHistory" type="checkbox"><span>浏览记录<small>最近最多 50 条合格内容</small></span></label>
+      <label class="check"><input id="cLikes" type="checkbox"><span>点赞内容<small>读取当前可获取的点赞记录</small></span></label>
+      <label class="check"><input id="cColl" type="checkbox"><span>收藏内容<small>读取本人收藏夹中的条目</small></span></label>
+      <label class="check"><input id="cFilter" type="checkbox"><span>知识内容过滤<small>排除猎奇、八卦等无实质信息的条目</small></span></label>
+      <label class="check"><input id="cFull" type="checkbox"><span>同时获取正文<small>每条新内容多一次详情请求；已缓存的不会重复取</small></span></label>
+      <p class="hint">至少选择一种采集类别。范围只能由本人在本机扩大，服务端无法单方面放宽。</p>
+    </aside>
+
+    <div class="col-main">
+      <div class="toolbar">
+        <div id="colStat" class="chip">尚未登录</div>
+        <div class="grow"></div>
+        <button class="primary" id="btnSync">立即同步</button>
+        <button id="btnStop">停止</button>
+        <button id="btnExport">导出 JSON</button>
+        <button class="danger" id="btnClear">清除数据</button>
+      </div>
+      <div id="syncBar"></div>
+      <div class="records" id="records"><div class="empty">还没有采集记录。登录后点「立即同步」。</div></div>
+      <div class="pager">
+        <button id="prevPage" class="ghost">上一页</button>
+        <span id="pageInfo">—</span>
+        <button id="nextPage" class="ghost">下一页</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 画像 ================= -->
+  <section class="page" id="page-profile">
+    <div class="pf">
+      <div class="pf-head">
+        <div class="grow">
+          <h2>知识与偏好画像</h2>
+          <div class="pf-meta" id="pfMeta">读取中…</div>
+        </div>
+        <button id="btnRefreshProfile">重新生成</button>
+      </div>
+      <div id="pfBody"></div>
+    </div>
+  </section>
+
+  <!-- ================= 交互（选择 / 交锋 / 总结）================= -->
+  <section class="page" id="page-interaction">
+    <div class="ix">
+      <div class="ix-top">
+        <div class="ix-steps" id="ixSteps">
+          <div class="ix-step on" data-step="select">① 选择观点</div>
+          <span class="ix-arrow">→</span>
+          <div class="ix-step" data-step="clash">② 多回合交锋</div>
+          <span class="ix-arrow">→</span>
+          <div class="ix-step" data-step="summary">③ 论战总结</div>
+        </div>
+        <div class="ix-actions">
+          <a class="ix-ext" id="ixStandaloneLink" href="/interaction" target="_blank" rel="noopener">新窗口独立打开 ↗</a>
+        </div>
+      </div>
+      <div id="ixStage"></div>
+    </div>
+  </section>
+
+  <!-- ================= 交付 ================= -->
+  <section class="page" id="page-delivery">
+    <div class="deliv">
+      <h2>交付给 Agent</h2>
+      <p>Agent 只能读取已采集的数据，不能登录、改设置或发起同步。这里创建的入口就是它拿到的全部权限。</p>
+
+      <h3>只读入口</h3>
+      <div class="card" id="readerList"><div class="hint">读取中…</div></div>
+      <div class="row" style="margin-top:12px;max-width:520px">
+        <input id="readerLabel" type="text" placeholder="入口名称，例如：本地 Agent">
+        <button class="primary" id="btnNewReader">新建入口</button>
+      </div>
+      <div id="newToken"></div>
+
+      <h3>接入方式</h3>
+      <p>图形界面内部已经自动创建了一个只读入口并接进「对话」页，勾选「允许个人数据发给模型」即可使用，无需手工配置。若要把数据交给别的 Agent 宿主，用下面的 MCP 配置：</p>
+      <pre id="mcpSnippet">读取中…</pre>
+      <p class="hint">令牌只在创建时显示一次，服务端只保存哈希。丢失就撤销后重建。</p>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const thread = $('thread');
+const input = $('input');
+const sendBtn = $('send');
+const timerEl = $('timer');
+const main = $('main');
+let status = null;
+let col = null;
+let busy = false;
+let ticker = null;
+let page = 'chat';
+let recordsOffset = 0;
+let lastSyncState = null;
+let lastSyncTotal = null;
+// 完成那一刻把耗时定住：服务端给了 durationMs 就用它，否则用本地测到的值。
+let lastSyncDuration = null;
+let accountNickname = '';
+let profile = null;
+let profileState = null;
+let profileStale = false;
+let ixState = null;
+let ixBusy = false;
+let ixBusyLabel = '';
+let ixSeconds = 0;
+let ixTimer = null;
+let ixPickedId = null;
+
+// ===== 小工具 =====
+function toast(message, kind = '') {
+  const el = $('toast');
+  el.textContent = message;
+  el.className = `toast show${kind ? ` ${kind}` : ''}`;
+  clearTimeout(el._timer);
+  // 完成类提示多留一会儿，方便离开页面的用户回来看得见。
+  el._timer = setTimeout(() => el.classList.remove('show'), kind ? 5000 : 2400);
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    method: options.method ?? 'GET',
+    headers: options.body ? { 'content-type': 'application/json' } : undefined,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  let payload = null;
+  try { payload = await response.json(); } catch { /* 非 JSON 响应留空 */ }
+  if (!payload) throw new Error(`服务返回了无法解析的响应（HTTP ${response.status}）`);
+  if (!payload.ok) {
+    const error = new Error(payload.error?.message ?? '请求失败');
+    error.code = payload.error?.code;
+    throw error;
+  }
+  return payload.data;
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+const scrollDown = () => requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
+const formatDuration = (ms) => (Number.isFinite(ms) ? `${(ms / 1000).toFixed(1)}s` : '—');
+const when = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('zh-CN', { hour12: false });
+};
+
+// ===== 页签 =====
+function showPage(name) {
+  page = name;
+  for (const button of $('tabs').children) button.classList.toggle('active', button.dataset.page === name);
+  for (const section of document.querySelectorAll('.page')) section.classList.toggle('active', section.id === `page-${name}`);
+  $('toggleSide').style.display = name === 'chat' ? '' : 'none';
+  if (name === 'interaction') enterInteractionPage();
+  if (name === 'collection') loadRecords();
+  if (name === 'profile') loadProfile();
+  if (name === 'delivery') renderDelivery();
+}
+$('tabs').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-page]');
+  if (button) showPage(button.dataset.page);
+});
+
+// ===== 状态条 =====
+function renderChips() {
+  const chips = $('chips');
+  chips.replaceChildren();
+  if (status) {
+    const model = status.config?.model;
+    const chip = el('div', `chip ${status.modelReady ? 'on' : 'off'}`);
+    chip.append('模型 ', el('b', null, model?.modelName || '未配置'));
+    chips.append(chip);
+  }
+  if (col) {
+    const chip = el('div', `chip ${col.status?.accountBound ? 'on' : 'off'}`);
+    chip.append('采集 ', el('b', null, col.status?.accountBound ? '已绑定' : '未登录'));
+    chips.append(chip);
+  }
+  if (status?.historyLength) chips.append(el('div', 'chip', `对话 ${status.historyLength / 2} 轮`));
+}
+
+// ===== 对话 =====
+function renderServers() {
+  const box = $('servers');
+  box.replaceChildren();
+  if (!status) return;
+  if (status.configError) { box.append(el('div', null, `配置有问题：${status.configError}`)); return; }
+  for (const server of status.servers ?? []) {
+    const line = el('div');
+    line.append(el('b', null, server.id === 'collection' ? '个人数据' : '信息搜索'), document.createTextNode(`：${server.enabled ? '已启用' : '未启用'}`));
+    const reason = el('div', null, server.reason ?? '');
+    reason.style.color = 'var(--dim)';
+    line.append(reason);
+    box.append(line);
+  }
+  if (!status.modelReady) {
+    const warn = el('div', null, '模型还没配置：填好地址与模型名后点「保存并应用」。');
+    warn.style.color = 'var(--warn)';
+    box.append(warn);
+  }
+}
+
+function renderGuide() {
+  if (thread.childElementCount) return;
+  const guide = el('div', 'guide');
+  guide.append(el('h3', null, '先连上模型，就可以开始问了'));
+  const lines = [
+    ['1. 填模型地址与模型名', 'OpenAI 兼容接口，例如 https://api.deepseek.com/v1 与 deepseek-flash；本地 Ollama 用 http://127.0.0.1:11434/v1。'],
+    ['2. 选工具来源', '勾「演示模式」用合成搜索数据；要看自己的浏览记录，先去「采集」页登录并同步，再回来勾「允许个人数据发给模型」。'],
+    ['3. 保存后点「连接测试」', '能看到工具列表就说明 MCP 已握手，再回中间提问。'],
+  ];
+  for (const [title, desc] of lines) {
+    const p = el('p');
+    p.append(el('strong', null, title), document.createTextNode(` — ${desc}`));
+    guide.append(p);
+  }
+  thread.append(guide);
+}
+
+function addMessage(kind, text, meta) {
+  const node = el('div', `msg ${kind}`);
+  node.append(el('div', 'body', text));
+  if (meta?.length) {
+    const bar = el('div', 'meta');
+    for (const [label, value] of meta) bar.append(el('span', null, `${label} ${value}`));
+    node.append(bar);
+  }
+  thread.append(node);
+  scrollDown();
+}
+function addError(code, message) {
+  const node = el('div', 'msg bot error');
+  node.append(el('div', 'code', code || 'ERROR'), el('div', 'body', message || '未知错误'));
+  thread.append(node);
+  scrollDown();
+}
+
+function fillForm(settings) {
+  if (!settings) return;
+  for (const key of ['baseURL', 'modelName', 'maxSteps']) {
+    if (document.activeElement?.id !== key) $(key).value = settings[key] ?? '';
+  }
+  $('demo').checked = Boolean(settings.demo);
+  $('allowPersonalData').checked = Boolean(settings.allowPersonalData);
+  $('apiKey').placeholder = settings.apiKeyConfigured ? '已配置，留空则不修改' : '本地模型可留空；DeepSeek 密钥以 sk- 开头';
+  $('searchSecret').placeholder = settings.searchSecretConfigured ? '已配置，留空则不修改' : '官方开放平台 Access Secret';
+  $('secretHint').textContent = '密钥保存在本机 .data/secrets.json（明文，仅当前用户可读，已在 Git 忽略列表里）；重启后自动恢复，点下面可清除。';
+}
+
+async function refreshStatus() {
+  try {
+    status = await api('/api/status');
+    renderChips();
+    renderServers();
+    fillForm(status.settings);
+    if (!status.modelReady) renderGuide();
+  } catch (error) {
+    toast(`读取状态失败：${error.message}`);
+  }
+}
+
+async function save() {
+  const body = {
+    baseURL: $('baseURL').value,
+    modelName: $('modelName').value,
+    apiKey: $('apiKey').value,
+    maxSteps: $('maxSteps').value,
+    demo: $('demo').checked,
+    allowPersonalData: $('allowPersonalData').checked,
+    searchSecret: $('searchSecret').value,
+  };
+  if (!body.apiKey && status?.settings?.apiKeyConfigured) delete body.apiKey;
+  if (!body.searchSecret && status?.settings?.searchSecretConfigured) delete body.searchSecret;
+  $('save').disabled = true;
+  try {
+    status = await api('/api/settings', { method: 'POST', body: { settings: body } });
+    $('apiKey').value = '';
+    $('searchSecret').value = '';
+    renderChips();
+    renderServers();
+    fillForm(status.settings);
+    toast('已保存并重新连接');
+  } catch (error) {
+    toast(`保存失败：${error.message}`);
+  } finally {
+    $('save').disabled = false;
+  }
+}
+
+async function probe() {
+  $('probe').disabled = true;
+  const list = $('tools');
+  list.replaceChildren(el('code', null, '正在连接…'));
+  try {
+    const data = await api('/api/probe', { method: 'POST' });
+    list.replaceChildren();
+    list.append(el('code', null, `已连接：${data.enabled.join(' + ') || '（无）'}，共 ${data.tools.length} 个工具`));
+    for (const tool of data.tools) {
+      const code = el('code', null, tool.name);
+      code.title = tool.description ?? '';
+      list.append(code);
+    }
+  } catch (error) {
+    list.replaceChildren(el('code', null, `${error.code ?? 'ERROR'}：${error.message}`));
+  } finally {
+    $('probe').disabled = false;
+  }
+}
+
+function setBusy(value) {
+  busy = value;
+  sendBtn.disabled = value;
+  input.disabled = value;
+  sendBtn.textContent = value ? '停止' : '发送';
+  sendBtn.classList.toggle('danger', value);
+  if (value) {
+    const started = Date.now();
+    timerEl.textContent = '思考中 0s';
+    ticker = setInterval(() => { timerEl.textContent = `思考中 ${Math.floor((Date.now() - started) / 1000)}s`; }, 1000);
+  } else {
+    clearInterval(ticker);
+    ticker = null;
+    timerEl.textContent = '';
+  }
+}
+
+async function send() {
+  if (busy) {
+    try { await api('/api/cancel', { method: 'POST' }); } catch { /* 停不下来就算了 */ }
+    return;
+  }
+  const question = input.value.trim();
+  if (!question) return;
+  if (thread.querySelector('.guide')) thread.replaceChildren();
+  input.value = '';
+  input.style.height = 'auto';
+  addMessage('user', question);
+  setBusy(true);
+  try {
+    const data = await api('/api/ask', { method: 'POST', body: { question } });
+    const meta = [['步数', data.stepCount], ['耗时', `${(data.elapsedMs / 1000).toFixed(1)}s`]];
+    if (data.toolCalls?.length) meta.push(['工具', data.toolCalls.map((call) => call.name).join(' → ')]);
+    addMessage('bot', data.text || '（模型没有返回文本）', meta);
+    if (status) { status.historyLength = data.historyLength; renderChips(); }
+  } catch (error) {
+    addError(error.code, error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+// ===== 采集 =====
+function collectionSettings() {
+  return {
+    history: $('cHistory').checked,
+    likes: $('cLikes').checked,
+    collections: $('cColl').checked,
+    knowledgeFilter: $('cFilter').checked,
+    fetchFullText: $('cFull').checked,
+  };
+}
+
+function fillCollection() {
+  if (!col) return;
+  const settings = col.status?.settings;
+  if (settings) {
+    $('cHistory').checked = Boolean(settings.history);
+    $('cLikes').checked = Boolean(settings.likes);
+    $('cColl').checked = Boolean(settings.collections);
+    $('cFilter').checked = settings.knowledgeFilter !== false;
+    $('cFull').checked = Boolean(settings.fetchFullText);
+  }
+  const local = col.local ?? {};
+  const card = $('acctCard');
+  card.replaceChildren();
+  const bound = Boolean(col.status?.accountBound);
+  const name = accountNickname || local.nickname || '知乎账号';
+  card.append(el('div', 'name', bound ? `已绑定：${name}` : '尚未登录'));
+  card.append(el('div', 'sub', local.consented ? '已同意本机采集与上传' : '未同意采集'));
+  if (local.operation === 'login') card.append(el('div', 'sub', '正在等待你在浏览器里完成登录…'));
+
+  $('btnLogin').textContent = bound ? '重新登录' : '登录知乎';
+  $('btnLogin').disabled = local.operation === 'login';
+  $('btnCancelLogin').style.display = local.operation === 'login' ? '' : 'none';
+  $('btnAuthorize').disabled = !bound;
+  $('btnRevoke').disabled = !bound;
+
+  const stat = $('colStat');
+  const job = col.status?.activeJob;
+  if (job) stat.textContent = job.state === 'running' ? '采集中…' : '排队中…';
+  else if (col.status?.latestSnapshot) stat.textContent = `最近同步：${when(col.status.latestSnapshot.receivedAt)}`;
+  else stat.textContent = bound ? '已登录，尚未同步' : '尚未登录';
+
+  const bar = $('syncBar');
+  bar.replaceChildren();
+  const sync = col.sync ?? {};
+  if (sync.jobId && ['queued', 'running'].includes(sync.state)) {
+    bar.append(el('div', 'notice', `正在采集：${sync.state === 'queued' ? '等待本机采集器领取任务' : '读取中，请勿关闭页面'}。关闭页面会自动停止。`));
+  } else if (sync.error?.message) {
+    bar.append(el('div', 'notice err', `${sync.error.code ?? 'ERROR'}：${sync.error.message}`));
+  } else if (sync.jobId && sync.state === 'succeeded') {
+    const at = sync.finishedAt ? ` · ${when(sync.finishedAt)}` : '';
+    bar.append(el('div', 'notice ok', `同步完成：${lastSyncTotal ?? '—'} 条记录 · 用时 ${formatDuration(lastSyncDuration ?? sync.durationMs)}${at}`));
+  } else if (col.error) {
+    bar.append(el('div', 'notice warn', `采集组件不可用：${col.error}`));
+  }
+}
+
+// 同步结束时把结论说清楚：完成条数、耗时、或失败原因。
+function announceSync(state) {
+  const sync = col?.sync ?? {};
+  if (state === 'succeeded') {
+    const at = sync.finishedAt ? `（${when(sync.finishedAt)}）` : '';
+    toast(`同步完成：${lastSyncTotal ?? 0} 条记录 · 用时 ${formatDuration(lastSyncDuration ?? sync.durationMs)}${at}`, 'ok');
+  } else if (state === 'failed') {
+    toast(`同步失败：${sync.error?.message ?? '未知原因'}`, 'err');
+  } else if (state === 'cancelled') {
+    toast('同步已停止');
+  }
+}
+
+// 同步进行时改标签页标题，切到别的页签也能看出跑完没有。
+function applySyncTitle() {
+  const running = ['queued', 'running'].includes(col?.sync?.state ?? '');
+  document.title = running ? '同步中… · 知乎数据助手' : '知乎数据助手 · 本机工作台';
+}
+
+async function refreshCollection() {
+  try {
+    col = await api('/api/collection/state');
+    renderChips();
+    fillCollection();
+    applySyncTitle();
+    const state = col.sync?.state ?? null;
+    const wasRunning = lastSyncState && ['queued', 'running'].includes(lastSyncState);
+    if (wasRunning && !['queued', 'running'].includes(state)) {
+      recordsOffset = 0;
+      lastSyncState = state;
+      const sync = col.sync ?? {};
+      lastSyncDuration = Number.isFinite(sync.durationMs)
+        ? sync.durationMs
+        : (Number.isFinite(sync.startedAt) && sync.startedAt > 0 ? Date.now() - sync.startedAt : null);
+      await loadRecords();
+      fillCollection();
+      refreshStatus();
+      announceSync(state);
+      // 同步成功后服务端会顺手重算画像，这里跟着刷新一次。
+      if (state === 'succeeded') setTimeout(loadProfile, 800);
+      return;
+    }
+    lastSyncState = state;
+    if (page === 'profile') loadProfile();
+  } catch (error) {
+    if (page === 'collection') $('syncBar').replaceChildren(el('div', 'notice err', error.message));
+  }
+}
+
+async function loadRecords() {
+  const box = $('records');
+  if (!col?.status?.latestSnapshot) {
+    box.replaceChildren(el('div', 'empty', col?.error ? `采集组件不可用：${col.error}` : '还没有采集记录。登录后点「立即同步」。'));
+    $('pageInfo').textContent = '—';
+    return;
+  }
+  try {
+    const data = await api(`/api/collection/records?offset=${recordsOffset}&limit=10`);
+    box.replaceChildren();
+    // 分页协议里这一页的记录在 items 上；metadata.account 才是平台昵称。
+    const items = data.items ?? [];
+    if (data.metadata?.account?.nickname) {
+      accountNickname = data.metadata.account.nickname;
+      const name = $('acctCard').querySelector('.name');
+      if (name) name.textContent = `已绑定：${accountNickname}`;
+    }
+    if (!items.length) {
+      box.append(el('div', 'empty', '这个快照里没有记录。'));
+    }
+    for (const record of items) {
+      const card = el('div', 'rec');
+      const title = el('h4');
+      if (record.url) {
+        const link = el('a', null, record.title || '(无标题)');
+        link.href = record.url;
+        link.target = '_blank';
+        link.rel = 'noreferrer noopener';
+        title.append(link);
+      } else title.append(document.createTextNode(record.title || '(无标题)'));
+      card.append(title);
+      if (record.summary) card.append(el('div', 'sum', record.summary));
+      const tags = el('div', 'tags');
+      for (const kind of record.kinds ?? []) tags.append(el('span', null, kind === 'history' ? '浏览' : kind === 'likes' ? '点赞' : '收藏'));
+      if (record.contentType) tags.append(el('span', null, record.contentType));
+      if (record.weight != null) tags.append(el('span', 'w', `权重 ${Number(record.weight).toFixed(2)}`));
+      if (record.ruleDecision === 'review') tags.append(el('span', null, '待复核'));
+      if (record.ruleDecision === 'exclude') tags.append(el('span', null, '已排除'));
+      card.append(tags);
+      box.append(card);
+    }
+    const { page: p } = data;
+    lastSyncTotal = p.total;
+    $('pageInfo').textContent = p.total ? `${p.offset + 1}–${p.offset + p.returned} / ${p.total}` : '无记录';
+    $('prevPage').disabled = p.offset === 0;
+    $('nextPage').disabled = !p.hasMore;
+    if (p.hasMore) recordsOffset = p.nextOffset;
+  } catch (error) {
+    box.replaceChildren(el('div', 'empty', `记录读取失败：${error.message}`));
+  }
+}
+
+async function doLogin() {
+  $('btnLogin').disabled = true;
+  try {
+    await api('/api/collection/login', { method: 'POST', body: { settings: collectionSettings() } });
+    toast('已打开登录窗口，请在浏览器中完成登录');
+    refreshCollection();
+  } catch (error) {
+    toast(`登录失败：${error.message}`);
+  } finally {
+    $('btnLogin').disabled = false;
+  }
+}
+
+async function doAuthorize() {
+  try {
+    await api('/api/collection/consent', { method: 'POST', body: { settings: collectionSettings() } });
+    toast('采集范围已保存并重新授权');
+    refreshCollection();
+  } catch (error) {
+    toast(`授权失败：${error.message}`);
+  }
+}
+
+async function doSync() {
+  $('btnSync').disabled = true;
+  try {
+    await api('/api/collection/sync', { method: 'POST' });
+    // 立刻进入"同步中"，不必等下一次轮询；完成后由 refreshCollection 收尾并提示。
+    lastSyncState = 'queued';
+    applySyncTitle();
+    toast('已开始同步，完成后会提示你');
+    await refreshCollection();
+  } catch (error) {
+    toast(`同步失败：${error.message}`, 'err');
+  } finally {
+    $('btnSync').disabled = false;
+  }
+}
+
+async function doExport() {
+  try {
+    const response = await fetch('/api/collection/export');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `zhihu-collection-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (error) {
+    toast(`导出失败：${error.message}`);
+  }
+}
+
+// ===== 画像 =====
+async function loadProfile() {
+  try {
+    const data = await api('/api/profile');
+    profile = data.profile;
+    profileState = data.state;
+    profileStale = data.stale;
+    renderProfile();
+  } catch { /* 画像读不到不该影响其它页 */ }
+}
+
+async function regenerateProfile() {
+  const button = $('btnRefreshProfile');
+  button.disabled = true;
+  profileState = { ...(profileState ?? {}), status: 'running' };
+  renderProfile();
+  try {
+    const data = await api('/api/profile/refresh', { method: 'POST' });
+    profile = data.profile;
+    profileState = data.state;
+    profileStale = data.stale;
+    toast('画像已更新', 'ok');
+  } catch (error) {
+    toast(`画像生成失败：${error.message}`, 'err');
+    await loadProfile();
+  } finally {
+    button.disabled = false;
+    renderProfile();
+  }
+}
+
+function renderProfile() {
+  const meta = $('pfMeta');
+  const body = $('pfBody');
+  const state = profileState ?? {};
+  meta.replaceChildren();
+  if (state.status === 'running') {
+    meta.append(el('div', null, '正在生成画像…（需要几秒到几十秒）'));
+  } else if (!profile) {
+    meta.append(el('div', null, state.error ? `生成失败：${state.error}` : '还没有画像'));
+  } else {
+    const parts = [`生成于 ${when(profile.generatedAt)}`];
+    if (profile.model) parts.push(`模型 ${profile.model}`);
+    if (profile.coverage?.records) parts.push(`覆盖 ${profile.coverage.records} 条`);
+    meta.append(el('div', null, parts.join(' · ')));
+    if (profileStale) meta.append(el('div', 'hint', '画像落后于最近一次同步，后台会自动重算；也可以点「重新生成」。'));
+    if (state.status === 'error' && state.error) meta.append(el('div', 'hint', `上次生成失败：${state.error}（当前显示的是更早的画像）`));
+  }
+
+  body.replaceChildren();
+  if (!profile) {
+    const box = el('div', 'pf-card');
+    box.append(el('div', 'pf-empty', '每次同步完成后会自动生成一份画像。也可以现在点右上角「重新生成」。'));
+    body.append(box);
+    return;
+  }
+
+  if (profile.summary) {
+    const card = el('div', 'pf-card');
+    card.append(el('h3', null, '概要'));
+    card.append(el('div', 'pf-summary', profile.summary));
+    body.append(card);
+  }
+
+  if (profile.domains?.length) {
+    const card = el('div', 'pf-card');
+    card.append(el('h3', null, '领域分布'));
+    for (const domain of profile.domains) {
+      const row = el('div', 'pf-domain');
+      row.append(el('div', 'nm', domain.name));
+      const bar = el('div', 'bar');
+      bar.style.width = `${Math.max(6, Math.round((domain.share ?? 0) * 200))}px`;
+      row.append(bar);
+      row.append(el('div', 'pct', domain.share == null ? '—' : `${Math.round(domain.share * 100)}%`));
+      if (domain.evidence?.length) {
+        const ev = el('div', 'ev', domain.evidence.join('；'));
+        ev.title = domain.evidence.join('\n');
+        row.append(ev);
+      }
+      card.append(row);
+    }
+    body.append(card);
+  }
+
+  if (profile.topics?.length) {
+    const card = el('div', 'pf-card');
+    card.append(el('h3', null, '具体关注点'));
+    const list = el('div', 'taglist');
+    for (const topic of profile.topics) list.append(el('span', null, topic));
+    card.append(list);
+    body.append(card);
+  }
+
+  if (profile.shifts?.length) {
+    const card = el('div', 'pf-card');
+    card.append(el('h3', null, '近期变化'));
+    const list = el('ul', 'pf-list');
+    for (const item of profile.shifts) list.append(el('li', null, item));
+    card.append(list);
+    body.append(card);
+  }
+
+  if (profile.uncertainties?.length) {
+    const card = el('div', 'pf-card');
+    card.append(el('h3', null, '不确定之处'));
+    const list = el('ul', 'pf-list');
+    for (const item of profile.uncertainties) list.append(el('li', null, item));
+    card.append(list);
+    body.append(card);
+  }
+
+  const coverage = profile.coverage ?? {};
+  const card = el('div', 'pf-card');
+  card.append(el('h3', null, '覆盖范围'));
+  const notes = [
+    `窗口：${coverage.window ?? 'latest_50_qualified'}，不等于完整历史`,
+    `是否含正文：${coverage.includesFullText ? '是' : '否'}`,
+    coverage.counts ? `来源计数：浏览 ${coverage.counts.history ?? 0} · 点赞 ${coverage.counts.likes ?? 0} · 收藏 ${coverage.counts.collections ?? 0}` : '',
+    profile.generatedAt ? `生成时间：${when(profile.generatedAt)}` : '',
+  ].filter(Boolean);
+  const list = el('ul', 'pf-list');
+  for (const note of notes) list.append(el('li', null, note));
+  card.append(list);
+  body.append(card);
+}
+
+// ===== 交付 =====
+function renderDelivery() {
+  const list = $('readerList');
+  list.replaceChildren();
+  const readers = col?.readers ?? [];
+  if (!readers.length) {
+    list.append(el('div', 'hint', '还没有只读入口。勾选「允许个人数据发给模型」后会自动创建。'));
+  }
+  for (const reader of readers) {
+    const row = el('div', 'reader');
+    row.append(el('div', 'lbl', reader.label));
+    if (reader.readerId === col?.builtinReaderId) row.append(el('span', 'badge', '图表面板内置'));
+    row.append(el('div', 'grow'));
+    row.append(el('div', 'when', when(reader.createdAt)));
+    const remove = el('button', 'danger', '撤销');
+    remove.addEventListener('click', async () => {
+      try {
+        await api(`/api/collection/readers/${encodeURIComponent(reader.readerId)}`, { method: 'DELETE' });
+        toast('已撤销');
+        await refreshCollection();
+        renderDelivery();
+      } catch (error) { toast(`撤销失败：${error.message}`); }
+    });
+    row.append(remove);
+    list.append(row);
+  }
+  const path = col?.local?.mcpServerPath ?? '<绝对路径>/data-collection-service/mcp-server.mjs';
+  $('mcpSnippet').textContent = JSON.stringify({
+    mcpServers: {
+      'zhihu-collection': {
+        command: 'node',
+        args: [path],
+        env: { DATA_SERVICE_URL: col?.status ? location.origin.replace(/:\d+$/, ':3005') : 'http://127.0.0.1:3005', DATA_SERVICE_AGENT_TOKEN: '<上面新建入口时得到的 agt_ 令牌>' },
+      },
+    },
+  }, null, 2);
+}
+
+async function createReader() {
+  try {
+    const data = await api('/api/collection/readers', { method: 'POST', body: { label: $('readerLabel').value } });
+    $('readerLabel').value = '';
+    const box = $('newToken');
+    box.replaceChildren(el('div', 'tokenbox', data.agentToken));
+    toast('已创建，令牌只显示这一次');
+    await refreshCollection();
+    renderDelivery();
+  } catch (error) {
+    toast(`创建失败：${error.message}`);
+  }
+}
+
+// ===== 事件 =====
+$('composer').addEventListener('submit', (event) => { event.preventDefault(); send(); });
+input.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(); }
+});
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = `${Math.min(input.scrollHeight, 190)}px`;
+});
+$('save').addEventListener('click', save);
+$('probe').addEventListener('click', probe);
+$('reset').addEventListener('click', async () => {
+  try {
+    await api('/api/reset', { method: 'POST' });
+    thread.replaceChildren();
+    renderGuide();
+    if (status) { status.historyLength = 0; renderChips(); }
+    toast('对话已清空');
+  } catch (error) { toast(`清空失败：${error.message}`); }
+});
+$('toggleSide').addEventListener('click', () => {
+  main.classList.toggle('solo');
+  $('toggleSide').textContent = main.classList.contains('solo') ? '展开配置' : '配置';
+});
+$('btnLogin').addEventListener('click', doLogin);
+$('btnCancelLogin').addEventListener('click', async () => {
+  try { await api('/api/collection/stop', { method: 'POST' }); } catch { /* 忽略 */ }
+  refreshCollection();
+});
+$('btnAuthorize').addEventListener('click', doAuthorize);
+$('btnRevoke').addEventListener('click', async () => {
+  if (!confirm('撤回本网站的采集同意，并清除本机的知乎登录会话？')) return;
+  try {
+    await api('/api/collection/revoke', { method: 'POST' });
+    toast('已撤回同意');
+    refreshCollection();
+  } catch (error) { toast(`撤回失败：${error.message}`); }
+});
+$('btnSync').addEventListener('click', doSync);
+$('btnStop').addEventListener('click', async () => {
+  try { await api('/api/collection/stop', { method: 'POST' }); toast('已停止'); refreshCollection(); }
+  catch (error) { toast(`停止失败：${error.message}`); }
+});
+$('btnExport').addEventListener('click', doExport);
+$('btnClear').addEventListener('click', async () => {
+  if (!confirm('清除本机记录与服务端快照？此操作不可恢复。')) return;
+  try {
+    await api('/api/collection/clear', { method: 'POST' });
+    toast('已清除数据');
+    recordsOffset = 0;
+    await refreshCollection();
+    loadRecords();
+  } catch (error) { toast(`清除失败：${error.message}`); }
+});
+$('prevPage').addEventListener('click', () => { recordsOffset = Math.max(0, recordsOffset - 10); loadRecords(); });
+$('nextPage').addEventListener('click', () => loadRecords());
+$('btnNewReader').addEventListener('click', createReader);
+$('btnRefreshProfile').addEventListener('click', regenerateProfile);
+$('clearSecrets').addEventListener('click', async () => {
+  if (!confirm('清除本机保存的模型密钥、搜索凭证与采集凭证？清除后需要重新填写。')) return;
+  try {
+    status = await api('/api/secrets/clear', { method: 'POST' });
+    $('apiKey').value = '';
+    $('searchSecret').value = '';
+    renderChips();
+    renderServers();
+    fillForm(status.settings);
+    toast('已清除本机保存的密钥', 'ok');
+  } catch (error) {
+    toast(`清除失败：${error.message}`, 'err');
+  }
+});
+
+// ===== 交互模块（选择 / 交锋 / 总结）=====
+function setIxBusy(flag, label = '正在调用搜索工具并生成…') {
+  ixBusy = flag;
+  ixBusyLabel = label;
+  clearInterval(ixTimer);
+  ixTimer = null;
+  ixSeconds = 0;
+  if (flag) {
+    const started = Date.now();
+    ixTimer = setInterval(() => {
+      ixSeconds = Math.floor((Date.now() - started) / 1000);
+      const loadingEl = document.getElementById('ixLoadingText');
+      if (loadingEl) loadingEl.textContent = `${ixBusyLabel}（${ixSeconds}s）`;
+    }, 500);
+  } else {
+    ixPickedId = null;
+  }
+  renderInteraction();
+}
+
+function searchEnabledInStatus() {
+  const s = (status?.servers ?? []).find((item) => item.id === 'search');
+  return Boolean(s?.enabled);
+}
+
+async function enterInteractionPage() {
+  if (!ixState) {
+    try {
+      ixState = await api('/api/interaction/state');
+    } catch (error) {
+      toast(`读取交互状态失败：${error.message}`, 'err');
+      const box = $('ixStage');
+      if (box) {
+        box.replaceChildren();
+        const hint = error.code === 'NOT_FOUND'
+          ? '检测到后台 web.mjs 仍是修改前启动的旧进程（前端 HTML 已热加载，但后端新路由需重启进程才生效）。请在运行服务的终端按 Ctrl+C 停止后重新执行 npm run web（已保存的模型配置与密钥会自动恢复）。'
+          : `读取交互状态失败：${error.message}`;
+        const warn = el('div', 'notice err', hint);
+        const row = el('div', null);
+        row.style.marginTop = '10px';
+        const retryBtn = el('button', 'primary', '已重启服务 · 点击重试');
+        retryBtn.addEventListener('click', () => enterInteractionPage());
+        row.append(retryBtn);
+        warn.append(row);
+        box.append(warn);
+      }
+      return;
+    }
+  }
+  renderInteraction();
+  // 首次进入且模型与搜索均已就绪时，自动为用户拉取第一批候选观点。
+  if (ixState?.phase === 'idle' && !ixBusy && status?.modelReady && searchEnabledInStatus()) {
+    await requestTopics(false);
+  }
+}
+
+async function requestTopics(refresh = false) {
+  if (ixBusy) return;
+  setIxBusy(true, refresh ? '正在换一批知乎议题与观点' : '正在结合画像检索知乎并生成候选观点');
+  try {
+    ixState = await api('/api/interaction/topics', { method: 'POST', body: { refresh } });
+    if (refresh) toast('已换一批候选观点', 'ok');
+  } catch (error) {
+    toast(`生成观点失败：${error.message}`, 'err');
+  } finally {
+    setIxBusy(false);
+  }
+}
+
+async function chooseViewpoint(viewpointId) {
+  if (ixBusy) return;
+  setIxBusy(true, '正在检索论据并构建对手第 1 回合立论');
+  try {
+    ixState = await api('/api/interaction/select', { method: 'POST', body: { viewpointId } });
+  } catch (error) {
+    if (error.code === 'INVALID_ARGUMENTS' && /未找到所选的观点/.test(error.message)) {
+      try { ixState = await api('/api/interaction/state'); } catch { /* 忽略 */ }
+      toast('服务状态已刷新，正在为你同步最新候选观点…');
+      setIxBusy(false);
+      if (ixState?.phase === 'idle' && status?.modelReady && searchEnabledInStatus()) {
+        await requestTopics(false);
+      }
+      return;
+    }
+    toast(`进入交锋失败：${error.message}`, 'err');
+  } finally {
+    setIxBusy(false);
+  }
+}
+
+async function playClashOption(optionId) {
+  if (ixBusy) return;
+  ixPickedId = optionId;
+  setIxBusy(true, '正在结算说服检定并检索对手下一轮反驳');
+  try {
+    ixState = await api('/api/interaction/act', { method: 'POST', body: { optionId } });
+    if (ixState?.phase === 'summary') {
+      if (ixState.summary?.victory === false) {
+        toast('已满 8 回合未能将意志归 0，本次说服失败', 'err');
+      } else {
+        toast('对手意志归 0，交锋胜利！', 'ok');
+      }
+    }
+  } catch (error) {
+    toast(`回合提交失败：${error.message}`, 'err');
+  } finally {
+    setIxBusy(false);
+  }
+}
+
+async function returnToSelection() {
+  if (ixBusy) return;
+  try {
+    ixState = await api('/api/interaction/reset', { method: 'POST' });
+    renderInteraction();
+    if (ixState?.phase === 'idle' && status?.modelReady && searchEnabledInStatus()) {
+      await requestTopics(false);
+    }
+  } catch (error) {
+    toast(`返回选择页失败：${error.message}`, 'err');
+  }
+}
+
+function diffClass(diff) {
+  if (diff === '非常简单') return 'd1';
+  if (diff === '比较简单') return 'd2';
+  if (diff === '比较困难') return 'd3';
+  return 'd4';
+}
+
+function renderInteraction() {
+  const box = $('ixStage');
+  if (!box) return;
+  if (location.pathname === '/interaction') {
+    $('ixStandaloneLink').style.display = 'none';
+  }
+
+  const phase = ixState?.phase ?? 'idle';
+  const activeStep = phase === 'clash' ? 'clash' : phase === 'summary' ? 'summary' : 'select';
+  const order = ['select', 'clash', 'summary'];
+  const activeIdx = order.indexOf(activeStep);
+  for (const stepEl of $('ixSteps').querySelectorAll('.ix-step')) {
+    const idx = order.indexOf(stepEl.dataset.step);
+    stepEl.classList.toggle('on', idx === activeIdx);
+    stepEl.classList.toggle('done', idx < activeIdx);
+  }
+
+  box.replaceChildren();
+
+  // 前置配置引导：模型或搜索未就绪时给出清晰指引与一键跳转。
+  if (!status?.modelReady || !searchEnabledInStatus()) {
+    const warn = el('div', 'notice warn');
+    const msg = !status?.modelReady
+      ? '尚未配置模型接口地址与模型名，交互模块需要模型与知乎搜索工具配合运行。'
+      : '知乎搜索工具尚未启用：请在配置中勾选「演示模式」，或填写官方开放平台 Access Secret。';
+    warn.append(el('div', null, msg));
+    const btnRow = el('div', null);
+    btnRow.style.marginTop = '10px';
+    const goBtn = el('button', 'primary', '前往对话页配置');
+    goBtn.addEventListener('click', () => {
+      main.classList.remove('solo');
+      showPage('chat');
+    });
+    btnRow.append(goBtn);
+    warn.append(btnRow);
+    box.append(warn);
+    return;
+  }
+
+  if (ixBusy) {
+    const loading = el('div', 'ix-loading');
+    const span = el('div', null, `${ixBusyLabel}（${ixSeconds}s）`);
+    span.id = 'ixLoadingText';
+    loading.append(span);
+    box.append(loading);
+  }
+
+  // ===== 板块一：选择 =====
+  if (phase === 'idle' || phase === 'select') {
+    const banner = el('div', 'ix-banner');
+    const left = el('div');
+    left.append(el('strong', null, '板块一：选择一个有待纠正的观点'));
+    const subText = ixState?.profileUsed
+      ? '前两项结合你的个人知识画像与知乎检索生成，第三项来自知乎热门话题（不参考个人画像）。这些观点往往包含以偏概全或归因偏误，选中其一即可开启辩驳。'
+      : '当前尚未生成个人画像（可在「采集」同步后自动生成），前两项暂按通用知识议题检索生成，第三项来自知乎热门话题。';
+    left.append(el('p', null, subText));
+    const right = el('div', 'ix-actions');
+    const refreshBtn = el('button', ixState?.viewpoints?.length ? '' : 'primary', ixState?.viewpoints?.length ? '换一批' : '生成候选观点');
+    refreshBtn.disabled = ixBusy;
+    refreshBtn.addEventListener('click', () => requestTopics(Boolean(ixState?.viewpoints?.length)));
+    right.append(refreshBtn);
+    banner.append(left, right);
+    box.append(banner);
+
+    const list = ixState?.viewpoints ?? [];
+    if (!list.length && !ixBusy) {
+      box.append(el('div', 'empty', '点击右上角「生成候选观点」，Agent 将调用知乎搜索工具为你准备 3 个待纠正观点。'));
+      return;
+    }
+
+    const grid = el('div', 'vp-grid');
+    for (const vp of list) {
+      const card = el('div', `vp-card${vp.kind === 'hot' ? ' hot' : ''}`);
+      card.append(el('div', 'vp-badge', vp.sourceBadge));
+      card.append(el('div', 'vp-topic', `议题：${vp.topic}`));
+      card.append(el('div', 'vp-claim', `「${vp.claim}」`));
+      const opp = el('div', 'vp-opp');
+      opp.append(el('b', null, vp.opponentName), document.createTextNode(vp.opponentIntro));
+      card.append(opp);
+      if (vp.references?.length) {
+        const refs = el('div', 'vp-refs');
+        for (const r of vp.references) refs.append(el('span', null, `参考检索：${r.title}`));
+        card.append(refs);
+      }
+      const pickBtn = el('button', 'primary', '选择此观点 · 进入交锋');
+      pickBtn.disabled = ixBusy;
+      pickBtn.addEventListener('click', () => chooseViewpoint(vp.id));
+      card.append(pickBtn);
+      grid.append(card);
+    }
+    box.append(grid);
+    return;
+  }
+
+  // ===== 板块二：交锋 =====
+  if (phase === 'clash' && ixState?.clash) {
+    const clash = ixState.clash;
+    const head = el('div', 'clash-head');
+    const topRow = el('div', 'clash-row');
+    const titleWrap = el('div');
+    titleWrap.append(
+      el('span', 'chip on', `第 ${clash.round} / ${clash.maxRounds ?? 8} 回合`),
+      document.createTextNode(`  对手：${clash.opponent?.name ?? '观点持有者'}`),
+    );
+    const quitBtn = el('button', 'ghost', '重选观点');
+    quitBtn.disabled = ixBusy;
+    quitBtn.addEventListener('click', returnToSelection);
+    topRow.append(titleWrap, quitBtn);
+    head.append(topRow);
+    head.append(el('div', 'clash-claim', `原观点：「${clash.viewpoint.claim}」`));
+
+    const baseWill = clash.initialWillpower ?? 100;
+    const willWrap = el('div', 'will-wrap');
+    const willTop = el('div', 'will-top');
+    willTop.append(
+      el('span', null, `对手「意志」（需在 ${clash.maxRounds ?? 8} 回合内削减至 0）`),
+      el('span', 'will-num', `${clash.willpower} / ${baseWill}${clash.willpower > baseWill ? '（气焰高涨）' : ''}`),
+    );
+    const track = el('div', 'will-track');
+    const fillClass = clash.willpower > baseWill
+      ? ' over'
+      : clash.willpower <= 30 ? ' low' : clash.willpower <= 60 ? ' mid' : '';
+    const fill = el('div', `will-fill${fillClass}`);
+    fill.style.width = `${Math.max(0, Math.min(100, clash.willpower))}%`;
+    track.append(fill);
+    willWrap.append(willTop, track);
+    head.append(willWrap);
+
+    if (clash.beliefHighlights?.length) {
+      const pil = el('div', 'pillars');
+      for (const b of clash.beliefHighlights) {
+        pil.append(el('span', null, `信念支点：${b.name}`));
+      }
+      head.append(pil);
+    }
+    box.append(head);
+
+    if (clash.lastResolution) {
+      const res = clash.lastResolution;
+      const dVal = Number.isFinite(res.willpowerDelta) ? res.willpowerDelta : -res.damage;
+      const delta = el('div', `clash-delta${dVal > 0 ? ' gain' : ''}`);
+      delta.textContent = dVal <= 0
+        ? `上一回合结算：你的话术有效削减了对手 ${Math.abs(dVal)} 点意志（降至 ${res.willpowerAfterHit}）。`
+        : `上一回合结算：你的话术存在偏差或激起逆反，反而助长了对手 +${dVal} 点意志（升至 ${res.willpowerAfterHit}）！`;
+      box.append(delta);
+    }
+
+    if (clash.history?.length) {
+      const details = el('details', 'clash-log');
+      const sum = el('summary', null, `查看已交锋的 ${clash.history.length} 个回合记录`);
+      const list = el('div', 'clash-log-list');
+      for (const h of clash.history) {
+        const hDelta = Number.isFinite(h.willpowerDelta) ? h.willpowerDelta : -h.damage;
+        const deltaStr = hDelta <= 0 ? `${hDelta}` : `+${hDelta}`;
+        const item = el('div', 'clash-log-item');
+        item.append(
+          el('b', null, `第 ${h.round} 回合`),
+          document.createTextNode(` · 对手：「${h.opponentArgument}」`),
+          el('br'),
+          document.createTextNode(`你的回应（意志 ${deltaStr} → ${h.willpowerAfterHit}）：「${h.chosenText}」`),
+        );
+        list.append(item);
+      }
+      details.append(sum, list);
+      box.append(details);
+    }
+
+    if (clash.currentRound) {
+      const cur = clash.currentRound;
+      const oppBox = el('div', 'opp-box');
+      const whoParts = [`${clash.opponent?.name ?? '观点主人'} · 第 ${cur.round} 回合${cur.round === 1 ? '立论' : '反驳'}`];
+      if (cur.angleLabel) whoParts.push(`切入维度：${cur.angleLabel}`);
+      if (cur.depthStage) whoParts.push(`深度：${cur.depthStage}`);
+      if (cur.composureLabel) whoParts.push(`状态：${cur.composureLabel}`);
+      oppBox.append(
+        el('div', 'who', whoParts.join(' · ')),
+        el('div', 'arg', cur.opponentArgument),
+      );
+      box.append(oppBox);
+
+      if (clash.difficultyVisible) {
+        box.append(el('div', 'diff-hint', '检定辅助已开启：因上一回合选中的话术说服阻力较大，本回合已在选项右侧标明说服检定难度。'));
+      }
+
+      const optList = el('div', 'opt-list');
+      for (const opt of cur.options ?? []) {
+        const btn = el('button', `opt-btn${ixPickedId === opt.id ? ' picked' : ''}`);
+        btn.disabled = ixBusy;
+        btn.append(
+          el('div', 'opt-key', opt.label),
+          el('div', 'opt-text', opt.text),
+        );
+        if (clash.difficultyVisible && opt.difficulty) {
+          btn.append(el('span', `diff-tag ${diffClass(opt.difficulty)}`, opt.difficulty));
+        }
+        btn.addEventListener('click', () => playClashOption(opt.id));
+        optList.append(btn);
+      }
+      box.append(optList);
+    }
+    return;
+  }
+
+  // ===== 板块三：总结 =====
+  if (phase === 'summary' && ixState?.summary) {
+    const sum = ixState.summary;
+    const isVictory = sum.victory !== false;
+    const hero = el('div', `sum-hero${isVictory ? '' : ' defeat'}`);
+    hero.append(el('h2', null, isVictory
+      ? '对手意志归 0 · 交锋胜利！'
+      : `已满 ${sum.maxRounds ?? 8} 回合 · 说服失败（对手剩余意志 ${sum.finalWillpower ?? 0}）`));
+    hero.append(el('p', null, sum.overallComment));
+    const stats = el('div', 'sum-stats');
+    stats.append(
+      el('span', 'chip on', isVictory ? '结局：成功说服' : '结局：未能归零'),
+      el('span', 'chip on', `总计 ${sum.totalRounds} / ${sum.maxRounds ?? 8} 回合`),
+      el('span', 'chip on', `恰当选择 ${sum.appropriateCount} / ${sum.totalRounds} 回合`),
+      el('span', 'chip', `纠正议题：${sum.viewpoint?.topic ?? ''}`),
+    );
+    hero.append(stats);
+    box.append(hero);
+
+    box.append(el('div', 'sum-sec-title', '一、逐回合话术复盘'));
+    for (const r of sum.roundReviews ?? []) {
+      const rDelta = Number.isFinite(r.willpowerDelta) ? r.willpowerDelta : -r.damage;
+      const rDeltaText = rDelta <= 0 ? `意志 ${rDelta}` : `意志 +${rDelta}`;
+      const card = el('div', `rev-card ${r.appropriate ? 'good' : 'bad'}`);
+      const top = el('div', 'rev-top');
+      top.append(
+        el('b', null, `第 ${r.round} 回合`),
+        el('span', `rev-verdict ${r.appropriate ? 'good' : 'bad'}`, r.appropriate ? '选择恰当' : '选择欠妥'),
+        el('span', `diff-tag ${diffClass(r.difficulty)}`, `检定难度：${r.difficulty}`),
+        el('span', 'chip', rDeltaText),
+      );
+      card.append(top);
+      card.append(el('div', 'hint', `当时对手论点：「${r.opponentArgument}」`));
+      card.append(el('div', 'rev-quote', `你的话术：「${r.chosenText}」`));
+      card.append(el('div', 'rev-reason', `复盘原因：${r.reason}`));
+      if (!r.appropriate && r.betterApproach) {
+        card.append(el('div', 'rev-better', `更优话术参考：「${r.betterApproach}」`));
+      }
+      box.append(card);
+    }
+
+    box.append(el('div', 'sum-sec-title', '二、本次论战收获的知识点'));
+    const kpGrid = el('div', 'kp-grid');
+    for (const kp of sum.knowledgePoints ?? []) {
+      const card = el('div', 'kp-card');
+      card.append(el('h4', null, kp.title));
+      card.append(el('p', null, kp.detail));
+      if (kp.sources?.length) {
+        const refs = el('div', 'kp-refs');
+        refs.append(document.createTextNode('参考来源：'));
+        kp.sources.forEach((src, i) => {
+          if (i > 0) refs.append(document.createTextNode(' · '));
+          if (src.url) {
+            const a = el('a', null, src.title || '知乎内容');
+            a.href = src.url;
+            a.target = '_blank';
+            a.rel = 'noreferrer noopener';
+            refs.append(a);
+          } else {
+            refs.append(document.createTextNode(src.title || '知乎检索摘要'));
+          }
+        });
+        card.append(refs);
+      }
+      kpGrid.append(card);
+    }
+    box.append(kpGrid);
+
+    const foot = el('div', 'row');
+    foot.style.marginTop = '26px';
+    foot.style.justifyContent = 'center';
+    const backBtn = el('button', 'primary', '完成总结 · 返回选择新观点');
+    backBtn.style.maxWidth = '320px';
+    backBtn.addEventListener('click', returnToSelection);
+    foot.append(backBtn);
+    box.append(foot);
+  }
+}
+
+// ===== 启动 =====
+await refreshStatus();
+await refreshCollection();
+if (col?.status?.latestSnapshot) loadRecords();
+renderDelivery();
+loadProfile();
+if (location.pathname === '/interaction' || location.hash === '#interaction') {
+  showPage('interaction');
+} else {
+  input.focus();
+}
+// 常驻轮询：既是采集进度，也是"界面还开着"的心跳（关掉页面同步会自动停止）。
+setInterval(refreshCollection, 2500);
+</script>
+</body>
+</html>

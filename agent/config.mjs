@@ -48,7 +48,14 @@ function pick(env, names) {
 const resolveDir = (value, fallback) => path.resolve(AGENT_DIR, text(value) ?? fallback);
 
 function searchServer(env, demo, dir) {
-  const childEnv = pick(env, ['ZHIHU_ACCESS_SECRET', 'DATA_FILE']);
+  const childEnv = pick(env, [
+    'ZHIHU_ACCESS_SECRET',
+    'ZHIHU_OPENAPI_BASE_URL',
+    'ZHIHU_ZHIHU_SEARCH_URL',
+    'ZHIHU_SEARCH_SKILL_DIR',
+    'ZHIHU_SKILL_PYTHON',
+    'DATA_FILE',
+  ]);
   const hasSecret = Object.hasOwn(childEnv, 'ZHIHU_ACCESS_SECRET');
   const enabled = demo || hasSecret;
   const args = [path.join(dir, 'mcp-server.mjs')];

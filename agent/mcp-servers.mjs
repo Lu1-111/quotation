@@ -12,8 +12,8 @@ import { createMCPClient } from '@ai-sdk/mcp';
 import { StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio';
 import { AgentError, safeAgentError } from './errors.mjs';
 
-// 子进程需要的少量基础变量，其余一律不下发。TMP 不在 SDK 白名单内，这里显式带上。
-const BASE_ENV_NAMES = ['PATH', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE'];
+// 子进程需要的少量基础变量，其余一律不下发。TMP、SystemDrive、LOCALAPPDATA、APPDATA 供 Windows 下 Python 3 运行官方搜索 Skill 使用。
+const BASE_ENV_NAMES = ['PATH', 'SystemRoot', 'SystemDrive', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA'];
 // 单个服务器的启动（含 initialize 握手）超时，是本模块的假设值，调用方可覆盖。
 const DEFAULT_START_TIMEOUT_MS = 30_000;
 

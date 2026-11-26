@@ -22,7 +22,7 @@
 
 官方返回的带 UTM 溯源链接保留在 `url`，用于展示和导出；另外生成去掉查询参数的 `canonicalUrl` 供关联使用。精选评论不是完整评论区；不同查询命中同一内容时保留摘要片段列表，不拼成“全文”。
 
-参考：[知乎数据开放平台](https://developer.zhihu.com/)、[官方开发包](https://developer-cdn.zhihu.com/zhihu-cli/releases/stable/skill/zhihu-cli-skill.zip)。本模块直接集成 HTTP 协议，没有安装或执行该开发包中的 CLI。
+参考：[知乎搜索 Skill 官方文档](https://developer.zhihu.com/docs?key=zhihu_search_skill)、[官方 Skill 包](https://developer.zhihu.com/download/zhihu_search_skills.zip)。本模块内置官方 `skills/zhihu-search/`（`SKILL.md` 与 `scripts/zhihu-search.py`，v2.0.0），通过 `skill-client.mjs` 按官方规范传入 `ZHIHU_ACCESS_SECRET`（及可选的 `ZHIHU_OPENAPI_BASE_URL`、`ZHIHU_ZHIHU_SEARCH_URL`）并调用 `python3 {baseDir}/scripts/zhihu-search.py '{"query":"...","count":10}'` 完成检索。
 
 ## 本地运行
 

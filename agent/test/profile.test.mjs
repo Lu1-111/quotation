@@ -2,7 +2,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildProfileInput, parseProfileJson, normalizeProfile, profilePromptBlock, isStale, PROFILE_VERSION, PROMPT_VERSION,
+  buildProfileInput, parseProfileJson, normalizeProfile, profilePromptBlock, isStale, generateProfile, PROFILE_VERSION, PROMPT_VERSION,
 } from '../profile.mjs';
 import { buildSystemPrompt } from '../prompt.mjs';
 import { createWebServer } from '../web.mjs';
@@ -215,5 +215,54 @@ describe('画像接口', () => {
     } finally {
       await ctx.app.close();
     }
+  });
+
+  it('generateProfile 同时合并调用方取消信号与超时信号：两者均可独立触发中止', async () => {
+    const records = [{ contentType: 'answer', title: '测试标题', summary: '摘要', topics: ['AI'], kinds: ['history'], weight: 1 }];
+
+    // 1) 传入未中止的外部 signal 时，短 timeoutMs 依然生效
+    const idleController = new AbortController();
+    let seenTimeoutSignal = null;
+    await assert.rejects(
+      () => generateProfile({
+        model: { fake: true },
+        modelName: 'local-qwen',
+        records,
+        snapshotId: 'snap-t',
+        signal: idleController.signal,
+        timeoutMs: 35,
+        generate: ({ abortSignal }) => {
+          seenTimeoutSignal = abortSignal;
+          return new Promise((_resolve, reject) => {
+            abortSignal.addEventListener('abort', () => reject(abortSignal.reason), { once: true });
+          });
+        },
+      }),
+      (err) => err?.name === 'TimeoutError',
+    );
+    assert.equal(seenTimeoutSignal.aborted, true);
+    assert.equal(idleController.signal.aborted, false, '超时不应反向污染调用方外部 controller');
+
+    // 2) 长 timeoutMs 下调用方主动 abort 立即生效
+    const cancelController = new AbortController();
+    let seenCancelSignal = null;
+    const pending = generateProfile({
+      model: { fake: true },
+      modelName: 'local-qwen',
+      records,
+      snapshotId: 'snap-c',
+      signal: cancelController.signal,
+      timeoutMs: 60_000,
+      generate: ({ abortSignal }) => {
+        seenCancelSignal = abortSignal;
+        return new Promise((_resolve, reject) => {
+          abortSignal.addEventListener('abort', () => reject(abortSignal.reason), { once: true });
+        });
+      },
+    });
+    const reason = new Error('user-cancelled');
+    cancelController.abort(reason);
+    await assert.rejects(() => pending, (err) => err === reason);
+    assert.equal(seenCancelSignal.aborted, true);
   });
 });

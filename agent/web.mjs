@@ -17,8 +17,9 @@ import { AgentError, safeAgentError, okEnvelope, errorEnvelope } from './errors.
 import { collectSecrets, redactSecrets } from './cli.mjs';
 import { createModel } from './agent.mjs';
 import { buildSystemPrompt } from './prompt.mjs';
-import { generateProfile, isStale, profilePromptBlock, PROFILE_RECORD_LIMIT } from './profile.mjs';
+import { generateProfile, isStale, profilePromptBlock, PROFILE_RECORD_LIMIT, PROFILE_TIMEOUT_MS } from './profile.mjs';
 import { createInteractionController } from './interaction.mjs';
+import { evaluateLegacyProfileGate, evaluateLegacyProfileOutboundPolicy } from './material-policy.mjs';
 
 const AGENT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const UI_FILE = path.join(AGENT_DIR, 'public', 'index.html');
@@ -225,15 +226,22 @@ export function createWebServer({
   saveProfile = async () => {},
   saveSecrets = async () => {},
   generate = generateProfile,
+  profileTimeoutMs = PROFILE_TIMEOUT_MS,
   modelFactory = createModel,
   interaction: injectedInteraction = null,
   generateInteractionText,
+  syncPollMs = 1500,
 } = {}) {
   if (typeof loadConfig !== 'function' || typeof describeConfig !== 'function' || typeof createAgent !== 'function') {
     throw new TypeError('createWebServer 需要 loadConfig、describeConfig、createAgent。');
   }
 
   let settings = sanitizeSettings(initialSettings);
+  // 若初始设置显式提供了 allowPersonalData，或经由 POST /api/settings 保存过，则严格以 settings.allowPersonalData 为准；
+  // 仅当未显式提供时才兼容回退到 config.allowPersonalData（例如环境变量或旧测试注入）。
+  let personalDataExplicit = Boolean(
+    initialSettings && typeof initialSettings === 'object' && Object.hasOwn(initialSettings, 'allowPersonalData'),
+  );
   let config = null;
   let agent = null;
   let history = [];
@@ -242,8 +250,16 @@ export function createWebServer({
   let collectionToken = null;
   let syncTimer = null;
   let profile = initialProfile && typeof initialProfile === 'object' ? initialProfile : null;
-  let profileRunning = null;
-  const profileState = { status: profile ? 'ready' : 'idle', error: null, at: profile?.generatedAt ?? null, durationMs: null, reason: null };
+  let activeProfileRun = null; // { generation, controller, promise }
+  let profileGeneration = 0;
+  const profileState = {
+    status: profile ? 'ready' : 'idle',
+    error: null,
+    errorCode: null,
+    at: profile?.generatedAt ?? null,
+    durationMs: null,
+    reason: null,
+  };
 
   // 采集同步的进度状态：前端每 2.5 秒轮询一次 /api/collection/state 时顺带续命。
   const sync = { jobId: null, state: null, error: null, startedAt: 0, lastSeen: 0, lastKeepalive: 0, finishedAt: null, durationMs: null };
@@ -262,8 +278,76 @@ export function createWebServer({
   }
 
   function currentConfig() {
-    if (!config) config = loadConfig({ env: buildEnvNow(), overrides: buildOverrides(settings) });
+    if (!config) {
+      const overrides = buildOverrides(settings);
+      if (personalDataExplicit && !settings.allowPersonalData) {
+        overrides.allowPersonalData = false;
+      }
+      config = loadConfig({ env: buildEnvNow(), overrides });
+    }
     return config;
+  }
+
+  function safeCurrentConfig() {
+    try {
+      return { config: currentConfig(), error: null };
+    } catch (error) {
+      return { config: null, error };
+    }
+  }
+
+  function isPersonalDataAllowed(cfg = null) {
+    if (personalDataExplicit) return settings.allowPersonalData === true;
+    if (settings.allowPersonalData === true) return true;
+    return cfg?.allowPersonalData === true;
+  }
+
+  // 统一画像授权门禁：与新版 /v1 共用 material-policy.mjs 的个人材料与模型端点位置判断。
+  function evaluateProfileGate() {
+    const { config: cfg, error: configError } = safeCurrentConfig();
+    const allowPersonalData = isPersonalDataAllowed(cfg);
+    const baseURL = settings.baseURL || cfg?.model?.baseURL || null;
+    const decision = evaluateLegacyProfileGate({
+      allowPersonalData,
+      modelConfig: cfg?.model ?? null,
+      baseURL,
+    });
+    return { decision, config: cfg, configError };
+  }
+
+  // 统一旧画像外发边界策略：在构造外部搜索查询与模型提示词前判定是否允许使用画像及衍生标签。
+  function evaluateProfileOutbound(targetKind = 'interaction', cfgOverride = null) {
+    const cfg = cfgOverride ?? safeCurrentConfig().config;
+    const allowPersonalData = isPersonalDataAllowed(cfg);
+    const baseURL = settings.baseURL || cfg?.model?.baseURL || null;
+    return evaluateLegacyProfileOutboundPolicy({
+      allowPersonalData,
+      modelConfig: cfg?.model ?? null,
+      baseURL,
+      demoSearch: Boolean(cfg?.demo ?? settings.demo),
+      targetKind,
+    });
+  }
+
+  function profileGateError(decision) {
+    const error = new AgentError(decision.code, decision.message, 1);
+    error.httpStatus = decision.httpStatus;
+    return error;
+  }
+
+  function cancelRunningProfile(reason = 'cancelled') {
+    profileGeneration += 1;
+    const active = activeProfileRun;
+    activeProfileRun = null;
+    if (active?.controller && !active.controller.signal.aborted) {
+      active.controller.abort(new AgentError('CANCELLED', '画像生成已取消，未完成的画像不会保存。', 130));
+    }
+    if (profileState.status === 'running') {
+      profileState.status = profile ? 'ready' : 'idle';
+      profileState.error = null;
+      profileState.errorCode = null;
+      profileState.reason = reason;
+    }
   }
 
   // 内置只读入口按需签发：只有真要给 Agent 用个人数据时才建，避免无谓的授权记录。
@@ -333,7 +417,7 @@ export function createWebServer({
         markSyncFinished();
         stopSyncLoop();
       }
-    }, 1500);
+    }, Math.max(10, Number(syncPollMs) || 1500));
     syncTimer.unref?.();
   }
 
@@ -368,49 +452,153 @@ export function createWebServer({
     return { records: records.slice(0, PROFILE_RECORD_LIMIT), counts, snapshotId, receivedAt };
   }
 
-  // 生成画像：失败时保留上一份，绝不把已有的画像清空。
+  function awaitWithAbort(promise, signal, toError) {
+    // 若上游忽略取消/超时信号并在之后才 reject，吸收该延后异常，避免未处理 Promise 拒绝。
+    promise.catch(() => {});
+    if (signal?.aborted) {
+      return Promise.reject(toError(signal));
+    }
+    return new Promise((resolve, reject) => {
+      const onAbort = () => reject(toError(signal));
+      signal?.addEventListener('abort', onAbort, { once: true });
+      promise.then(
+        (value) => {
+          signal?.removeEventListener('abort', onAbort);
+          resolve(value);
+        },
+        (error) => {
+          signal?.removeEventListener('abort', onAbort);
+          reject(error);
+        },
+      );
+    });
+  }
+
+  // 生成画像：手动与自动入口统一先过门禁；失败或运行中被取消时保留上一份，绝不落库未授权结果。
   async function refreshProfile(reason = 'manual') {
-    if (profileRunning) return profileRunning;
-    profileRunning = (async () => {
+    const { decision, config: cfg, configError } = evaluateProfileGate();
+    if (!decision.allowed) {
+      // 未授权被拒时不损坏既有合法状态（ready / idle），但保留清晰错误提示供前端展示。
+      profileState.error = decision.message;
+      profileState.errorCode = decision.code;
+      profileState.reason = reason;
+      throw profileGateError(decision);
+    }
+    if (configError) throw configError;
+    if (!collection) {
+      const error = new AgentError('COLLECTION_UNAVAILABLE', '采集组件未启动，没有可画像的数据。', 1);
+      error.httpStatus = 503;
+      throw error;
+    }
+    if (activeProfileRun?.promise) return activeProfileRun.promise;
+
+    const generation = ++profileGeneration;
+    const runController = new AbortController();
+    const runSlot = { generation, controller: runController, promise: null };
+    activeProfileRun = runSlot;
+
+    const executeRun = async () => {
       const started = Date.now();
       profileState.status = 'running';
       profileState.error = null;
+      profileState.errorCode = null;
       profileState.reason = reason;
+      let runSignal = runController.signal;
       try {
-        if (!collection) throw new Error('采集组件未启动，没有可画像的数据。');
-        const config = currentConfig();
-        if (!config.model?.ready) throw new Error('模型还没配置，无法生成画像。');
         const { records, counts, snapshotId, receivedAt } = collectProfileRecords();
-        if (!records.length) throw new Error('还没有采集记录，先同步一次。');
-        const next = await generate({
-          model: createModel(config.model),
-          modelName: config.model.modelName,
+        if (!records.length) {
+          const emptyError = new AgentError('NO_COLLECTION_RECORDS', '还没有采集记录，先同步一次。', 1);
+          emptyError.httpStatus = 409;
+          throw emptyError;
+        }
+        const gateBeforeModel = evaluateProfileGate();
+        if (generation !== profileGeneration || runController.signal.aborted || !gateBeforeModel.decision.allowed) {
+          throw !gateBeforeModel.decision.allowed
+            ? profileGateError(gateBeforeModel.decision)
+            : Object.assign(new AgentError('CANCELLED', '画像生成已取消，未保存任何结果。', 130), { httpStatus: 499 });
+        }
+
+        const effectiveTimeoutMs = Number.isFinite(Number(profileTimeoutMs)) && Number(profileTimeoutMs) > 0
+          ? Number(profileTimeoutMs)
+          : PROFILE_TIMEOUT_MS;
+        const timeoutSignal = AbortSignal.timeout(effectiveTimeoutMs);
+        runSignal = AbortSignal.any([runController.signal, timeoutSignal]);
+
+        const toAbortError = () => {
+          if (timeoutSignal.aborted && !runController.signal.aborted) {
+            return Object.assign(new AgentError('TIMEOUT', '画像生成超时，已中止。', 1), { httpStatus: 504 });
+          }
+          const latestGate = evaluateProfileGate();
+          if (!latestGate.decision.allowed) return profileGateError(latestGate.decision);
+          return Object.assign(new AgentError('CANCELLED', '画像生成已取消，未保存任何结果。', 130), { httpStatus: 499 });
+        };
+
+        const genPromise = (async () => generate({
+          model: modelFactory(cfg.model),
+          modelName: cfg.model.modelName,
           records,
           counts,
           snapshotId,
           syncedAt: receivedAt,
-        });
+          signal: runSignal,
+          timeoutMs: effectiveTimeoutMs,
+        }))();
+        const next = await awaitWithAbort(genPromise, runSignal, toAbortError);
+
+        // 即使底层生成器忽略取消/超时信号并 resolve，落库前仍再次复核代际、超时与最新门禁状态，确保绝不落库。
+        const gateBeforeCommit = evaluateProfileGate();
+        if (generation !== profileGeneration || runController.signal.aborted || timeoutSignal.aborted || !gateBeforeCommit.decision.allowed) {
+          if (timeoutSignal.aborted && !runController.signal.aborted) {
+            throw Object.assign(new AgentError('TIMEOUT', '画像生成超时，结果不会保存。', 1), { httpStatus: 504 });
+          }
+          throw !gateBeforeCommit.decision.allowed
+            ? profileGateError(gateBeforeCommit.decision)
+            : Object.assign(new AgentError('CANCELLED', '画像生成已取消，结果不会保存。', 130), { httpStatus: 499 });
+        }
         profile = next;
         profileState.status = 'ready';
+        profileState.error = null;
+        profileState.errorCode = null;
         profileState.at = next.generatedAt;
         await saveProfile(next);
         return next;
       } catch (error) {
-        // 有旧画像就标成 error（还能用），没有就是 failed。
-        // 上游原始报错不进界面，统一过一遍 safeAgentError 给出中文短句。
-        profileState.status = profile ? 'error' : 'failed';
-        profileState.error = safeAgentError(error).message;
-        throw error;
+        const superseded = generation !== profileGeneration || runController.signal.aborted;
+        const safe = asSafeError(error, runSignal);
+        if (safe.code === 'TIMEOUT' && !Number.isInteger(safe.httpStatus)) {
+          safe.httpStatus = 504;
+        }
+        if (!superseded) {
+          // 有旧画像就标成 error（还能用），没有就是 failed。
+          // 上游原始报错不进界面，统一过一遍 safeAgentError 给出中文短句。
+          profileState.status = profile ? 'error' : 'failed';
+          profileState.error = safe.message;
+          profileState.errorCode = safe.code;
+        } else if (profileState.status === 'running') {
+          profileState.status = profile ? 'ready' : 'idle';
+          profileState.error = null;
+          profileState.errorCode = null;
+        }
+        throw safe;
       } finally {
-        profileState.durationMs = Date.now() - started;
-        profileRunning = null;
+        if (activeProfileRun === runSlot) activeProfileRun = null;
+        if (generation === profileGeneration) {
+          profileState.durationMs = Date.now() - started;
+        }
       }
-    })();
-    return profileRunning;
+    };
+
+    const runPromise = executeRun();
+    if (activeProfileRun === runSlot) {
+      runSlot.promise = runPromise;
+    }
+    return runPromise;
   }
 
-  // 只在没有画像、或画像落后于当前快照时刷新；后台触发用，吞掉错误。
+  // 只在门禁放行且没有画像、或画像落后于当前快照时刷新；后台触发用，未授权时静默跳过。
   function maybeRefreshProfile(reason) {
+    const { decision } = evaluateProfileGate();
+    if (!decision.allowed) return null;
     if (!collection) return null;
     let snapshotId = null;
     try {
@@ -424,11 +612,20 @@ export function createWebServer({
   function profilePayload() {
     let snapshotId = null;
     try { snapshotId = collection?.status()?.latestSnapshot?.snapshotId ?? null; } catch { /* 忽略 */ }
+    const { decision } = evaluateProfileGate();
     return {
       profile,
       state: { ...profileState },
       stale: isStale(profile, snapshotId),
       snapshotId,
+      gate: {
+        allowed: decision.allowed,
+        code: decision.code,
+        message: decision.message,
+        isLocalModel: decision.endpoint.isLocalModel,
+        isCloudModel: decision.endpoint.isCloudModel,
+        targetOrigin: decision.endpoint.targetOrigin,
+      },
     };
   }
 
@@ -512,8 +709,15 @@ export function createWebServer({
       if (settings.allowPersonalData && collection) await ensureCollectionToken();
       if (!agent) {
         agent = await createAgent(currentConfig(), {
-          // 每次提问都重新拼提示词：画像更新后无需重建智能体就能生效。
-          buildPrompt: ({ enabled }) => buildSystemPrompt({ enabled, profile: profilePromptBlock(profile) }),
+          // 每次提问都重新拼提示词：画像更新后无需重建智能体就能生效；统一走外发边界策略，未获准时不注入画像。
+          buildPrompt: ({ enabled }) => {
+            const cfg = currentConfig();
+            const outbound = evaluateProfileOutbound('model', cfg);
+            return buildSystemPrompt({
+              enabled,
+              profile: outbound.allowed ? profilePromptBlock(profile) : '',
+            });
+          },
         });
       }
       const result = await agent.ask(question, { history, signal: controller.signal });
@@ -565,13 +769,27 @@ export function createWebServer({
     }
     assertUsableSettings(next, incoming);
     settings = next;
+    personalDataExplicit = true;
+    config = null;
+    if (!settings.allowPersonalData) {
+      collectionToken = null;
+    }
+    // 同步立刻复核画像门禁：关闭个人材料或切到非回环模型时，先取消运行中的画像任务再继续后续异步步骤。
+    const { decision: profileGate } = evaluateProfileGate();
+    if (!profileGate.allowed) {
+      cancelRunningProfile('settings_revoked');
+    }
+    if (profileState.errorCode && ['PERSONAL_DATA_DISABLED', 'CLOUD_CONSENT_REQUIRED', 'MODEL_NOT_CONFIGURED'].includes(profileState.errorCode)) {
+      profileState.error = null;
+      profileState.errorCode = null;
+    }
     await resetAgent();
     history = [];
     await persist(persistedPortion(settings));
     // 密钥单独落盘，重启后自动恢复，不用每次重填。
     await saveSecrets(settings);
     if (settings.allowPersonalData && collection) await ensureCollectionToken();
-    // 刚配好模型、又还没有画像时，顺手补一份（不阻塞保存响应）。
+    // 刚配好回环模型且已开启个人材料、又还没有画像时，顺手补一份（不阻塞保存响应）。
     maybeRefreshProfile('settings');
     sendOk(response, await statusPayload());
   }
@@ -634,6 +852,7 @@ export function createWebServer({
       return sendOk(response, result ?? { ok: true });
     }
     if (path === '/api/collection/revoke' && method === 'POST') {
+      cancelRunningProfile('collection_revoked');
       const result = await api.revokeConsent();
       return sendOk(response, result ?? { revoked: true });
     }
@@ -673,6 +892,7 @@ export function createWebServer({
     }
     if (path === '/api/collection/clear' && method === 'POST') {
       stopSyncLoop();
+      cancelRunningProfile('collection_cleared');
       sync.jobId = null;
       sync.state = null;
       sync.error = null;
@@ -715,9 +935,11 @@ export function createWebServer({
         getConfig: currentConfig,
         createModel: modelFactory,
         connectServers,
-        getProfile: () => profile,
+        getProfile: () => (evaluateProfileOutbound('interaction').allowed ? profile : null),
         getCollectionRecords: () => {
           if (!collection) return [];
+          if (!evaluateProfileOutbound('interaction').allowed) return [];
+          if (!evaluateProfileGate().decision.allowed) return [];
           try { return collectProfileRecords().records; } catch { return []; }
         },
         ...(typeof generateInteractionText === 'function' ? { generate: generateInteractionText } : {}),
@@ -841,6 +1063,7 @@ export function createWebServer({
     async close() {
       stopSyncLoop();
       controller?.abort();
+      cancelRunningProfile('closed');
       if (sync.jobId && collection) { try { collection.cancelJob(sync.jobId); } catch { /* 忽略 */ } }
       await interaction?.close?.();
       await closeAgent();

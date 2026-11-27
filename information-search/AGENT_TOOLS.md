@@ -100,6 +100,7 @@ MCP 标准输出仅传输协议，启动提示写入标准错误。宿主关闭�
 | `keywords`、`tags` | 各最多 8 个非空词，每个最多 60 字符；标签按标题、摘要文本匹配 |
 | `keywordMode`、`tagMode` | `any` 或 `all`，默认 `any`；两组之间同时满足 |
 | `contentTypes` | 可选内容类型数组，支持 `article`、`answer`、`question`、`pin`、`zvideo` |
+| `sortBy` | 可选官方排序及范围，例如 `VoteUpCount:desc`、`CreateTime:desc`、`CommentCount:none:(10,)`；默认优先相关性，只有明确需要时间或热度时指定 |
 | `countPerQuery` | 每个官方查询最多 1 至 10 条，默认 10 |
 | `maxQueries` | 最多 1 至 6 个查询，工具默认 2；可能因去重和缓存减少实际调用 |
 | `refresh` | 默认 `false`；`true` 跳过 5 分钟缓存，可能消耗新额度 |

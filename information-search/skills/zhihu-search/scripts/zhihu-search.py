@@ -78,7 +78,7 @@ def parse_count(payload: Dict[str, Any]) -> int:
         count = int(raw)
     except (TypeError, ValueError):
         count = 10
-    return max(1, min(10, count))
+    return 10 if count <= 0 else min(10, count)
 
 
 def get_endpoint() -> str:
@@ -89,19 +89,23 @@ def get_endpoint() -> str:
     return f"{base_url.rstrip('/')}/api/v1/content/zhihu_search"
 
 
-def request_zhihu(query: str, count: int) -> str:
+def request_zhihu(query: str, count: int, sort_by: str | None = None) -> str:
     secret = os.getenv("ZHIHU_ACCESS_SECRET", "").strip()
     if not secret:
         die("Set ZHIHU_ACCESS_SECRET first (Bearer auth only)")
 
-    params = urlencode({"Query": query, "Count": str(count)})
-    url = f"{get_endpoint()}?{params}"
+    params = {"Query": query, "Count": str(count)}
+    if sort_by:
+        params["SortBy"] = sort_by
+    encoded_params = urlencode(params)
+    url = f"{get_endpoint()}?{encoded_params}"
     req = Request(
         url=url,
         method="GET",
         headers={
             "Authorization": f"Bearer {secret}",
             "X-Request-Timestamp": str(int(time.time())),
+            "Content-Type": "application/json",
         },
     )
 
@@ -133,7 +137,10 @@ def main() -> None:
     query = parse_query(payload)
     count = parse_count(payload)
 
-    emit_raw(request_zhihu(query, count))
+    sort_by = payload.get("sortBy")
+    if sort_by is not None and not isinstance(sort_by, str):
+        die("sortBy must be a string")
+    emit_raw(request_zhihu(query, count, sort_by))
 
 
 if __name__ == "__main__":

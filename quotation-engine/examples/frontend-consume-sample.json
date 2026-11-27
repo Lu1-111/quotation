@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "quotation-backend/v1",
+  "module": "quotation-engine",
+  "kind": "frontend_quotation_bundle",
+  "dataMode": "demo",
+  "starfield": {
+    "graphVersion": 3,
+    "totalNodes": 5,
+    "denominator": 5,
+    "wallThreshold": 0.5,
+    "walls": [
+      "taste"
+    ],
+    "nodes": [
+      {
+        "id": "taste",
+        "name": "初期发现新乐队",
+        "text": "我刚开始用推荐页时，确实顺着它发现过好几个没听过的小众乐队。",
+        "cluster": "music_experience",
+        "deps": [],
+        "evidenceIds": [
+          "ev_turn_4",
+          "ev_turn_6"
+        ],
+        "S": 3,
+        "d": 0,
+        "depsOf": [],
+        "brightness": 1,
+        "isWall": true
+      },
+      {
+        "id": "friend",
+        "name": "朋友歌单分享",
+        "text": "朋友交换的歌单也让我喜欢上了原先不听的曲风。",
+        "cluster": "social_listening",
+        "deps": [],
+        "evidenceIds": [
+          "ev_col_02"
+        ],
+        "S": 1,
+        "d": 0,
+        "depsOf": [],
+        "brightness": 0.17996800000000002,
+        "isWall": false
+      },
+      {
+        "id": "example",
+        "name": "初期拓宽反例",
+        "text": "以我自己的初期经历为例，推荐至少有过拓宽音乐口味的作用。",
+        "cluster": "music_experience",
+        "deps": [
+          "taste"
+        ],
+        "evidenceIds": [
+          "ev_turn_6"
+        ],
+        "S": 1,
+        "d": 1,
+        "depsOf": [
+          "taste"
+        ],
+        "brightness": 0.17996800000000002,
+        "isWall": false
+      },
+      {
+        "id": "change",
+        "name": "口味有过拓展",
+        "text": "我的音乐口味有过拓展的经历。",
+        "cluster": "music_experience",
+        "deps": [
+          "taste",
+          "friend"
+        ],
+        "evidenceIds": [
+          "ev_turn_4",
+          "ev_col_02"
+        ],
+        "S": 0,
+        "d": 1,
+        "depsOf": [
+          "taste",
+          "friend"
+        ],
+        "brightness": 0.060407334399999985,
+        "isWall": false
+      },
+      {
+        "id": "possible",
+        "name": "给拓宽情形留位置",
+        "text": "讨论推荐的影响时，需要给初期拓宽兴趣的情形留出位置。",
+        "cluster": "music_experience",
+        "deps": [
+          "example"
+        ],
+        "evidenceIds": [
+          "ev_turn_6"
+        ],
+        "S": 0,
+        "d": 2,
+        "depsOf": [
+          "example"
+        ],
+        "brightness": 0.060407334399999985,
+        "isWall": false
+      }
+    ]
+  },
+  "bill": {
+    "statementId": "stmt_original",
+    "text": "推荐算法只会让人的兴趣越来越窄。",
+    "graphVersion": 3,
+    "assessment": "conflict",
+    "rate": 80,
+    "directConflicts": [
+      "taste"
+    ],
+    "collateral": [
+      "example",
+      "possible"
+    ],
+    "affected": [
+      "taste",
+      "example",
+      "possible"
+    ],
+    "numerator": 4,
+    "denominator": 5,
+    "reason": "全称排他词“只会”否定了任何拓宽兴趣的可能，与本人已确认的初期发现新乐队经历直接冲突；example 与 possible 因唯一依据失效连带坍塌，双依据节点 change 保留 1/2 依据继续存活。",
+    "conflictReasons": [
+      {
+        "nodeId": "taste",
+        "reason": "本人明确确认刚开始使用推荐页时发现过多支小众乐队，构成“只会变窄”的反例。",
+        "evidenceIds": [
+          "ev_turn_4",
+          "ev_turn_6"
+        ]
+      }
+    ],
+    "verifiedEvidenceIds": [
+      "ev_turn_4",
+      "ev_turn_6"
+    ],
+    "interpretationNote": "数值仅解释当前已确认图上的承重结构影响比例，不能作为授权者会被说服的概率。",
+    "directCount": 1,
+    "collateralCount": 2,
+    "affectedCount": 3,
+    "totalNodes": 5,
+    "wallConflictCount": 1,
+    "impactItems": [
+      {
+        "id": "taste",
+        "name": "初期发现新乐队",
+        "text": "我刚开始用推荐页时，确实顺着它发现过好几个没听过的小众乐队。",
+        "S": 3,
+        "role": "direct_conflict"
+      },
+      {
+        "id": "example",
+        "name": "初期拓宽反例",
+        "text": "以我自己的初期经历为例，推荐至少有过拓宽音乐口味的作用。",
+        "S": 1,
+        "role": "collateral_collapse"
+      },
+      {
+        "id": "possible",
+        "name": "给拓宽情形留位置",
+        "text": "讨论推荐的影响时，需要给初期拓宽兴趣的情形留出位置。",
+        "S": 0,
+        "role": "collateral_collapse"
+      }
+    ]
+  },
+  "rewriteComparison": {
+    "graphVersion": 3,
+    "denominator": 5,
+    "totalNodes": 5,
+    "quotes": [
+      {
+        "statementId": "stmt_original",
+        "text": "推荐算法只会让人的兴趣越来越窄。",
+        "graphVersion": 3,
+        "assessment": "conflict",
+        "rate": 80,
+        "directConflicts": [
+          "taste"
+        ],
+        "collateral": [
+          "example",
+          "possible"
+        ],
+        "affected": [
+          "taste",
+          "example",
+          "possible"
+        ],
+        "numerator": 4,
+        "denominator": 5,
+        "reason": "全称排他词“只会”否定了任何拓宽兴趣的可能，与本人已确认的初期发现新乐队经历直接冲突；example 与 possible 因唯一依据失效连带坍塌，双依据节点 change 保留 1/2 依据继续存活。",
+        "conflictReasons": [
+          {
+            "nodeId": "taste",
+            "reason": "本人明确确认刚开始使用推荐页时发现过多支小众乐队，构成“只会变窄”的反例。",
+            "evidenceIds": [
+              "ev_turn_4",
+              "ev_turn_6"
+            ]
+          }
+        ],
+        "verifiedEvidenceIds": [
+          "ev_turn_4",
+          "ev_turn_6"
+        ],
+        "interpretationNote": "数值仅解释当前已确认图上的承重结构影响比例，不能作为授权者会被说服的概率。"
+      },
+      {
+        "statementId": "stmt_rewrite_tone",
+        "text": "我的看法是，推荐算法对人的兴趣只有一种影响，就是让它越来越窄。",
+        "graphVersion": 3,
+        "assessment": "conflict",
+        "rate": 80,
+        "directConflicts": [
+          "taste"
+        ],
+        "collateral": [
+          "example",
+          "possible"
+        ],
+        "affected": [
+          "taste",
+          "example",
+          "possible"
+        ],
+        "numerator": 4,
+        "denominator": 5,
+        "reason": "仅将语气缓和为“我的看法是”，但“只有一种影响”仍维持绝对排他前提，直接冲突与承重损失比例不变。",
+        "conflictReasons": [
+          {
+            "nodeId": "taste",
+            "reason": "“只有一种影响”依然排除了本人初期通过推荐拓宽口味的真实经历。",
+            "evidenceIds": [
+              "ev_turn_4",
+              "ev_turn_6"
+            ]
+          }
+        ],
+        "verifiedEvidenceIds": [
+          "ev_turn_4",
+          "ev_turn_6"
+        ],
+        "interpretationNote": "数值仅解释当前已确认图上的承重结构影响比例，不能作为授权者会被说服的概率。"
+      },
+      {
+        "statementId": "stmt_rewrite_scope",
+        "text": "推荐在刚开始用时确实帮我发现过新乐队；我担心的是连续听同类歌曲之后，新推荐会不会变少。",
+        "graphVersion": 3,
+        "assessment": "compatible",
+        "rate": 0,
+        "directConflicts": [],
+        "collateral": [],
+        "affected": [],
+        "numerator": 0,
+        "denominator": 5,
+        "reason": "去掉“只会”，承认初期拓宽口味的已确认事实，并将担忧限定在连续听同类歌曲之后，与当前已确认图完全相容。",
+        "conflictReasons": [],
+        "verifiedEvidenceIds": [
+          "ev_turn_4",
+          "ev_turn_6",
+          "ev_turn_8"
+        ],
+        "interpretationNote": "数值仅解释当前已确认图上的承重结构影响比例，不能作为授权者会被说服的概率。"
+      }
+    ],
+    "baselineStatementId": "stmt_original",
+    "comparisons": [
+      {
+        "statementId": "stmt_rewrite_tone",
+        "baselineStatementId": "stmt_original",
+        "baselineRate": 80,
+        "rate": 80,
+        "deltaRate": 0,
+        "baselineAssessment": "conflict",
+        "assessment": "conflict",
+        "assessmentChanged": false,
+        "resolvedConflicts": [],
+        "addedConflicts": [],
+        "resolvedAffected": [],
+        "addedAffected": []
+      },
+      {
+        "statementId": "stmt_rewrite_scope",
+        "baselineStatementId": "stmt_original",
+        "baselineRate": 80,
+        "rate": 0,
+        "deltaRate": -80,
+        "baselineAssessment": "conflict",
+        "assessment": "compatible",
+        "assessmentChanged": true,
+        "resolvedConflicts": [
+          "taste"
+        ],
+        "addedConflicts": [],
+        "resolvedAffected": [
+          "taste",
+          "example",
+          "possible"
+        ],
+        "addedAffected": []
+      }
+    ]
+  }
+}

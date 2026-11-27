@@ -80,11 +80,14 @@ test('真实调用官方 scripts/zhihu-search.py：验证 Bearer 鉴权、地址
   assert.equal(params1.get('Count'), '5');
   assert.equal(lastReq.headers.authorization, 'Bearer my-secret-token-999');
   assert.match(String(lastReq.headers['x-request-timestamp']), /^\d{10}$/);
+  assert.equal(lastReq.headers['content-type'], 'application/json');
   assert.equal(res1.searchHashId, 'skill-hash-1');
   assert.equal(res1.items[0].contentId, '969570047710216201');
   assert.equal(res1.items[0].contentType, 'article');
   assert.equal(res1.items[0].title, '知乎搜索 Skill 实测 🚀');
   assert.equal(res1.items[0].excerpt, '包含 RAG 高亮与 Emoji 😀 的摘要');
+  await baseClient.search('如何理解 rave 文化', 5, { sortBy: 'VoteUpCount:asc:(10,100)' });
+  assert.equal(new URL(lastReq.url, 'http://127.0.0.1').searchParams.get('SortBy'), 'VoteUpCount:asc:(10,100)');
 
   // 2. 验证 ZHIHU_ZHIHU_SEARCH_URL 优先级高于 ZHIHU_OPENAPI_BASE_URL
   const overrideClient = createSkillClient({
@@ -144,4 +147,8 @@ test('真实调用官方 scripts/zhihu-search.py：验证 Bearer 鉴权、地址
   assert.equal(toolRes.ok, true);
   assert.equal(toolRes.data.provider, 'zhihu_search_skill');
   assert.equal(toolRes.data.items.length, 1);
+  const sortedToolRes = await tools.call('zhihu_search', { query: 'Skill', maxQueries: 1, sortBy: 'CommentCount:none:(10,)' });
+  assert.equal(sortedToolRes.ok, true);
+  assert.equal(sortedToolRes.data.criteria.sortBy, 'CommentCount:none:(10,)');
+  assert.equal(new URL(lastReq.url, 'http://127.0.0.1').searchParams.get('SortBy'), 'CommentCount:none:(10,)');
 });

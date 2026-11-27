@@ -1,0 +1,14 @@
+{
+  "name": "quotation-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "「报价」承重星图与有据冲突算价纯函数引擎",
+  "main": "./index.mjs",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

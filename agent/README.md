@@ -4,6 +4,48 @@
 
 历次改动、模型选型实测与待办见 [工作记录](WORKLOG.md)。
 
+## 正式公开体验启动（`npm run serve:public:web`）
+
+需要把真实知乎公开检索、真实模型推理与正式星图页面接通为可现场试走的公开对话体验时，在 `agent/` 目录配置好上游环境变量后执行：
+
+```bash
+export AGENT_BASE_URL=https://你的模型接口地址/v1
+export AGENT_MODEL=<你的模型名>
+export AGENT_API_KEY=<你的模型密钥>        # 本机无鉴权服务可留空
+export ZHIHU_ACCESS_SECRET=<你的知乎搜索凭证>
+npm run serve:public:web
+```
+
+也可以把上述变量写入本地私有文件 `agent/.env`（不提交版本库），脚本通过 `--env-file-if-exists=.env` 自动加载。入口为 `public-web-host.mjs`：
+
+- **真实公开模式与独立存储**：运行于 `dataMode: "real"`，默认使用独立数据库 `.data/sessions-public-web.sqlite`（与演示库和常规真实库物理隔离），同源托管 `../frontend-design/web/` 与 `/v1/*` 接口。
+- **按浏览器 Cookie 隔离匿名会话**：通过 `POST /api/host/session` 返回统一握手结构（`mode: "public"`、`dataMode: "real"`、`usePersonalMaterials: false`、`capabilities`），并为每个浏览器会话签发 `HttpOnly; SameSite=Strict; Path=/` Cookie 映射至独立匿名 `ownerId`，内部 Bearer 与上游密钥绝不暴露到浏览器。
+- **强制公开边界与越权拦截**：宿主强制 `usePersonalMaterials: false`（不触发本机个人浏览采集），拒绝公开客户端提交种子图 `initialGraph`、自造候选提议 `action.proposal` 及任意外部接口地址覆盖；公开证据统一存放在 `publicAnalysis` 且始终保持 `attribution: "other_author"`，与个人已确认图 `confirmedGraph` 严格分离。
+- **缺上游明确降级**：未配置模型或知乎搜索凭证时，页面如实展示缺上游温和提示，并由用户自行决定是否切换合成演示，绝不静默伪造数据。详细契约见 [HTTP_API_CONTRACT.md](HTTP_API_CONTRACT.md)。
+
+## 整站合成演示启动（`npm run serve:demo:web`）
+
+需要一键在本机打开正式星图页面并接通新版 `/v1` HTTP/SSE 后端时，在 `agent/` 目录执行：
+
+```bash
+npm run serve:demo:web
+```
+
+默认监听回环地址 <http://127.0.0.1:3006/>（入口脚本 `demo-web-host.mjs`），在**零外部凭证、零真实个人数据**的演示隔离模式下开箱运行：
+
+- **单一入口同源托管**：静态托管 `../frontend-design/web/` 正式星图与承重分析页面，并在同一来源下代理 `/v1/*` 接口，直接使用确定性合成材料与合成解释流完成输入、查依据、算价、改写对比、采用、撤回与断线恢复。
+- **独立数据隔离**：默认使用独立演示数据库 `.data/sessions-demo-web.sqlite`（与真实模式数据库物理隔离），支持通过 `--host`、`--port`（`0` 为随机空闲端口）、`--db` 或环境变量 `AGENT_DEMO_WEB_HOST`、`AGENT_DEMO_WEB_PORT`、`AGENT_DB_PATH` 覆盖。
+- **同源会话代理与 Bearer 兼容**：宿主仅在服务端内存维护内部 Bearer 凭证，页面访问首页或调用 `POST /api/host/session` 时获取 `HttpOnly; SameSite=Strict; Path=/` 会话 Cookie，并由宿主按路由白名单与 `Host` / `Origin` / `Sec-Fetch-Site` 校验转发允许的 `/v1` 接口（内部令牌绝不暴露给浏览器）。显式携带 `Authorization: Bearer <token>` 的直接 API 调用保持完全兼容。详细协议见 [HTTP_API_CONTRACT.md](HTTP_API_CONTRACT.md)。
+
+## 个人材料与云同意门禁
+
+新版 `/v1` 后端与旧工作台画像入口共用 `material-policy.mjs` 中的端点位置与外发材料判定策略：
+
+- **回环与非回环模型判定**：仅 `127.0.0.0/8`、`localhost`、`::1` 及 `::ffff:127.0.0.0/8` 视为本机回环模型；其余外部域名/地址或非法协议均按非本机云模型处理。回环模型继续按本机材料授权运行，不触发云同意门禁。
+- **持久化撤回与并发取消（`/v1`）**：在 `POST /v1/sessions/:id/turns` 显式传入 `cloudConsent: false` 时，服务端先持久化撤回并重算会话内全部兼容字段（`cloudConsent`、`allowCloudModel`、`metadata.cloudConsent`、`outboundPreview`），重复撤回幂等且不递增 `graphVersion`，同时向运行中的相关云轮次发送取消信号；后续请求省略 `cloudConsent` 时沿用已持久化的值（跨进程重启生效）。
+- **先预览、再确认发送（`outboundPreviewId` 绑定）**：非本机云推理涉及个人材料时，`403 CLOUD_CONSENT_REQUIRED` 在 `error.details.outboundPreview` 中返回最新拟外发清单（含确定性 `outboundPreviewId` 及逐条片段的 `evidenceId`、`source`、`field`、`range`、`text` / `excerpt` / `preview`）。预览与模型请求共用同一批按 Unicode 码点安全裁剪后的片段；仅当 `cloudConsent: true` 且 `outboundPreviewId` 与当前清单逐项匹配时放行，片段变更将生成新预览并使旧确认失效。
+- **旧工作台画像统一门禁（`web.mjs`）**：手动刷新与全部自动触发（启动、同步完成、保存设置）共用 `evaluateLegacyProfileGate`。关闭个人材料授权时立即拒绝并保持零模型调用；旧工作台画像仅开放已授权的本机回环模型，非回环模型返回明确的未授权状态。
+
 ## 图形界面
 
 不想敲命令行时用本机网页界面。`web.mjs` 起一个只监听 `127.0.0.1` 的服务，把对话、采集、交付合成一个页面：

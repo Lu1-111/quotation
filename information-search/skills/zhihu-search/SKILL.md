@@ -23,7 +23,7 @@ metadata: {"openclaw":{"emoji":"🔍","requires":{"bins":["python3"]}}}
 python3 {baseDir}/scripts/zhihu-search.py '{"query":"如何理解 rave 文化","count":5}'
 ```
 
-`query` 必填；`count` 默认为 10，并限制到 1-10。
+`query` 必填；`count` 默认为 10，小于等于 0 时使用默认值，超过 10 时截断。项目对脚本补充了可选 `sortBy`，例如 `{"query":"推荐算法","count":5,"sortBy":"VoteUpCount:desc"}`。可用字段与范围格式见上级模块 README。
 
 ## 响应参数
 

@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quotation.local/schemas/quote-v1.schema.json",
+  "title": "QuotationEngineStatementQuoteV1",
+  "description": "「报价」单句承重结构冲突评估与算价结果契约（quote-v1）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "statementId",
+    "text",
+    "graphVersion",
+    "assessment",
+    "rate",
+    "directConflicts",
+    "collateral",
+    "affected",
+    "numerator",
+    "denominator",
+    "reason",
+    "conflictReasons",
+    "verifiedEvidenceIds",
+    "interpretationNote"
+  ],
+  "properties": {
+    "statementId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "句子版本唯一标识（区分原句与各改写版本）"
+    },
+    "text": {
+      "type": "string",
+      "description": "待评估的原句或改写文本"
+    },
+    "graphVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "本次算价绑定的已确认图版本号"
+    },
+    "assessment": {
+      "type": "string",
+      "enum": [
+        "conflict",
+        "compatible",
+        "insufficient_evidence"
+      ],
+      "description": "定性判断结论：有据冲突、相容或证据不足未定"
+    },
+    "rate": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "承重结构受影响百分比整数（0..100）；证据不足或分母为 0 时为 null"
+    },
+    "directConflicts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "有已核验证据支撑的直接冲突节点 ID 列表"
+    },
+    "collateral": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "因存活依据严格少于原先一半（< 0.5）而连带坍塌的下游节点 ID 列表"
+    },
+    "affected": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "全部受影响节点 ID 列表（directConflicts 与 collateral 的不交并集）"
+    },
+    "numerator": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "全部受影响节点的传递承重数 S 之和"
+    },
+    "denominator": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "当前已确认全图所有节点的传递承重数 S 之和"
+    },
+    "reason": {
+      "type": "string",
+      "description": "面向用户的本句判断与算价总体说明"
+    },
+    "conflictReasons": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "$ref": "#/$defs/conflictReasonItem"
+          }
+        ]
+      },
+      "description": "逐项直接冲突理由列表"
+    },
+    "verifiedEvidenceIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "支撑本次判断的已核验证据 ID 列表"
+    },
+    "interpretationNote": {
+      "type": "string",
+      "const": "数值仅解释当前已确认图上的承重结构影响比例，不能作为授权者会被说服的概率。",
+      "description": "固定口径免责声明，防止把结构比例误读为说服概率"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "assessment": {
+            "const": "insufficient_evidence"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "rate": {
+            "type": "null"
+          },
+          "directConflicts": {
+            "maxItems": 0
+          },
+          "collateral": {
+            "maxItems": 0
+          },
+          "affected": {
+            "maxItems": 0
+          },
+          "numerator": {
+            "const": 0
+          },
+          "conflictReasons": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "assessment": {
+            "const": "compatible"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "directConflicts": {
+            "maxItems": 0
+          },
+          "collateral": {
+            "maxItems": 0
+          },
+          "affected": {
+            "maxItems": 0
+          },
+          "numerator": {
+            "const": 0
+          },
+          "conflictReasons": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "denominator": {
+            "const": 0
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "rate": {
+            "type": "null"
+          },
+          "numerator": {
+            "const": 0
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "conflictReasonItem": {
+      "type": "object",
+      "required": [
+        "nodeId",
+        "reason"
+      ],
+      "properties": {
+        "nodeId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "computedGraphNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "text",
+        "cluster",
+        "deps",
+        "S",
+        "d",
+        "depsOf"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cluster": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "deps": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "S": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "d": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "depsOf": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "statementComparisonItem": {
+      "type": "object",
+      "required": [
+        "statementId",
+        "baselineStatementId",
+        "baselineRate",
+        "rate",
+        "deltaRate",
+        "baselineAssessment",
+        "assessment",
+        "assessmentChanged",
+        "resolvedConflicts",
+        "addedConflicts"
+      ],
+      "properties": {
+        "statementId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baselineStatementId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baselineRate": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "rate": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "deltaRate": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -100,
+          "maximum": 100
+        },
+        "baselineAssessment": {
+          "type": "string",
+          "enum": [
+            "conflict",
+            "compatible",
+            "insufficient_evidence"
+          ]
+        },
+        "assessment": {
+          "type": "string",
+          "enum": [
+            "conflict",
+            "compatible",
+            "insufficient_evidence"
+          ]
+        },
+        "assessmentChanged": {
+          "type": "boolean"
+        },
+        "resolvedConflicts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "addedConflicts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "resolvedAffected": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "addedAffected": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

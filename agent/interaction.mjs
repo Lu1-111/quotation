@@ -10,6 +10,7 @@
 //    仅当 accuracy === 0 时在板块二选项上透出检定难度标签。
 import { generateText } from 'ai';
 import { AgentError, safeAgentError } from './errors.mjs';
+import { evaluateLegacyProfileOutboundPolicy } from './material-policy.mjs';
 import {
   INITIAL_WILLPOWER,
   MAX_WILLPOWER,
@@ -586,6 +587,47 @@ export function createInteractionController({
     return { config, searchServer };
   }
 
+  // 在构造外部搜索查询和模型输入之前统一校验旧画像外发边界（纵深防御）。
+  function evaluateProfileOutboundPolicies(config) {
+    const allowPersonalData = config?.allowPersonalData === true;
+    const demoSearch = Boolean(config?.demo);
+    const modelConfig = config?.model ?? null;
+    const baseURL = modelConfig?.baseURL ?? null;
+    const searchPolicy = evaluateLegacyProfileOutboundPolicy({
+      allowPersonalData,
+      modelConfig,
+      baseURL,
+      demoSearch,
+      targetKind: 'external_search',
+    });
+    const modelPolicy = evaluateLegacyProfileOutboundPolicy({
+      allowPersonalData,
+      modelConfig,
+      baseURL,
+      demoSearch,
+      targetKind: 'model',
+    });
+    return {
+      searchPolicy,
+      modelPolicy,
+      allowed: Boolean(searchPolicy.allowed && modelPolicy.allowed),
+    };
+  }
+
+  function assertViewpointOutboundAllowed(viewpoint, config) {
+    if (!viewpoint?.fromProfile) return;
+    const policy = evaluateProfileOutboundPolicies(config);
+    if (policy.allowed) return;
+    const denied = policy.modelPolicy.allowed ? policy.searchPolicy : policy.modelPolicy;
+    const error = new AgentError(
+      denied.code || 'CLOUD_CONSENT_REQUIRED',
+      denied.reason || '当前配置不允许将基于画像生成的议题外发至外部检索或非回环模型，请重新生成通用议题。',
+      1,
+    );
+    error.httpStatus = 403;
+    throw error;
+  }
+
   // 交互模块使用高速非思考模式模型实例，避免 DeepSeek 默认开启长思考链空转 13–14 秒。
   function fastModel(config) {
     return createModel(config.model, { disableThinking: true });
@@ -803,8 +845,10 @@ export function createInteractionController({
       const model = fastModel(config);
 
       const nextBatch = refresh ? state.batchIndex + 1 : state.batchIndex;
-      const profile = getProfile();
-      const records = profile ? [] : getCollectionRecords();
+      // 外部搜索与模型提示词任一侧未获准外发画像时，不读取/不使用画像及衍生词句，直接回退至通用议题。
+      const outboundPolicy = evaluateProfileOutboundPolicies(config);
+      const profile = outboundPolicy.allowed ? getProfile() : null;
+      const records = outboundPolicy.allowed && !profile ? getCollectionRecords() : [];
       const { profileUsed, seeds } = pickProfileSeeds(profile, records, nextBatch);
       const hotSeed = pickHotTopicSeed(seeds.map((s) => s.label), nextBatch);
 
@@ -829,17 +873,24 @@ export function createInteractionController({
         { searchServer, demo: config.demo, signal },
       );
 
-      const avoidBlock = state.seenClaims.length
-        ? `\n避开已出现过的观点：${state.seenClaims.slice(-6).join('；')}\n`
+      const visibleSeenClaims = state.seenClaims
+        .filter((entry) => outboundPolicy.allowed || !entry?.fromProfile)
+        .map((entry) => (typeof entry === 'string' ? entry : entry.claim))
+        .filter(Boolean)
+        .slice(-6);
+      const avoidBlock = visibleSeenClaims.length
+        ? `\n避开已出现过的观点：${visibleSeenClaims.join('；')}\n`
         : '';
 
+      const seedScopeLabel = profileUsed ? '用户兴趣' : '通用议题';
+      const seedMaterialTitle = profileUsed ? '【兴趣素材】' : '【议题素材】';
       const prompt = [
         '根据以下知乎检索素材，生成 3 个「表面有理、实则以偏概全或因果倒置，需要用户纠正」的观点：',
-        `1. kind="profile_1"：围绕用户兴趣「${seeds[0].label}」与【兴趣素材】生成。`,
-        `2. kind="profile_2"：围绕用户兴趣「${seeds[1].label}」与【兴趣素材】生成。`,
+        `1. kind="profile_1"：围绕${seedScopeLabel}「${seeds[0].label}」与${seedMaterialTitle}生成。`,
+        `2. kind="profile_2"：围绕${seedScopeLabel}「${seeds[1].label}」与${seedMaterialTitle}生成。`,
         `3. kind="hot"：不参考用户画像，仅围绕知乎热门话题「${hotSeed.topic}」与【热门素材】生成。`,
         avoidBlock,
-        '【兴趣素材】：',
+        `${seedMaterialTitle}：`,
         formatSearchBrief(profileItems, 4),
         '【热门素材】：',
         formatSearchBrief(hotItems, 3),
@@ -873,6 +924,7 @@ export function createInteractionController({
         return {
           id: `vp-${nextBatch}-${idx + 1}`,
           kind: slot.kind,
+          fromProfile: Boolean(profileUsed && slot.kind === 'profile'),
           sourceBadge: slot.badge,
           topic: cleanText(raw.topic, 40) || slot.fallbackTopic,
           claim,
@@ -886,9 +938,9 @@ export function createInteractionController({
 
       state.batchIndex = nextBatch;
       state.profileUsed = profileUsed;
-      state.profileSummary = cleanText(profile?.summary, 180);
+      state.profileSummary = profileUsed ? cleanText(profile?.summary, 180) : '';
       state.viewpoints = viewpoints;
-      state.seenClaims.push(...viewpoints.map((v) => v.claim));
+      state.seenClaims.push(...viewpoints.map((v) => ({ claim: v.claim, fromProfile: Boolean(v.fromProfile) })));
       if (state.seenClaims.length > 24) state.seenClaims.splice(0, state.seenClaims.length - 24);
       state.phase = 'select';
       state.selectedViewpoint = null;
@@ -909,6 +961,7 @@ export function createInteractionController({
       }
 
       const { config, searchServer } = ensureReadyConfig();
+      assertViewpointOutboundAllowed(chosenVp, config);
       const model = fastModel(config);
 
       const searchItems = await obtainRoundSearchItems(chosenVp, 1, { searchServer, demo: config.demo, signal });
@@ -1128,6 +1181,7 @@ export function createInteractionController({
       }
 
       const { config, searchServer } = ensureReadyConfig();
+      assertViewpointOutboundAllowed(state.selectedViewpoint, config);
       const model = fastModel(config);
 
       const willpowerBefore = state.willpower;

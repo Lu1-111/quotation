@@ -61,11 +61,12 @@ export function normalizeItem(item) {
 export function createOfficialClient({ accessSecret, fetchImpl = fetch, timeoutMs = 20_000 } = {}) {
   return {
     configured: Boolean(accessSecret),
-    async search(query, limit = 10, { signal } = {}) {
+    async search(query, limit = 10, { signal, sortBy } = {}) {
       if (!accessSecret) throw new SearchError('尚未配置知乎 Access Secret，请在本机 .env 中填写。', 503, 'NOT_CONFIGURED');
       if (typeof query !== 'string' || !query.trim() || !Number.isInteger(limit) || limit < 1 || limit > 10) throw new SearchError('关键词不能为空，单查询数量必须为 1 到 10。', 400, 'INVALID_CRITERIA');
       const url = new URL(SEARCH_ENDPOINT);
       url.search = new URLSearchParams({ Query: query, Count: String(limit) });
+      if (sortBy) url.searchParams.set('SortBy', sortBy);
       let response;
       try {
         response = await fetchImpl(url, { redirect: 'error', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),

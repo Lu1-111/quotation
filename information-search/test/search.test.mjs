@@ -10,6 +10,7 @@ import { validateCriteria, buildQueryPlan, matchItem, createInformationSearch } 
 import { createSearchStore } from '../store.mjs';
 import { createSearchHttpServer } from '../server.mjs';
 import { toMarkdown } from '../report.mjs';
+import { parseSortBy } from '../sort.mjs';
 
 const raw = (extra = {}) => ({ ContentID: '123', ContentType: 'Article', Title: 'RAG 评测方法', ContentText: '人工智能与检索实践。',
   Url: 'https://zhuanlan.zhihu.com/p/123?utm_source=official', AuthorName: '示例作者', VoteUpCount: 10, CommentCount: 2, RankingScore: 0.8, ...extra });
@@ -65,6 +66,50 @@ test('条件校验限制查询预算，计划截取可追溯，不构造分页�
   for (const input of [{}, { keywords: 'RAG' }, { query: 'x', countPerQuery: 11 }, { query: 'x', maxQueries: 7 }, { query: 'x', tagMode: 'exact' }, { query: 'x', topicId: '1' }]) {
     assert.throws(() => validateCriteria(input), (error) => error.status === 400);
   }
+});
+
+test('官方排序参数校验、跨查询顺序与缓存按排序隔离', async (t) => {
+  assert.equal(parseSortBy('VoteUpCount:ASC:(10,100)').canonical, 'VoteUpCount:asc:(10,100)');
+  assert.equal(parseSortBy('CreateTime:(10,)').canonical, 'CreateTime:desc:(10,)');
+  assert.equal(parseSortBy('EditTime:').canonical, 'EditTime:desc');
+  for (const sortBy of ['voteUpCount:asc', 'CommentCount:up', 'EditTime:asc:(10,2)', 'VoteUpCount:asc:(-1,2)']) {
+    assert.throws(() => validateCriteria({ query: 'RAG', sortBy }), (error) => error.code === 'INVALID_CRITERIA');
+  }
+  const store = localStore(t);
+  const calls = [];
+  const client = { async search(query, _count, { sortBy }) {
+    calls.push({ query, sortBy });
+    return { query, hasMore: false, items: [
+      normalizeItem(raw({ ContentID: 'one', VoteUpCount: 2, RankingScore: 0.9 })),
+      normalizeItem(raw({ ContentID: 'two', VoteUpCount: 20, RankingScore: 0.1 })),
+    ] };
+  } };
+  const service = createInformationSearch({ client, store, queryDelayMs: 0 });
+  const original = await service.search({ query: 'RAG' });
+  assert.deepEqual(original.items.map((item) => item.contentId), ['one', 'two']);
+  const sorted = await service.search({ query: 'RAG', sortBy: 'VoteUpCount:desc' });
+  assert.deepEqual(sorted.items.map((item) => item.contentId), ['two', 'one']);
+  const filterOnly = await service.search({ query: 'RAG', sortBy: 'VoteUpCount:none:(1,)' });
+  assert.deepEqual(filterOnly.items.map((item) => item.contentId), ['one', 'two']);
+  await service.search({ query: 'RAG', sortBy: 'VoteUpCount:DESC' });
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls.map((call) => call.sortBy), [undefined, 'VoteUpCount:desc', 'VoteUpCount:none:(1,)']);
+});
+
+test('合并不同查询后的时间排序和仅过滤顺序', async () => {
+  const client = { async search(query) {
+    const items = query.includes('检索')
+      ? [raw({ ContentID: 'a', Title: 'RAG 索引', CreateTime: 30 }), raw({ ContentID: 'b', Title: 'RAG 索引', CreateTime: 10 })]
+      : [raw({ ContentID: 'c', Title: 'RAG 索引', CreateTime: 20 }), raw({ ContentID: 'a', Title: 'RAG 索引', CreateTime: 30 })];
+    return { query, hasMore: false, items: items.map(normalizeItem) };
+  } };
+  const service = createInformationSearch({ client, queryDelayMs: 0 });
+  const request = { query: 'RAG', keywords: ['索引'], tags: ['检索'], maxQueries: 2 };
+  const sorted = await service.search({ ...request, sortBy: 'CreateTime:asc' });
+  assert.deepEqual(sorted.items.map((item) => item.contentId), ['b', 'c', 'a']);
+  const filtered = await service.search({ ...request, sortBy: 'CreateTime:none:(0,)' });
+  assert.deepEqual(filtered.items.map((item) => item.contentId), ['a', 'b', 'c']);
+  assert.equal(filtered.items.find((item) => item.contentId === 'a').matchedQueries.length, 2);
 });
 
 test('关键词和标签词支持任意或全部匹配，兼容中文相邻与英文词边界', () => {

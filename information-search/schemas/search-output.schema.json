@@ -13,6 +13,7 @@
     "provider": {
       "enum": [
         "zhihu_official_search",
+        "zhihu_search_skill",
         "demo"
       ]
     },
@@ -61,6 +62,10 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 6
+        },
+        "sortBy": {
+          "type": "string",
+          "maxLength": 100
         },
         "contentTypes": {
           "type": "array",

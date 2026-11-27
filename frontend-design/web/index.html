@@ -5,7 +5,7 @@
 <title>报价 / QUOTATION</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#e9edf2">
-<meta name="description" content="在你开口之前，先算一算：这句话，对方买不买得起。">
+<meta name="description" content="把你想说的话放在这里，一起看看哪里有依据，哪里还想再斟酌一下。">
 <script>
   /* 在样式生效前应用主题，避免刷新时闪白 / 闪黑 */
   try {
@@ -15,10 +15,10 @@
       p === "dark" || (!p && saved === "dark") ? "dark" : "light";
   } catch (e) {}
 </script>
-<link rel="stylesheet" href="./src/theme.css?v=13">
-<link rel="stylesheet" href="./src/cover.css?v=16">
+<link rel="stylesheet" href="./src/theme.css?v=14">
+<link rel="stylesheet" href="./src/cover.css?v=22">
 </head>
-<body class="page-cover" data-view="cover">
+<body class="page-cover" data-view="cover" data-host-mode="static">
 
 <header class="topbar">
   <div class="topbar-left">
@@ -56,9 +56,8 @@
 
     <div class="about" id="about" role="dialog" aria-label="说明" hidden>
       <p class="about-title">说明</p>
-      <p>演示账号「林行」使用 30 条合成判断，计算逻辑是真实的。</p>
-      <p>正式版只读取你本人授权的内容。报价是一张估算图，不是判决书。</p>
-      <p>绑定知乎将在后端接入后开放。</p>
+      <p id="aboutLinePrimary">把你想写的那句话放在这里。我们会去知乎公开讨论里翻看相关材料，挑出会影响判断的依据，和你一起斟酌怎么说更稳妥。</p>
+      <p id="aboutLineSecondary">公开材料始终保留原作者，只作为本次讨论的参考；报价是一张帮你看清边界的星图，不是判决书。</p>
     </div>
   </div>
 </header>
@@ -73,44 +72,369 @@
         <span class="planet-glow" aria-hidden="true"></span>
       </button>
     </div>
-    <p class="stage-label"><span class="mono">01</span> 世界观</p>
+    <p class="stage-label" id="stageLabel"><span class="mono">01</span> 世界观</p>
   </div>
 
-  <section class="intro">
+  <!-- 公开模式首页第一屏：直接自由输入，无需登录与配置 -->
+  <section class="intro public-intro" id="publicCoverIntro" hidden aria-label="开始对话">
+    <h1>这句话，你想怎么说？</h1>
+    <p class="lede">把你想写的那句放在这里。我们一起看看，哪里有依据，哪里还想再斟酌一下。</p>
+
+    <form class="public-home-composer" id="publicHomeForm">
+      <label class="sr-only" for="publicHomeInput">输入你想说的话</label>
+      <textarea
+        class="public-home-input"
+        id="publicHomeInput"
+        data-testid="public-home-input"
+        rows="3"
+        placeholder="写下一句你想发出去的话、草稿里的判断，或者随手想确认的一句话…"></textarea>
+      <div class="public-home-bar">
+        <div class="starter-prompts" aria-label="起手示例">
+          <button class="starter-chip" type="button" data-testid="starter-prompt-btn"
+                  data-prompt="AI 写稿只会让内容越来越同质化。">AI 写稿只会让内容越来越同质化</button>
+          <button class="starter-chip" type="button" data-testid="starter-prompt-btn"
+                  data-prompt="远程办公一定会拉低团队的协作效率。">远程办公一定会拉低协作效率</button>
+          <button class="starter-chip" type="button" data-testid="starter-prompt-btn"
+                  data-prompt="推荐算法只会让人的兴趣越来越窄。">推荐算法只会让兴趣越来越窄</button>
+        </div>
+        <button class="btn btn-primary public-submit-btn" id="publicHomeSubmit" data-testid="public-home-submit" type="submit">看看这句话</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- 合成演示 / 静态离线封面（保留原有结构与按钮，确保 demo 模式零回归） -->
+  <section class="intro demo-intro" id="demoCoverIntro">
     <h1>这句话，<br>对方买不买得起。</h1>
     <p class="lede">把你公开说过的话，画成一张承重图。</p>
 
     <div class="actions">
       <button class="btn btn-primary" id="demoLogin" type="button">使用演示账号</button>
       <button class="btn btn-ghost" id="bindZhihu" type="button" disabled
-              title="后端接入后开放">绑定知乎 · 即将开放</button>
+              title="后端授权链路收口后开放">绑定知乎 · 即将开放</button>
     </div>
   </section>
 
-  <section class="info">
-    <p class="info-name">林行</p>
-    <p class="meta">演示账号 · 30 条公开判断 · 4 个信念区</p>
-    <p class="hint">点击星球进入</p>
+  <section class="info" id="coverInfo">
+    <p class="info-name" id="infoName">林行</p>
+    <p class="meta" id="infoMeta">演示账号 · 30 条公开判断 · 4 个信念区</p>
+    <p class="hint" id="infoHint">点击星球进入三维星图，或下滑使用实时工作台</p>
   </section>
 
-  <a class="scroll-cue" href="#analysis" aria-label="查看承重账单">
-    <span class="scroll-cue-label">承重账单</span>
+  <a class="scroll-cue" id="scrollCue" href="#analysis" aria-label="查看报价工作台与承重账单">
+    <span class="scroll-cue-label" id="scrollCueLabel">工作台与账单</span>
     <span class="scroll-cue-line" aria-hidden="true"></span>
   </a>
 
 </main>
 
-<section class="analysis" id="analysis" aria-label="承重分析">
+<!-- 公开模式温和降级 / 异常恢复提示条（封面与对话态共用唯一实例，确保保留原句并由用户决定是否重试或切离线示例） -->
+<div class="public-degrade-dock" id="publicDegradeDock" hidden>
+  <div class="alert-banner alert-warn public-degrade-banner" id="publicDegradeBanner" data-testid="public-degrade-banner" role="alert">
+    <div class="alert-body">
+      <strong class="alert-title" id="publicDegradeTitle">这次没能查到资料</strong>
+      <p class="alert-text" id="publicDegradeText">你的原句还在这里，等一下可以再试。</p>
+      <p class="public-degrade-saved" id="publicDegradeSaved" hidden></p>
+      <p class="public-switch-demo-hint" id="publicSwitchDemoHint" data-testid="public-switch-demo-hint" hidden>
+        如果想先看看离线界面效果，可以自己切换到离线合成示例（不会悄悄替换你的原句）。
+      </p>
+    </div>
+    <div class="alert-actions">
+      <button class="analysis-btn primary" id="publicRetryBtn" data-testid="public-retry-btn" type="button">再试一次</button>
+      <button class="analysis-btn" id="publicSwitchDemoBtn" type="button" hidden>切换到离线合成体验</button>
+      <button class="analysis-btn" id="publicDegradeDismissBtn" type="button">收起</button>
+    </div>
+  </div>
+</div>
+
+<section class="analysis" id="analysis" aria-label="对话、依据星图与承重分析">
+
+  <!-- 公开模式与合成演示模式共用的原子同步状态栏（唯一 data-testid 实例） -->
+  <div class="shared-banners">
+    <!-- 图账 / 公开分析快照同步提示栏（turn.committed 后等待完整快照或失败重试，期间星图与回复保持上一版本） -->
+    <div class="alert-banner alert-warn" id="snapshotSyncBanner" data-testid="snapshot-sync-banner" role="status" aria-live="polite" hidden>
+      <div class="alert-body">
+        <strong class="alert-title" id="snapshotSyncStatus" data-testid="snapshot-sync-status" data-sync-status="idle">已同步</strong>
+        <p class="alert-text" id="snapshotSyncDetail"></p>
+      </div>
+      <div class="alert-actions">
+        <button class="analysis-btn primary" id="snapshotRetryBtn" data-testid="snapshot-retry-btn" type="button" hidden>重试同步结果</button>
+      </div>
+    </div>
+
+    <!-- 版本过期提示栏（409 STALE_GRAPH_VERSION，由用户明确决定是否重试） -->
+    <div class="alert-banner alert-warn" id="staleVersionBanner" data-testid="stale-version-banner" role="alert" hidden>
+      <div class="alert-body">
+        <strong class="alert-title">内容刚刚更新过</strong>
+        <p class="alert-text" id="staleVersionText"></p>
+      </div>
+      <div class="alert-actions">
+        <button class="analysis-btn primary" id="staleRetryBtn" data-testid="stale-retry-btn" type="button">基于新版本重试</button>
+        <button class="analysis-btn" id="staleDismissBtn" type="button">放弃本次提交</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 公开模式主视图：同一会话里的温柔对话、核验出处、可编辑改写与双向星图 -->
+  <section class="analysis-block public-dialogue-block" id="publicDialogue" hidden aria-label="公开对话与依据星图">
+    <div class="public-workspace-head">
+      <div class="public-workspace-title-group">
+        <h2>我们一起看看这句话。</h2>
+        <p class="public-workspace-sub" id="publicWorkspaceSub">找到的公开资料保留原作者，需要核对时再点开出处。</p>
+      </div>
+      <div class="public-workspace-actions">
+        <button class="analysis-btn" id="openGalaxyFromPublic" type="button">进入三维星图</button>
+        <button class="analysis-btn" id="publicNewTopicBtn" type="button">换一句新话题</button>
+      </div>
+    </div>
+
+    <div class="public-workspace-grid">
+      <!-- 左侧：对话流 + 变化说明 + 未知边界 + 可编辑改写 + 续问输入 -->
+      <div class="public-dialogue-col">
+        <div class="public-dialogue-feed" id="publicDialogueFeed" data-testid="public-dialogue-feed" aria-live="polite">
+          <div class="public-empty-feed">把你想说的话发出来，我们从最关键的那个词开始看。</div>
+        </div>
+
+        <!-- 图上变化一句说清 + 原句与改写关系对比 -->
+        <section class="analysis-card public-change-card" id="publicChangeCard" hidden aria-label="关系变化">
+          <p class="public-section-kicker">这一改，哪里变了</p>
+          <p class="public-change-summary" id="publicChangeSummary" data-testid="public-change-summary"></p>
+          <div class="public-relation-changes" id="publicRelationChanges" data-testid="public-relation-changes" hidden></div>
+        </section>
+
+        <!-- 材料不足或尚未确认的部分 -->
+        <section class="public-unknown-box" id="publicUnknownBox" data-testid="public-unknown-box" hidden aria-label="尚待确认的部分">
+          <p class="public-unknown-title">这些地方，手头的资料还不足以替你下结论</p>
+          <p class="public-unknown-text" id="publicUnknownText"></p>
+          <ul class="public-unknown-list" id="publicUnknownList" hidden></ul>
+        </section>
+
+        <!-- 可编辑改写卡片 -->
+        <section class="analysis-card public-rewrite-card" id="publicRewriteCard" data-testid="public-rewrite-card" hidden aria-label="可以试着这样改">
+          <div class="composer-top">
+            <p class="public-section-kicker">可以试着这样说</p>
+            <span class="public-rewrite-hint">你可以直接改几个字，再看看依据会怎么变</span>
+          </div>
+          <p class="public-rewrite-explain" id="publicRewriteExplain"></p>
+          <div class="public-rewrite-notes" id="publicRewriteNotes" hidden></div>
+          <label class="sr-only" for="publicRewriteEditor">编辑改写后的句子</label>
+          <textarea
+            class="public-rewrite-editor"
+            id="publicRewriteEditor"
+            data-testid="public-rewrite-editor"
+            rows="3"
+            placeholder="在这里微调你想说的话…"></textarea>
+          <div class="public-rewrite-actions">
+            <button class="analysis-btn primary" id="tryRewriteBtn" data-testid="try-rewrite-btn" type="button">试试这句</button>
+            <button class="analysis-btn" id="copyPublicRewriteBtn" type="button">复制这句</button>
+          </div>
+        </section>
+
+        <!-- 同一会话续问输入区 -->
+        <form class="analysis-card public-followup-card" id="publicFollowupForm" data-testid="public-followup-form">
+          <div class="public-quick-chips" aria-label="顺着问一句">
+            <button class="quick-ask-chip" type="button" data-quick-ask="你怎么知道？">你怎么知道？</button>
+            <button class="quick-ask-chip" type="button" data-quick-ask="这条其实说的是另一回事。">这条其实说的是另一回事</button>
+          </div>
+          <label class="sr-only" for="publicFollowupInput">继续提问、纠错或输入你的改写</label>
+          <textarea
+            class="public-followup-input"
+            id="publicFollowupInput"
+            data-testid="public-followup-input"
+            rows="2"
+            placeholder="接着聊聊：可以问出处、补充一个条件，或者直接发你自己的改法…"></textarea>
+          <div class="public-followup-actions">
+            <button class="analysis-btn primary" id="publicFollowupSubmit" data-testid="public-followup-submit" type="submit">继续问</button>
+            <button class="analysis-btn danger-btn" id="publicCancelBtn" data-testid="public-cancel-btn" type="button" disabled>先停一下</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 右侧：实时依据星图（与对话出处双向定位，与 graphVersion 严格同版） -->
+      <aside class="analysis-card public-graph-panel" id="publicGraphPanel" data-testid="public-graph-panel" data-graph-version="0" aria-label="依据星图">
+        <div class="composer-top">
+          <div>
+            <p class="public-section-kicker">这一句的依据星图</p>
+            <p class="public-graph-sub" id="publicGraphSub">只放这一轮真正相关的依据，点一颗星就能看到出处。</p>
+          </div>
+          <button class="inline-mini-btn" id="openGalaxyFromPanel" type="button">全屏三维</button>
+        </div>
+
+        <div class="public-graph-stage" id="publicGraphStage">
+          <svg class="public-graph-svg" id="publicGraphSvg" viewBox="0 0 360 250" role="img" aria-label="主张与依据关系星图"></svg>
+          <p class="public-graph-empty" id="publicGraphEmpty">等第一轮资料回来，星图会在这里慢慢亮起来。</p>
+        </div>
+
+        <div class="public-graph-legend" aria-hidden="true">
+          <span class="legend-dot is-claim">当前句子</span>
+          <span class="legend-dot is-supports">支持</span>
+          <span class="legend-dot is-refutes">反驳</span>
+          <span class="legend-dot is-qualifies">限定</span>
+          <span class="legend-dot is-unknown">待定</span>
+        </div>
+
+        <ul class="public-graph-nodes" id="publicGraphNodeList"></ul>
+
+        <div class="public-graph-detail" id="publicGraphNodeDetail" hidden>
+          <div class="composer-top">
+            <span class="public-rel-badge" id="publicGraphDetailRel">依据</span>
+            <button class="chip-clear" id="publicGraphDetailClose" type="button">收起</button>
+          </div>
+          <p class="public-graph-detail-author" id="publicGraphDetailAuthor"></p>
+          <p class="public-graph-detail-text" id="publicGraphDetailText"></p>
+          <a class="evidence-link" id="publicGraphDetailLink" target="_blank" rel="noopener noreferrer" hidden>查看原文 ↗</a>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 实时 `/v1` 合成演示交互工作台（仅 demo 模式下显示，保持原有测试与交互 100% 兼容） -->
+  <section class="analysis-block workbench-block" id="workbench" hidden aria-label="实时报价工作台">
+    <div class="analysis-head">
+      <p class="analysis-eyebrow">01 / WORKBENCH</p>
+      <div class="workbench-head-row">
+        <h2>输入句子，实时拆解焦点并核对依据。</h2>
+        <div class="session-pill-row">
+          <span class="mode-badge" id="liveModeBadge" data-testid="live-mode-badge">合成演示模式 · demo</span>
+        </div>
+      </div>
+      <div class="workbench-toolbar">
+        <span class="materials-hint" id="materialsStatusText">正在连接本机合成演示服务…</span>
+        <div class="workbench-toolbar-actions">
+          <button class="analysis-btn" id="openGalaxyFromWorkbench" type="button">打开三维星图</button>
+          <button class="analysis-btn" id="newDemoSessionBtn" data-testid="new-session-btn" type="button">新建合成会话</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 失败/异常提示栏（保留页面可继续操作） -->
+    <div class="alert-banner alert-error" id="errorBanner" data-testid="error-banner" role="alert" hidden>
+      <div class="alert-body">
+        <strong class="alert-title" id="errorBannerCode">请求失败</strong>
+        <p class="alert-text" id="errorBannerText"></p>
+      </div>
+      <div class="alert-actions">
+        <button class="analysis-btn" id="errorDismissBtn" type="button">关闭提示</button>
+      </div>
+    </div>
+
+    <div class="workbench-grid">
+      <!-- 左侧：输入与轮次控制 -->
+      <div class="analysis-card composer-card">
+        <div class="composer-top">
+          <p class="card-label">句子输入与轮次控制</p>
+        </div>
+
+        <div class="bound-focus-chip" id="boundFocusChip" hidden>
+          <span class="mono" id="boundFocusText"></span>
+          <button class="chip-clear" id="clearBoundFocusBtn" type="button">清除焦点</button>
+        </div>
+
+        <label class="sr-only" for="turnInput">输入待核验句子、本人事实或改写</label>
+        <textarea class="turn-input" id="turnInput" data-testid="turn-input" rows="3"
+                  placeholder="输入你想评估的句子（如「推荐算法只会让人的兴趣越来越窄」）、补充本人事实或改写版本…"></textarea>
+
+        <div class="composer-actions">
+          <button class="analysis-btn primary" id="submitTurnBtn" data-testid="submit-turn-btn" type="button">提交分析</button>
+          <button class="analysis-btn" id="submitFactBtn" data-testid="submit-fact-btn" type="button">补充为本人事实</button>
+          <button class="analysis-btn" id="submitToneRewriteBtn" data-testid="submit-rewrite-tone-btn" type="button">提交换语气改写</button>
+          <button class="analysis-btn" id="submitScopeRewriteBtn" data-testid="submit-rewrite-scope-btn" type="button">提交缩小范围改写</button>
+          <button class="analysis-btn danger-btn" id="cancelTurnBtn" data-testid="cancel-turn-btn" type="button" disabled>停止生成</button>
+        </div>
+      </div>
+
+      <!-- 右侧：实时焦点、阶段与增量解释（与下方结构化账单严格分离） -->
+      <div class="analysis-card stream-card">
+        <div class="composer-top">
+          <p class="card-label">当前轮次 · 增量解释（与结构化报价分离）</p>
+          <span class="stage-badge mono" id="stageBadge" data-testid="stage-badge">等待提交</span>
+        </div>
+
+        <div class="focus-panel" id="focusPanel" data-testid="focus-panel">
+          <p class="focus-empty">提交句子后，此处会先展示系统拆解出的焦点词与原因。</p>
+        </div>
+
+        <div class="stream-explanation-wrap">
+          <p class="sub-label">增量中文解释</p>
+          <div class="stream-explanation" id="streamExplanation" data-testid="stream-explanation" aria-live="polite">尚无本轮解释输出。</div>
+        </div>
+        <p class="stream-meta mono" id="streamMeta" hidden></p>
+      </div>
+    </div>
+
+    <!-- 下排三栏：已确认图节点 + 核验证据卡 + 已确认事实列表 -->
+    <div class="workbench-lower-grid">
+      <!-- 图节点列表（与 3D 星图同版同步，支持空图态与点击绑定 focusRef.nodeId） -->
+      <div class="analysis-card">
+        <div class="composer-top">
+          <p class="card-label">已确认图节点 · 同版星图索引</p>
+          <span class="meta-pill mono" id="graphNodeCount">0 节点</span>
+        </div>
+        <div class="empty-state" id="galaxyEmptyState" data-testid="galaxy-empty-state">
+          当前已确认图为空（v0）。请先输入待分析句子，再补充本人亲身事实，星图节点与承重账单将同步更新。
+        </div>
+        <ul class="node-index-list" id="graphNodeList" data-testid="graph-node-list" hidden></ul>
+
+        <div class="inline-node-card" id="workbenchNodeCard" hidden>
+          <div class="composer-top">
+            <span class="mono inline-node-id" id="wbNodeId"></span>
+            <button class="chip-clear" id="wbNodeClose" type="button" aria-label="关闭节点详情">关闭</button>
+          </div>
+          <p class="inline-node-text" id="wbNodeText"></p>
+          <p class="inline-node-meta mono" id="wbNodeMeta"></p>
+          <p class="inline-node-evidence" id="wbNodeEvidence" hidden></p>
+          <button class="analysis-btn primary" id="bindFocusNodeBtn" data-testid="bind-focus-node-btn" type="button">以此节点为焦点</button>
+        </div>
+      </div>
+
+      <!-- 证据卡与待确认归属 -->
+      <div class="analysis-card">
+        <div class="composer-top">
+          <p class="card-label">核验证据与待确认依据</p>
+          <span class="meta-pill mono" id="evidenceCountBadge">0 条</span>
+        </div>
+        <div class="evidence-list" id="evidenceList" data-testid="evidence-list">
+          <p class="empty-inline">提交句子后，此处会展示带来源的合成采集证据与公开检索摘要。</p>
+        </div>
+      </div>
+
+      <!-- 已确认事实（支持按后端实际 factId 精确撤回） -->
+      <div class="analysis-card">
+        <div class="composer-top">
+          <p class="card-label">已确认事实列表</p>
+          <span class="meta-pill mono" id="factsCountBadge">0 条</span>
+        </div>
+        <ul class="facts-list" id="factsList" data-testid="facts-list">
+          <li class="empty-inline">尚无已确认的本人事实。补充本人经历后将在此显示并支持精确撤回。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 公开与演示共用的静默会话状态条（唯一实例：turn-status-badge / session-id-label / graph-version-badge） -->
+  <div class="shared-status-strip" id="sharedStatusStrip" hidden aria-label="当前会话状态">
+    <span class="status-badge" id="turnStatusBadge" data-testid="turn-status-badge" data-status="idle">空闲</span>
+    <span class="meta-pill mono" id="sessionIdLabel" data-testid="session-id-label">未建立会话</span>
+    <span class="meta-pill mono" id="graphVersionBadge" data-testid="graph-version-badge">v0</span>
+  </div>
+
   <section class="analysis-block" id="cost">
     <div class="analysis-head reveal">
       <p class="analysis-eyebrow">02 / COST</p>
-      <h2>这句话，对他来说要拆掉多少？</h2>
+      <div class="workbench-head-row">
+        <h2>这句话，对他来说要拆掉多少？</h2>
+        <div class="session-pill-row">
+          <span class="meta-pill mono" id="costGraphVersionBadge" data-testid="bill-graph-version" hidden></span>
+          <span class="meta-pill" id="costAssessmentBadge" hidden></span>
+        </div>
+      </div>
     </div>
+
+    <div class="empty-state bill-empty" id="billEmptyState" data-testid="bill-empty-state" hidden></div>
 
     <div class="cost-grid reveal">
       <div class="analysis-card cost-main">
         <p class="card-label">承重损失率</p>
-        <p class="cost-rate"><span id="costRate">54</span><small>%</small></p>
+        <p class="cost-rate" data-testid="bill-rate"><span id="costRate">54</span><small id="costRateUnit">%</small></p>
         <table class="cost-table">
           <tbody>
             <tr><td>要拆掉的判断</td><td id="costDirect">2</td></tr>
@@ -120,14 +444,15 @@
             <tr><td>若按个数算</td><td id="costCount">12 / 30（40%）</td></tr>
           </tbody>
         </table>
-        <p class="cost-note">承重损失率按每条判断撑着多少条加权；按个数算只数条数。</p>
+        <p class="cost-note">承重损失率按每条判断撑着多少条加权；按个数算只数条数。空比例或证据不足时显示「暂未确定」。</p>
       </div>
 
       <div class="analysis-card cost-side">
         <p class="card-label">冲突证据 · 来自星图</p>
         <blockquote class="cost-quote" id="costQuote">「—」</blockquote>
         <p class="cost-why" id="costWhy"></p>
-        <p class="cost-verdict">「只会」排除了他经历过的例外。</p>
+        <p class="cost-verdict" id="costVerdict">「只会」排除了他经历过的例外。</p>
+        <p class="cost-citation mono" id="costCitation" hidden></p>
       </div>
     </div>
 
@@ -139,16 +464,25 @@
     <p class="analysis-pull reveal">他不是不讲道理。你是在让他拆房子，还问他为什么不肯。</p>
   </section>
 
-  <section class="analysis-block" id="rewrite">
+  <section class="analysis-block" id="rewrite" data-testid="comparison-panel" data-graph-version="0">
     <div class="analysis-head reveal">
       <p class="analysis-eyebrow">03 / REWRITE</p>
-      <h2>同一个意思，换一种说法。</h2>
+      <div class="workbench-head-row">
+        <h2>同一个意思，换一种说法。</h2>
+        <span class="meta-pill mono" id="comparisonGraphVersion" hidden></span>
+      </div>
     </div>
 
+    <div class="adopted-banner" id="adoptedBanner" hidden></div>
+
     <div class="rewrite-grid reveal">
-      <div class="analysis-card rewrite-side">
-        <p class="card-label">原话</p>
-        <p class="rewrite-rate danger"><span id="oldRateValue">54</span><small>%</small></p>
+      <div class="analysis-card rewrite-side" id="originalComparisonCard">
+        <div class="composer-top">
+          <p class="card-label">原话</p>
+          <span class="adopted-pill" id="oldAdoptedBadge" hidden>已采用</span>
+        </div>
+        <p class="rewrite-meta mono" id="oldStatementMeta" hidden></p>
+        <p class="rewrite-rate danger"><span id="oldRateValue">54</span><small id="oldRateUnit">%</small></p>
         <p class="rewrite-text" id="oldText"></p>
         <button class="analysis-btn" id="copyOld" type="button">复制原话</button>
       </div>
@@ -158,13 +492,16 @@
           <button class="rewrite-tab" type="button" data-mode="faithful" role="tab" aria-selected="false">换语气</button>
           <button class="rewrite-tab is-on" type="button" data-mode="scope" role="tab" aria-selected="true">缩小范围</button>
         </div>
-        <p class="rewrite-rate" id="newRate"><span id="newRateValue">0</span><small>%</small></p>
+        <p class="rewrite-rate" id="newRate"><span id="newRateValue">0</span><small id="newRateUnit">%</small></p>
         <p class="rewrite-text" id="newText"></p>
         <p class="rewrite-note" id="newNote"></p>
         <div class="rewrite-actions">
           <button class="analysis-btn primary" id="copyNew" type="button">采用改写并复制</button>
           <span class="copy-feedback" id="copyFeedback" role="status"></span>
         </div>
+
+        <!-- 实时 `/v1` 同图改写比较卡片列表 -->
+        <div class="rewrite-cards" id="rewriteCards" hidden></div>
       </div>
     </div>
 
@@ -173,7 +510,7 @@
 </section>
 
 <footer class="foot">
-  <span class="mono">v0.2 / cover</span>
+  <span class="mono">v0.4 / quotation-live</span>
 </footer>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -183,12 +520,18 @@
 
 <section class="galaxy" id="galaxy" role="dialog" aria-modal="true" aria-label="Mind Galaxy" aria-hidden="true">
   <canvas class="galaxy-canvas" id="galaxyCanvas" role="img"
-          aria-label="林行的世界观星图"></canvas>
+          aria-label="世界观承重星图"></canvas>
 
   <div class="galaxy-hud">
     <p class="galaxy-eyebrow">MIND GALAXY</p>
-    <p class="galaxy-user">林行 · 30 条判断</p>
+    <p class="galaxy-user" id="galaxyUser">林行 · 30 条判断</p>
     <button class="galaxy-reset" id="galaxyReset" type="button">↺ 复位星图</button>
+  </div>
+
+  <div class="galaxy-empty-overlay" id="galaxyEmpty" hidden>
+    <p class="galaxy-empty-title" id="galaxyEmptyTitle">当前已确认图为空（v0）</p>
+    <p class="galaxy-empty-desc">返回工作台输入句子并补充本人亲身事实后，已确认节点和支撑连线将实时呈现在星图中。</p>
+    <button class="galaxy-reset" id="galaxyEmptyBack" type="button">← 返回对话</button>
   </div>
 
   <p class="galaxy-hint" id="galaxyHint">
@@ -199,9 +542,13 @@
   <aside class="node-card" id="nodeCard" hidden>
     <button class="node-card-close" id="nodeCardClose" type="button" aria-label="关闭">×</button>
     <p class="node-card-cluster" id="cardCluster"></p>
+    <p class="node-card-id mono" id="cardNodeId" hidden></p>
     <h3 class="node-card-name" id="cardName"></h3>
     <p class="node-card-text" id="cardText"></p>
     <p class="node-card-meta" id="cardMeta"></p>
+    <p class="node-card-evidence" id="cardEvidence" hidden></p>
+    <button class="node-card-collapse node-card-focus" id="nodeCardLocateCitation" type="button" hidden>在对话里看这条出处</button>
+    <button class="node-card-collapse node-card-focus" id="nodeCardFocus" type="button" hidden>以此节点为焦点</button>
     <button class="node-card-collapse" id="nodeCardCollapse" type="button" hidden>坍缩这颗主星</button>
     <button class="node-card-collapse node-card-rewind" id="nodeCardRewind" type="button" hidden>回溯这颗主星</button>
   </aside>
@@ -209,7 +556,7 @@
   <button class="galaxy-back" id="galaxyBack" type="button">← 返回</button>
 </section>
 
-<script type="module" src="./src/analysis.js?v=13"></script>
-<script type="module" src="./src/cover.js?v=19"></script>
+<script type="module" src="./src/analysis.js?v=22"></script>
+<script type="module" src="./src/cover.js?v=22"></script>
 </body>
 </html>

@@ -100,15 +100,30 @@ export function normalizeProfile(value) {
  * 生成一份画像。失败就抛错，由调用方决定保留旧画像。
  * @returns {Promise<object>} 带版本、时间与覆盖范围信息的完整画像对象
  */
-export async function generateProfile({ model, modelName, records, snapshotId, syncedAt, counts, signal, timeoutMs = PROFILE_TIMEOUT_MS }) {
+export async function generateProfile({
+  model,
+  modelName,
+  records,
+  snapshotId,
+  syncedAt,
+  counts,
+  signal,
+  timeoutMs = PROFILE_TIMEOUT_MS,
+  generate = generateText,
+}) {
   if (!model) throw new Error('没有可用的模型，无法生成画像。');
   const chosen = records.slice(0, PROFILE_RECORD_LIMIT);
   const input = buildProfileInput(chosen);
-  const result = await generateText({
+  const resolvedTimeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0
+    ? Number(timeoutMs)
+    : PROFILE_TIMEOUT_MS;
+  const timeoutSignal = AbortSignal.timeout(resolvedTimeoutMs);
+  const effectiveSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+  const result = await generate({
     model,
     instructions: INSTRUCTIONS,
     prompt: `以下是 ${chosen.length} 条阅读记录：\n\n${input}`,
-    abortSignal: signal ?? AbortSignal.timeout(timeoutMs),
+    abortSignal: effectiveSignal,
   });
   const parsed = parseProfileJson(result.text);
   return {

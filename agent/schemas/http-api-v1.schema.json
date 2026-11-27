@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quotation.local/schemas/http-api-v1.schema.json",
+  "title": "Quotation Backend HTTP & SSE Contract v1",
+  "type": "object",
+  "required": ["schemaVersion", "protocolVersion", "ok", "data", "error"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "protocolVersion": { "const": "quotation-backend/v1" },
+    "ok": { "type": "boolean" },
+    "data": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/HealthStatus" },
+        { "$ref": "#/$defs/SessionCreated" },
+        { "$ref": "#/$defs/TurnAccepted" },
+        { "$ref": "#/$defs/TurnCancelled" },
+        { "$ref": "#/$defs/SessionSnapshot" }
+      ]
+    },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" },
+            "details": {
+              "type": ["object", "null"],
+              "properties": {
+                "outboundPreview": { "$ref": "#/$defs/OutboundPreview" }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "HealthStatus": {
+      "type": "object",
+      "required": ["service", "dataMode"],
+      "properties": {
+        "service": { "const": "quotation-agent-backend" },
+        "dataMode": { "enum": ["demo", "real"] }
+      },
+      "additionalProperties": false
+    },
+    "Focus": {
+      "type": "object",
+      "required": ["id", "kind", "spanText", "startOffset", "endOffset", "reason"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["quantifier", "scope", "premise", "dependency"] },
+        "spanText": { "type": "string" },
+        "startOffset": { "type": "integer", "minimum": 0 },
+        "endOffset": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string" },
+        "nodeId": { "type": ["string", "null"] },
+        "evidenceIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "OutboundPreviewItem": {
+      "type": "object",
+      "required": ["evidenceId"],
+      "properties": {
+        "evidenceId": { "type": "string" },
+        "sourceType": { "type": "string" },
+        "snapshotId": { "type": ["string", "null"] },
+        "contentKey": { "type": ["string", "null"] },
+        "title": { "type": ["string", "null"] },
+        "author": { "type": ["string", "null"] },
+        "attribution": { "type": ["string", "null"] },
+        "source": {
+          "type": ["object", "null"],
+          "properties": {
+            "sourceType": { "type": "string" },
+            "snapshotId": { "type": ["string", "null"] },
+            "contentKey": { "type": ["string", "null"] },
+            "field": { "type": ["string", "null"] },
+            "behaviorKinds": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "url": { "type": ["string", "null"] }
+          }
+        },
+        "field": { "type": ["string", "null"] },
+        "textKind": { "type": ["string", "null"] },
+        "range": {
+          "type": ["object", "null"],
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "type": "integer", "minimum": 0 },
+            "end": { "type": "integer", "minimum": 0 },
+            "originalLength": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "truncated": { "type": "boolean" },
+        "charCount": { "type": "integer", "minimum": 0 },
+        "originalCharCount": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "preview": { "type": "string" },
+        "digest": { "type": ["string", "null"] }
+      }
+    },
+    "OutboundPreview": {
+      "type": "object",
+      "properties": {
+        "outboundPreviewId": { "type": ["string", "null"] },
+        "confirmedOutboundPreviewId": { "type": ["string", "null"] },
+        "previewConfirmed": { "type": "boolean" },
+        "snapshotId": { "type": ["string", "null"] },
+        "lockedSnapshotId": { "type": ["string", "null"] },
+        "providerName": { "type": ["string", "null"] },
+        "modelName": { "type": ["string", "null"] },
+        "targetOrigin": { "type": ["string", "null"] },
+        "isLocalModel": { "type": "boolean" },
+        "isCloudModel": { "type": "boolean" },
+        "cloudConsentGranted": { "type": "boolean" },
+        "personalMaterialsEnabled": { "type": "boolean" },
+        "personalMaterialIncluded": { "type": "boolean" },
+        "authorizedFields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "snippetCount": { "type": "integer", "minimum": 0 },
+        "snippetPreview": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OutboundPreviewItem" }
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OutboundPreviewItem" }
+        }
+      }
+    },
+    "SessionCreated": {
+      "type": "object",
+      "required": [
+        "sessionId",
+        "ownerId",
+        "graphVersion",
+        "dataMode",
+        "usePersonalMaterials",
+        "lockedSnapshotId",
+        "materialsStatus",
+        "outboundPreview"
+      ],
+      "properties": {
+        "sessionId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "graphVersion": { "type": "integer", "minimum": 0 },
+        "dataMode": { "enum": ["demo", "real"] },
+        "usePersonalMaterials": { "type": "boolean" },
+        "cloudConsent": { "type": ["boolean", "null"] },
+        "confirmedOutboundPreviewId": { "type": ["string", "null"] },
+        "lockedSnapshotId": { "type": ["string", "null"] },
+        "materialsStatus": { "type": "object" },
+        "outboundPreview": { "$ref": "#/$defs/OutboundPreview" }
+      },
+      "not": { "required": ["turns"] },
+      "additionalProperties": false
+    },
+    "TurnAccepted": {
+      "type": "object",
+      "required": ["sessionId", "turnId", "status", "baseGraphVersion", "reused", "eventsUrl"],
+      "properties": {
+        "sessionId": { "type": "string" },
+        "turnId": { "type": "string" },
+        "turnNumber": { "type": ["integer", "null"] },
+        "status": { "enum": ["running", "committed", "cancelled", "interrupted", "failed"] },
+        "baseGraphVersion": { "type": "integer", "minimum": 0 },
+        "reused": { "type": "boolean" },
+        "eventsUrl": { "type": "string" }
+      },
+      "not": {
+        "anyOf": [
+          { "required": ["turns"] },
+          { "required": ["outcome"] }
+        ]
+      },
+      "additionalProperties": false
+    },
+    "TurnCancelled": {
+      "type": "object",
+      "required": ["sessionId", "turnId", "outcome", "status", "graphVersion"],
+      "properties": {
+        "sessionId": { "type": "string" },
+        "turnId": { "type": "string" },
+        "outcome": { "enum": ["cancelled", "committed", "failed", "interrupted"] },
+        "status": { "enum": ["cancelled", "committed", "failed", "interrupted"] },
+        "graphVersion": { "type": "integer", "minimum": 0 }
+      },
+      "not": { "required": ["eventsUrl"] },
+      "additionalProperties": false
+    },
+    "PublicAnalysisMaterialBoundary": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "enum": ["not_configured", "rate_limited", "timeout", "empty", "ok"]
+        },
+        "code": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] },
+        "unknowns": {
+          "type": "array",
+          "items": { "type": ["string", "object"] }
+        },
+        "gaps": {
+          "type": "array",
+          "items": { "type": ["string", "object"] }
+        }
+      }
+    },
+    "PublicAnalysis": {
+      "type": "object",
+      "properties": {
+        "version": { "type": ["integer", "null"], "minimum": 0 },
+        "graphVersion": { "type": ["integer", "null"], "minimum": 0 },
+        "turnId": { "type": ["string", "null"] },
+        "claim": { "type": ["object", "string", "null"] },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "type": "string" },
+              "label": { "type": ["string", "null"] },
+              "text": { "type": ["string", "null"] },
+              "attribution": { "type": ["string", "null"] },
+              "evidenceId": { "type": ["string", "null"] },
+              "evidenceIds": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "status": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": ["string", "null"] },
+              "from": { "type": "string" },
+              "to": { "type": "string" },
+              "relation": { "type": ["string", "null"] },
+              "kind": { "type": ["string", "null"] },
+              "reason": { "type": ["string", "null"] },
+              "evidenceId": { "type": ["string", "null"] },
+              "evidenceIds": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "evidenceId": { "type": "string" },
+              "nodeId": { "type": ["string", "null"] },
+              "title": { "type": ["string", "null"] },
+              "author": { "type": ["string", "null"] },
+              "attribution": { "const": "other_author" },
+              "excerpt": { "type": ["string", "null"] },
+              "quote": { "type": ["string", "null"] },
+              "url": { "type": ["string", "null"] },
+              "canonicalUrl": { "type": ["string", "null"] },
+              "relation": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "suggestedRewrite": { "type": ["object", "string", "null"] },
+        "relationChanges": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "statementHistory": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "materialBoundary": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/PublicAnalysisMaterialBoundary" }
+          ]
+        },
+        "changeSummary": { "type": ["string", "null"] }
+      }
+    },
+    "SessionSnapshot": {
+      "type": "object",
+      "required": [
+        "sessionId",
+        "ownerId",
+        "dataMode",
+        "graphVersion",
+        "confirmedGraph",
+        "pendingConfirmations",
+        "deniedAttributions",
+        "facts",
+        "evidenceIndex",
+        "statements",
+        "turns"
+      ],
+      "properties": {
+        "sessionId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "dataMode": { "enum": ["demo", "real"] },
+        "snapshotId": { "type": ["string", "null"] },
+        "lockedSnapshotId": { "type": ["string", "null"] },
+        "usePersonalMaterials": { "type": "boolean" },
+        "cloudConsent": { "type": ["boolean", "null"] },
+        "allowCloudModel": { "type": ["boolean", "null"] },
+        "confirmedOutboundPreviewId": { "type": ["string", "null"] },
+        "confirmedOutboundSnippets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OutboundPreviewItem" }
+        },
+        "materialsStatus": { "type": ["object", "null"] },
+        "graphVersion": { "type": "integer", "minimum": 0 },
+        "activeTurnId": { "type": ["string", "null"] },
+        "currentFocus": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Focus" }] },
+        "confirmedGraph": { "type": "array" },
+        "confirmedGraphSummary": { "type": ["object", "null"] },
+        "publicAnalysis": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/PublicAnalysis" }] },
+        "pendingConfirmations": { "type": "array" },
+        "deniedAttributions": { "type": "array" },
+        "facts": { "type": "array" },
+        "evidenceIndex": { "type": "array" },
+        "statements": { "type": "array" },
+        "quotes": { "type": "array" },
+        "statementComparison": { "type": ["object", "null"] },
+        "adoptedStatementId": { "type": ["string", "null"] },
+        "invalidatedHistory": { "type": "array" },
+        "convergenceSummary": { "type": ["object", "null"] },
+        "outboundPreview": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/OutboundPreview" }] },
+        "metadata": { "type": ["object", "null"] },
+        "turns": { "type": "array" },
+        "retrievedItem": { "type": ["object", "null"] },
+        "createdAt": { "type": ["integer", "string", "null"] },
+        "updatedAt": { "type": ["integer", "string", "null"] }
+      },
+      "not": {
+        "anyOf": [
+          { "required": ["service"] },
+          { "required": ["eventsUrl"] },
+          { "required": ["outcome"] }
+        ]
+      }
+    }
+  }
+}

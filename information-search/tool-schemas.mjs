@@ -44,6 +44,7 @@ export const toolSchemas = {
       keywordMode: z.enum(['any', 'all']).default('any'), tagMode: z.enum(['any', 'all']).default('any'),
       contentTypes, countPerQuery: z.number().int().min(1).max(10).default(10),
       maxQueries: z.number().int().min(1).max(6).default(2).describe('本次最多查询次数，缓存命中不消耗上游调用。'),
+      sortBy: z.string().min(1).max(100).optional().describe('可选官方排序，如 VoteUpCount:desc 或 CreateTime:desc；不提供时以相关性为主。'),
       refresh: z.boolean().default(false).describe('true 时跳过缓存并可能消耗新额度；不要因空结果反复强制刷新。'),
       ...pageInput,
     }).strict(),

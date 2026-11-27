@@ -504,4 +504,71 @@ describe('交互模块三板块状态机与隐藏数值保护（interaction.mjs�
     assert.equal(willpowerToneSpec(35).label, '底气不足');
     assert.equal(willpowerToneSpec(15).label, '强弩之末');
   });
+
+  it('纵深防御：即使调用方直接注入 getProfile，非回环模型 / 非 demo 外部搜索 / 关闭个人材料均不外发画像衍生标签并回退通用议题', async () => {
+    const secretProfile = {
+      summary: 'SECRET_INT_SUMMARY_TAG',
+      domains: [{ name: 'SECRET_INT_DOMAIN_TAG', share: 1, evidence: ['SECRET_INT_EVIDENCE_TAG'] }],
+      topics: ['SECRET_INT_TOPIC_TAG'],
+    };
+
+    const cases = [
+      { label: '非回环模型+demo', cfg: { demo: true, allowPersonalData: true, baseURL: 'https://api.example.com/v1' } },
+      { label: '回环模型+外部公开检索', cfg: { demo: false, allowPersonalData: true, baseURL: 'http://127.0.0.1:11434/v1' } },
+      { label: '关闭个人材料', cfg: { demo: true, allowPersonalData: false, baseURL: 'http://127.0.0.1:11434/v1' } },
+    ];
+
+    for (const item of cases) {
+      const searchCalls = [];
+      const prompts = [];
+      let profileGetterCalled = 0;
+      const ctrl = createInteractionController({
+        enablePrefetch: false,
+        getConfig: () => ({
+          demo: item.cfg.demo,
+          allowPersonalData: item.cfg.allowPersonalData,
+          model: { providerName: 'openai-compatible', baseURL: item.cfg.baseURL, modelName: 'mock-llm', ready: true },
+          servers: [{ id: 'search', enabled: true, command: 'node', args: [], env: {} }],
+        }),
+        createModel: () => ({ id: 'mock' }),
+        connectServers: async () => ({
+          enabled: ['search'],
+          tools: {
+            zhihu_search: {
+              execute: async (args) => {
+                searchCalls.push(args);
+                return { structuredContent: { ok: true, data: { items: [{ title: '通用结果', excerpt: '摘要' }] } } };
+              },
+            },
+          },
+          close: async () => {},
+        }),
+        getProfile: () => {
+          profileGetterCalled += 1;
+          return secretProfile;
+        },
+        generate: async ({ prompt, instructions }) => {
+          prompts.push({ prompt, instructions });
+          return {
+            text: JSON.stringify({
+              viewpoints: [
+                { kind: 'profile_1', topic: '通用1', claim: '通用观点1', opponentName: '甲', opponentIntro: '背景', coreFlaw: '漏洞', searchKeywords: ['词1'] },
+                { kind: 'profile_2', topic: '通用2', claim: '通用观点2', opponentName: '乙', opponentIntro: '背景', coreFlaw: '漏洞', searchKeywords: ['词2'] },
+                { kind: 'hot', topic: '热门3', claim: '热门观点3', opponentName: '丙', opponentIntro: '背景', coreFlaw: '漏洞', searchKeywords: ['词3'] },
+              ],
+            }),
+          };
+        },
+      });
+
+      const res = await ctrl.generateViewpoints();
+      assert.equal(res.profileUsed, false, `${item.label} 必须回退通用议题`);
+      assert.equal(res.profileSummary, null, `${item.label} 不得输出 profileSummary`);
+      assert.equal(res.viewpoints.length, 3);
+      assert.equal(profileGetterCalled, 0, `${item.label} 未获准外发时不应读取画像`);
+      const serialized = JSON.stringify({ searchCalls, prompts, res });
+      assert.doesNotMatch(serialized, /SECRET_INT_/, `${item.label} 检索参数与模型提示词不得包含画像标记`);
+      await ctrl.close();
+    }
+  });
 });

@@ -15,7 +15,7 @@
 | --- | --- |
 | `schemaVersion` | 整数，固定 `1` |
 | `module` | 固定 `information-search` |
-| `provider` | 真实为 `zhihu_official_search`，合成演示为 `demo` |
+| `provider` | 真实 Skill 搜索为 `zhihu_search_skill`，直接接口适配为 `zhihu_official_search`，合成演示为 `demo` |
 | `requestId` | 本次搜索快照 UUID，用于后续读取 |
 | `createdAt` | 快照创建的 ISO 时间 |
 | `criteria` | 规范化搜索条件 |
@@ -25,7 +25,7 @@
 | `stats` | 调用数、缓存命中数、去重和匹配统计 |
 | `items` | 去重且通过本地条件的内容数组 |
 
-`criteria` 包含 `query`、`keywords`、`tags`、`keywordMode`、`tagMode`、`countPerQuery`、`maxQueries`、`contentTypes`。`queryPlan` 包含 `queries`、`candidateQueryCount`、`truncated`。查询预算最多 6 次，单查询最多 10 条，不是全量检索。
+`criteria` 包含 `query`、`keywords`、`tags`、`keywordMode`、`tagMode`、`countPerQuery`、`maxQueries`、`contentTypes`，可选 `sortBy`。`queryPlan` 包含 `queries`、`candidateQueryCount`、`truncated`。查询预算最多 6 次，单查询最多 10 条，不是全量检索。
 
 `coverage` 包含 `paginationSupported: false`、`platformTagsAvailable: false`、`tagMatching: local_title_excerpt_match`、`textKind: excerpt`、`perQueryLimit` 和 `hasMoreReported`。平台报告更多结果也不代表本模块已具备官方翻页能力。
 

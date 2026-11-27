@@ -12,7 +12,7 @@
 | --- | --- |
 | 地址 | `GET https://developer.zhihu.com/api/v1/content/zhihu_search` |
 | 鉴权 | `Authorization: Bearer <Access Secret>` 与秒级 `X-Request-Timestamp` |
-| 参数 | `Query` 查询词，`Count` 单查询数量，最多 10 条 |
+| 参数 | `Query` 查询词，`Count` 单查询数量最多 10 条，`SortBy` 可选排序和数值范围 |
 | 分页 | 文档未提供偏移或游标参数，`HasMore` 当前文档为 `false`；模块不构造分页 |
 | 内容 | 标题、摘要、链接、作者、赞同／评论数、时间、权威等级、排序分数及可选精选评论 |
 | 原生标签 | 没有公开的标签／话题过滤参数，返回字段未提供原生话题标签 |
@@ -22,7 +22,7 @@
 
 官方返回的带 UTM 溯源链接保留在 `url`，用于展示和导出；另外生成去掉查询参数的 `canonicalUrl` 供关联使用。精选评论不是完整评论区；不同查询命中同一内容时保留摘要片段列表，不拼成“全文”。
 
-参考：[知乎搜索 Skill 官方文档](https://developer.zhihu.com/docs?key=zhihu_search_skill)、[官方 Skill 包](https://developer.zhihu.com/download/zhihu_search_skills.zip)。本模块内置官方 `skills/zhihu-search/`（`SKILL.md` 与 `scripts/zhihu-search.py`，v2.0.0），通过 `skill-client.mjs` 按官方规范传入 `ZHIHU_ACCESS_SECRET`（及可选的 `ZHIHU_OPENAPI_BASE_URL`、`ZHIHU_ZHIHU_SEARCH_URL`）并调用 `python3 {baseDir}/scripts/zhihu-search.py '{"query":"...","count":10}'` 完成检索。
+参考：[知乎搜索 Skill 官方文档](https://developer.zhihu.com/docs?key=zhihu_search_skill)、[官方 Skill 包](https://developer.zhihu.com/download/zhihu_search_skills.zip)。本模块基于官方 `skills/zhihu-search/` v2.0.0，在脚本中补充 `SortBy` 和 `Content-Type` 支持；通过 `skill-client.mjs` 传入 `ZHIHU_ACCESS_SECRET`（及可选的 `ZHIHU_OPENAPI_BASE_URL`、`ZHIHU_ZHIHU_SEARCH_URL`）完成检索。
 
 ## 本地运行
 
@@ -79,7 +79,9 @@ npm run demo
 - `contentTypes` 为空表示不限；可指定 `article`、`answer`、`question`、`pin`、`zvideo`。这只是本地结果过滤，不表示平台一定召回这些类型。
 - `countPerQuery` 为 1 至 10，`maxQueries` 为 1 至 6，默认分别为 10 和 4。最多查询次数是上限，命中缓存可减少实际调用。
 
-模块先构造组合查询，再加入关键词和标签词的独立查询，按预算去重截取；随后合并结果、执行本地条件、按官方排序分数排列。组合词作为普通 `Query` 文本发送，不使用未公开的 `TopicID`、`Filter`、`Offset` 或标签运算符。
+模块先构造组合查询，再加入关键词和标签词的独立查询，按预算去重截取；随后合并结果、执行本地条件。默认不向接口指定 `SortBy`，合并后按官方返回的 `RankingScore` 排列，以相关性为主，供观点分析优先使用。组合词作为普通 `Query` 文本发送，不使用未公开的 `TopicID`、`Filter`、`Offset` 或标签运算符。
+
+需要热度、时间或范围筛选时，可选填 `sortBy`，例如 `VoteUpCount:desc`（赞同数降序）、`CreateTime:desc`（创建时间降序）或 `CommentCount:none:(10,)`（评论数不少于 10，保留查询返回顺序）。支持字段 `CommentCount`、`VoteUpCount`、`EditTime`、`CreateTime`，方向 `asc`、`desc`、`none`；不写方向默认为降序。字段区分大小写，方向不区分大小写，范围为包含边界的非负整数，时间使用秒级 Unix 时间戳。多个查询去重后按所选字段重新排序；`none` 按首次命中的查询返回顺序合并。缺失排序字段的结果排在有值结果之后。不同排序条件使用独立缓存。
 
 查询预算可能截断候选计划，最终数量也可能因去重或严格匹配而少于请求数；这不是全量检索，不保证召回所有相关内容。减少标签或改为任意匹配可扩大本地保留范围。
 

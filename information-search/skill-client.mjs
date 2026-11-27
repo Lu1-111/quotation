@@ -191,7 +191,7 @@ export function createSkillClient({
     provider: 'zhihu_search_skill',
     configured: Boolean(trimmedSecret),
     scriptPath,
-    async search(query, limit = 10, { signal } = {}) {
+    async search(query, limit = 10, { signal, sortBy } = {}) {
       if (!trimmedSecret) {
         throw new SearchError('尚未配置知乎 Access Secret，请在本机配置 ZHIHU_ACCESS_SECRET。', 503, 'NOT_CONFIGURED');
       }
@@ -203,7 +203,7 @@ export function createSkillClient({
       }
 
       const command = runProcess === defaultRunProcess ? resolvePythonBin(pythonBin) : (pythonBin || 'python3');
-      const payloadArg = JSON.stringify({ query: query.trim(), count: limit });
+      const payloadArg = JSON.stringify({ query: query.trim(), count: limit, ...(sortBy ? { sortBy } : {}) });
       const env = buildSkillEnv({
         accessSecret: trimmedSecret,
         openApiBaseUrl,

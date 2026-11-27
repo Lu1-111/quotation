@@ -1,0 +1,37 @@
+{
+  "statementId": "stmt_original",
+  "text": "推荐算法只会让人的兴趣越来越窄。",
+  "graphVersion": 3,
+  "assessment": "conflict",
+  "rate": 80,
+  "directConflicts": [
+    "taste"
+  ],
+  "collateral": [
+    "example",
+    "possible"
+  ],
+  "affected": [
+    "taste",
+    "example",
+    "possible"
+  ],
+  "numerator": 4,
+  "denominator": 5,
+  "reason": "全称排他词“只会”否定了任何拓宽兴趣的可能，与本人已确认的初期发现新乐队经历直接冲突；example 与 possible 因唯一依据失效连带坍塌，双依据节点 change 保留 1/2 依据继续存活。",
+  "conflictReasons": [
+    {
+      "nodeId": "taste",
+      "reason": "本人明确确认刚开始使用推荐页时发现过多支小众乐队，构成“只会变窄”的反例。",
+      "evidenceIds": [
+        "ev_turn_4",
+        "ev_turn_6"
+      ]
+    }
+  ],
+  "verifiedEvidenceIds": [
+    "ev_turn_4",
+    "ev_turn_6"
+  ],
+  "interpretationNote": "数值仅解释当前已确认图上的承重结构影响比例，不能作为授权者会被说服的概率。"
+}

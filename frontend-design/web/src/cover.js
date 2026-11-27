@@ -4,8 +4,9 @@
    - public 模式：首页第一屏直接自由输入「这句话，你想怎么说？」，同一会话承接温柔对话、核验出处、可编辑改写与双向星图
    - demo 模式：完整保留「使用演示账号」与工作台交互，确保 R-C1/R-C2/F-C1/F-C2 零回归 */
 
-import { createGalaxy } from "./galaxy.js?v=22";
-import { renderLiveAnalysis } from "./analysis.js?v=22";
+import { createGalaxy } from "./galaxy.js?v=33";
+import { createLiquidPlanet } from "./planet-liquid.js?v=35";
+import { renderLiveAnalysis } from "./analysis.js?v=33";
 import {
   createLiveSessionController,
   STAGE_LABELS,
@@ -15,7 +16,7 @@ import {
   SOURCE_TYPE_LABELS,
   getRelationLabel,
   formatGentleError,
-} from "./live-session.js?v=22";
+} from "./live-session.js?v=33";
 
 const root = document.documentElement;
 const body = document.body;
@@ -25,6 +26,7 @@ const toggle = document.getElementById("themeToggle");
 const toastEl = document.getElementById("toast");
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const planet = document.getElementById("planet");
+const planetCanvas = document.getElementById("planetLiquid");
 const demoLogin = document.getElementById("demoLogin");
 const backHome = document.getElementById("backHome");
 const galaxy = document.getElementById("galaxy");
@@ -246,6 +248,15 @@ function ensureGalaxy() {
     syncGalaxyWithState(live.getState());
   }
   return galaxyScene;
+}
+
+/* 封面星球：鼠标液态窗口露出第二层星球 */
+if (planetCanvas) {
+  createLiquidPlanet(
+    planet,
+    planetCanvas,
+    new URL("./assets/planet-second.webp", import.meta.url).href
+  );
 }
 
 const pageChrome = [

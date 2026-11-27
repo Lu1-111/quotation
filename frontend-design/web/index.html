@@ -16,7 +16,7 @@
   } catch (e) {}
 </script>
 <link rel="stylesheet" href="./src/theme.css?v=14">
-<link rel="stylesheet" href="./src/cover.css?v=22">
+<link rel="stylesheet" href="./src/cover.css?v=33">
 <link rel="stylesheet" href="./src/workbench-starfield.css">
 </head>
 <body class="page-cover" data-view="cover" data-host-mode="static">
@@ -70,6 +70,7 @@
     <div class="planet-wrap">
       <div class="orbit" aria-hidden="true"></div>
       <button class="planet" id="planet" type="button" aria-label="你的世界观星球">
+        <canvas class="planet-liquid" id="planetLiquid" aria-hidden="true"></canvas>
         <span class="planet-glow" aria-hidden="true"></span>
       </button>
     </div>
@@ -570,7 +571,7 @@
   <button class="galaxy-back" id="galaxyBack" type="button">← 返回</button>
 </section>
 
-<script type="module" src="./src/analysis.js?v=22"></script>
-<script type="module" src="./src/cover.js?v=22"></script>
+<script type="module" src="./src/analysis.js?v=33"></script>
+<script type="module" src="./src/cover.js?v=35"></script>
 </body>
 </html>

@@ -241,6 +241,84 @@ function layout(sourceNodes) {
     delete n.vel;
   }
 
+  /* 绕主星均匀分布：按簇分扇区，簇内按半径均匀铺开；主星固定在中心 */
+  if (!nodes.some((n) => n.center)) {
+    let main = nodes[0];
+    for (const n of nodes) {
+      if (n.S > main.S) main = n;
+    }
+
+    const groups = new Map();
+    for (const n of nodes) {
+      if (n === main) continue;
+      const key = n.domainIndex ?? n.cluster ?? 0;
+      const arr = groups.get(key) || [];
+      arr.push(n);
+      groups.set(key, arr);
+    }
+
+    const entries = [...groups.entries()]
+      .filter(([, arr]) => arr.length > 0)
+      .map(([key, arr]) => {
+        let sx = 0;
+        let sz = 0;
+        for (const n of arr) {
+          sx += n.pos.x - main.pos.x;
+          sz += n.pos.z - main.pos.z;
+        }
+        return {
+          key,
+          arr,
+          theta: Math.atan2(sz, sx),
+          items: arr
+            .map((n) => ({
+              n,
+              r: Math.hypot(n.pos.x - main.pos.x, n.pos.z - main.pos.z),
+            }))
+            .sort((a, b) => a.r - b.r),
+        };
+      })
+      .sort((a, b) => a.theta - b.theta);
+
+    const total = entries.reduce((sum, g) => sum + g.arr.length, 0);
+    if (total > 0) {
+      let cursor = entries[0].theta;
+      for (const g of entries) {
+        const width = (g.arr.length / total) * TAU;
+        g.items.forEach((it, i) => {
+          const theta = cursor + ((i + 0.5) / g.items.length) * width;
+          it.n.pos.x = main.pos.x + Math.cos(theta) * it.r;
+          it.n.pos.z = main.pos.z + Math.sin(theta) * it.r;
+        });
+        cursor += width;
+      }
+    }
+
+    /* 让所有其他星星的质心落在主星上，云团视觉居中 */
+    let sx = 0;
+    let sy = 0;
+    let sz = 0;
+    let count = 0;
+    for (const n of nodes) {
+      if (n === main) continue;
+      sx += n.pos.x;
+      sy += n.pos.y;
+      sz += n.pos.z;
+      count++;
+    }
+    if (count > 0) {
+      const dx = main.pos.x - sx / count;
+      const dy = main.pos.y - sy / count;
+      const dz = main.pos.z - sz / count;
+      for (const n of nodes) {
+        if (n === main) continue;
+        n.pos.x += dx;
+        n.pos.y += dy;
+        n.pos.z += dz;
+      }
+    }
+  }
+
   const clusterCenters = {};
   for (const n of nodes) {
     const c = (clusterCenters[n.domainIndex ?? n.cluster] ||= { x: 0, y: 0, z: 0, count: 0, domain: n.domain });
@@ -372,6 +450,54 @@ function makeDust(count) {
   return out;
 }
 
+/* 螺旋尘埃粒子：围绕大主星做盘状螺旋分布，3D 坐标，支持差速旋转 */
+function makeSwirlDust(count) {
+  const rng = mulberry32(20261129);
+  const ARMS = 3;
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const r = 55 + Math.pow(rng(), 0.7) * 585;
+    const arm = Math.floor(rng() * ARMS);
+    const armBase = (arm / ARMS) * TAU;
+    const spread = (rng() - 0.5) * 0.55;
+    const theta = armBase + spread + r * 0.006;
+    out.push({
+      r,
+      theta,
+      y: (rng() - 0.5) * (46 + r * 0.16),
+      a: 0.2 + rng() * 0.5,
+      s: rng() < 0.07 ? 1.7 : rng() < 0.5 ? 1.1 : 0.8,
+      gold: rng() < 0.24,
+      phase: rng() * TAU,
+      speed: 1 - (r / 640) * 0.6,
+      wobble: 8 + rng() * 26,
+    });
+  }
+  return out;
+}
+
+/* 噪点散布：更大范围，稀疏散布在大主星周围 */
+function makeHaloNoise(count) {
+  const rng = mulberry32(20261130);
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const r = 200 + rng() * 900;
+    const theta = rng() * TAU;
+    const phi = Math.acos(2 * rng() - 1);
+    out.push({
+      x: r * Math.sin(phi) * Math.cos(theta),
+      y: r * Math.cos(phi) * 0.6,
+      z: r * Math.sin(phi) * Math.sin(theta),
+      a: 0.12 + rng() * 0.4,
+      s: 0.85,
+      gold: rng() < 0.18,
+      phase: rng() * TAU,
+      speed: 0.4 + rng() * 0.9,
+    });
+  }
+  return out;
+}
+
 /* ---------- 主入口 ---------- */
 export function createGalaxy({
   canvas,
@@ -418,10 +544,13 @@ export function createGalaxy({
   const resetButton = document.getElementById("galaxyReset");
 
   const COLLAPSE_MS = 1150;
+  const LINK_REVEAL_MS = 700;
   const collapseDuration = () => (reduceMotion.matches ? 1 : COLLAPSE_MS);
 
   const stars = makeStars(1300);
   const dust = makeDust(340);
+  const swirlDust = makeSwirlDust(3600);
+  const haloNoise = makeHaloNoise(2400);
   const vortexCloud = makeVortexCloud();
   const vortexSoft = blurSprite(vortexCloud, 4);
   const vortexHaze = blurSprite(vortexCloud, 9);
@@ -437,6 +566,7 @@ export function createGalaxy({
     white: makeGlow([232, 238, 248]),
     gold: makeGlow([255, 210, 122]),
   };
+  const coreSprite = makeGlow([255, 255, 255], 32);
 
   const camera = { ...HOME };
   const keys = new Set();
@@ -457,6 +587,9 @@ export function createGalaxy({
   let moved = 0;
   let hintTimer = 0;
   let cameraReturn = null;
+  let orbitAngle = 0;
+  let mainStarId = null;
+  let selectedAt = 0;
 
   function rebuildGraphState(sourceNodes, options = {}) {
     isLiveMode = Boolean(options.live);
@@ -556,21 +689,81 @@ export function createGalaxy({
   const progressSince = (start, now) => clamp((now - start) / collapseDuration(), 0, 1);
   const isMainCollapsed = (id) => collapsedMains.has(id) && !rewindingMains.has(id);
 
+  /* 以「两星连线」为一条直径方向、尽量正对镜头的平面 */
+  function makeAbsorbPlane(from, targetPos) {
+    const dx = from.x - targetPos.x;
+    const dy = from.y - targetPos.y;
+    const dz = from.z - targetPos.z;
+    const d = Math.hypot(dx, dy, dz);
+    if (d < 1e-3) return null;
+
+    const ux = dx / d;
+    const uy = dy / d;
+    const uz = dz / d;
+
+    const mx = (from.x + targetPos.x) / 2;
+    const my = (from.y + targetPos.y) / 2;
+    const mz = (from.z + targetPos.z) / 2;
+
+    /* 把相机方向投影到垂直于连线的平面内，让螺旋尽量正对观众 */
+    let vx = camera.x - mx;
+    let vy = camera.y - my;
+    let vz = camera.z - mz;
+    const dot = vx * ux + vy * uy + vz * uz;
+    vx -= ux * dot;
+    vy -= uy * dot;
+    vz -= uz * dot;
+    let vlen = Math.hypot(vx, vy, vz);
+    if (vlen < 1e-4) {
+      vx = -uy;
+      vy = ux;
+      vz = 0;
+      vlen = Math.hypot(vx, vy, vz);
+      if (vlen < 1e-4) {
+        vx = 1;
+        vy = 0;
+        vz = 0;
+        vlen = 1;
+      }
+    }
+    vx /= vlen;
+    vy /= vlen;
+    vz /= vlen;
+
+    return { d, ux, uy, uz, vx, vy, vz };
+  }
+
   function absorbedPositionAt(n, absorption, progress) {
     const target = nodeById.get(absorption.target);
     if (!target) return n.pos;
     const from = absorption.from || n.pos;
     const k = ease(progress);
-    const dx = from.x - target.pos.x;
-    const dy = from.y - target.pos.y;
-    const dz = from.z - target.pos.z;
-    const angle = k * Math.PI * 1.7;
-    const cs = Math.cos(angle);
-    const sn = Math.sin(angle);
+    const plane = absorption.plane;
+
+    /* 兜底：没有平面信息时保留旧的锥形螺旋 */
+    if (!plane) {
+      const dx = from.x - target.pos.x;
+      const dy = from.y - target.pos.y;
+      const dz = from.z - target.pos.z;
+      const angle = k * Math.PI * 1.7;
+      const cs = Math.cos(angle);
+      const sn = Math.sin(angle);
+      return {
+        x: target.pos.x + (dx * cs - dy * sn) * (1 - k),
+        y: target.pos.y + (dx * sn + dy * cs) * (1 - k),
+        z: target.pos.z + dz * (1 - k),
+      };
+    }
+
+    /* 平面螺旋：半径从 d 收缩到 0，绕 1.45 圈 */
+    const r = plane.d * Math.pow(1 - k, 1.15);
+    const theta = k * TAU * 1.45;
+    const cs = Math.cos(theta);
+    const sn = Math.sin(theta);
     return {
-      x: target.pos.x + (dx * cs - dy * sn) * (1 - k),
-      y: target.pos.y + (dx * sn + dy * cs) * (1 - k),
-      z: target.pos.z + dz * (1 - k),
+      x: target.pos.x + (plane.ux * cs + plane.vx * sn) * r,
+      y: target.pos.y + (plane.uy * cs + plane.vy * sn) * r,
+      z: target.pos.z + (plane.uz * cs + plane.vz * sn) * r,
     };
   }
 
@@ -603,7 +796,12 @@ export function createGalaxy({
         const returning = returningStars.get(n.id);
         const from = returning ? returningPosition(n, returning, now) : n.pos;
         returningStars.delete(n.id);
-        absorbedStars.set(n.id, { start: now, target: center.id, from });
+        absorbedStars.set(n.id, {
+          start: now,
+          target: center.id,
+          from,
+          plane: makeAbsorbPlane(from, center.pos),
+        });
       }
     }
     selectNode(center);
@@ -642,18 +840,26 @@ export function createGalaxy({
   }
 
   /* 屏幕投影 */
+  let viewCy = 1;
+  let viewSy = 0;
+  let viewCp = 1;
+  let viewSp = 0;
+
+  function updateViewCache() {
+    viewCy = Math.cos(camera.yaw);
+    viewSy = Math.sin(camera.yaw);
+    viewCp = Math.cos(camera.pitch);
+    viewSp = Math.sin(camera.pitch);
+  }
+
   function project(x, y, z) {
     const dx = x - camera.x;
     const dy = y - camera.y;
     const dz = z - camera.z;
-    const cy = Math.cos(camera.yaw);
-    const sy = Math.sin(camera.yaw);
-    const x1 = dx * cy - dz * sy;
-    const z1 = dx * sy + dz * cy;
-    const cp = Math.cos(camera.pitch);
-    const sp = Math.sin(camera.pitch);
-    const y2 = dy * cp + z1 * sp;
-    const z2 = -dy * sp + z1 * cp;
+    const x1 = dx * viewCy - dz * viewSy;
+    const z1 = dx * viewSy + dz * viewCy;
+    const y2 = dy * viewCp + z1 * viewSp;
+    const z2 = -dy * viewSp + z1 * viewCp;
     if (z2 > -NEAR) return null;
     const inv = focal / -z2;
     return {
@@ -697,6 +903,59 @@ export function createGalaxy({
     grad.addColorStop(1, "#04050a");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
+  }
+
+  /* 尘埃与噪点：作为 3D 粒子绕大主星（承重 S 最大）旋转 */
+  function drawAmbientDust(t = 0) {
+    if (nodes.length === 0) return;
+
+    let mainStar = null;
+    for (const n of nodes) {
+      if (!mainStar || n.S > mainStar.S) mainStar = n;
+    }
+    if (!mainStar || !mainStar.pos) return;
+
+    const cx = mainStar.pos.x;
+    const cy = mainStar.pos.y;
+    const cz = mainStar.pos.z;
+
+    ctx.globalCompositeOperation = "lighter";
+
+    /* 螺旋尘埃盘：绕大主星 Y 轴差速旋转 */
+    for (const p of swirlDust) {
+      const a = p.theta + t * 0.06 * p.speed;
+      const lx = p.r * Math.cos(a);
+      const lz = p.r * Math.sin(a);
+      const ly = p.y + Math.sin(t * 0.22 + p.phase) * p.wobble;
+      const sp = project(cx + lx, cy + ly, cz + lz);
+      if (!sp) continue;
+      const tw = 0.55 + 0.45 * Math.sin(t * 0.6 + p.phase);
+      ctx.globalAlpha = p.a * tw * clamp(sp.scale * 1.1, 0.25, 1);
+      ctx.fillStyle = p.gold
+        ? "rgba(255,214,138,1)"
+        : "rgba(150,176,214,1)";
+      ctx.fillRect(sp.x, sp.y, p.s, p.s);
+    }
+
+    /* 噪点散布：更大范围，整体缓慢绕大主星旋转 */
+    const slow = t * 0.02;
+    const cosS = Math.cos(slow);
+    const sinS = Math.sin(slow);
+    for (const p of haloNoise) {
+      const rx = p.x * cosS - p.z * sinS;
+      const rz = p.x * sinS + p.z * cosS;
+      const sp = project(cx + rx, cy + p.y, cz + rz);
+      if (!sp) continue;
+      const tw = 0.5 + 0.5 * Math.sin(t * p.speed + p.phase);
+      ctx.globalAlpha = p.a * tw * clamp(sp.scale, 0.25, 1);
+      ctx.fillStyle = p.gold
+        ? "rgba(255,214,138,1)"
+        : "rgba(168,188,220,1)";
+      ctx.fillRect(sp.x, sp.y, p.s, p.s);
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
   }
 
   function drawNebula(t = 0) {
@@ -814,25 +1073,7 @@ export function createGalaxy({
     ctx.drawImage(vortexHaze, -radius * 0.82, -radius * 0.82, radius * 1.64, radius * 1.64);
     ctx.restore();
 
-    ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = emergence;
-    for (let arm = 0; arm < 9; arm++) {
-      const a = phase + t * 0.18 + (arm * TAU) / 9 + Math.sin(arm * 2.3) * 0.18;
-      const point = (r, angle) => [Math.cos(angle) * r, Math.sin(angle) * r];
-      const reach = radius * (0.66 + (0.24 * ((arm * 7) % 9)) / 9);
-      const start = point(reach, a);
-      const first = point(radius * 0.6, a + 0.46);
-      const second = point(radius * 0.34, a + 1.12);
-      const end = point(radius * 0.14, a + 1.72);
-      ctx.strokeStyle = arm % 2 ? "rgba(243,160,255,.13)" : "rgba(156,124,255,.12)";
-      ctx.lineWidth = Math.max(0.65, radius * 0.019);
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(...start);
-      ctx.bezierCurveTo(...first, ...second, ...end);
-      ctx.stroke();
-    }
-
     ctx.globalCompositeOperation = "screen";
     const center = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.62);
     center.addColorStop(0, "rgba(206,133,247,.58)");
@@ -857,7 +1098,9 @@ export function createGalaxy({
   }
 
   function drawScene(t = 0) {
+    updateViewCache();
     drawBackground();
+    drawAmbientDust(t);
     drawNebula(t);
     drawStars(t);
 
@@ -869,6 +1112,17 @@ export function createGalaxy({
     const breath = 0.5 + 0.5 * Math.sin(t * 1.2);
     const scaleBreath = 0.5 + 0.5 * Math.sin(t * 0.8);
     const breathScale = 0.988 + 0.024 * scaleBreath;
+
+    /* 大主星 = 承重 S 最大的节点 */
+    let mainStar = null;
+    for (const n of nodes) {
+      if (!mainStar || n.S > mainStar.S) mainStar = n;
+    }
+    mainStarId = mainStar ? mainStar.id : null;
+    const orbitCos = Math.cos(orbitAngle);
+    const orbitSin = Math.sin(orbitAngle);
+    const omx = mainStar ? mainStar.pos.x : 0;
+    const omz = mainStar ? mainStar.pos.z : 0;
 
     projected = [];
     const now = performance.now();
@@ -899,7 +1153,17 @@ export function createGalaxy({
       const { x, y, z } = absorption
         ? absorbedPosition(n, absorption, now)
         : returning ? returningPosition(n, returning, now) : n.pos;
-      const p = project(x * breathScale, y * breathScale, z * breathScale);
+      /* 全部节点（含坍缩、吸收、回溯）绕大主星公转；大主星是旋转中心 */
+      let wx = x;
+      let wy = y;
+      let wz = z;
+      if (mainStar && n.id !== mainStar.id) {
+        const dx = x - omx;
+        const dz = z - omz;
+        wx = omx + dx * orbitCos - dz * orbitSin;
+        wz = omz + dx * orbitSin + dz * orbitCos;
+      }
+      const p = project(wx * breathScale, wy * breathScale, wz * breathScale);
       if (p) {
         projected.push({
           n,
@@ -916,7 +1180,17 @@ export function createGalaxy({
 
     const focus = selected || hovered;
 
-    /* 普通连线 */
+    /* 选中后，直接相连的邻居被逐个点亮，先明后暗 */
+    let linkLitAt = null;
+    if (selected && !isPublicMode) {
+      linkLitAt = new Map();
+      const nbrs = [...(neighbors.get(selected.id) || [])];
+      nbrs.forEach((nbrId, idx) => {
+        linkLitAt.set(nbrId, selectedAt + idx * 90 + LINK_REVEAL_MS);
+      });
+    }
+
+    /* 连线：默认不显示；公开模式保留证据连线，选中节点时从它向外生长辉光连线 */
     ctx.globalCompositeOperation = "lighter";
     if (isPublicMode && publicEdges.length > 0) {
       const projById = new Map(projected.map((item) => [item.n.id, item]));
@@ -933,43 +1207,51 @@ export function createGalaxy({
         ctx.lineTo(toItem.x, toItem.y);
         ctx.stroke();
       }
-    } else {
-      for (const item of projected) {
-        const n = item.n;
-        for (const dep of n.deps) {
-          const target = projected.find((q) => q.n.id === dep);
-          if (!target) continue;
-          if (collapsedMains.has(n.id) || collapsedMains.has(dep) || item.absorption || target.absorption || item.returning || target.returning) continue;
-          const related = isRelated(n, focus) || isRelated(target.n, focus);
-          if (related) continue;
-          const tw = n.tw ? 0.64 + 0.36 * Math.sin(t * n.tw.speed + n.tw.phase) : 1;
-          const alpha = depthAlpha(Math.min(item.z, target.z), 0.24) * tw;
-          ctx.strokeStyle = `rgba(168,188,220,${alpha.toFixed(3)})`;
-          ctx.lineWidth = 1.1;
+    } else if (selected) {
+      const selItem = projected.find((q) => q.n.id === selected.id);
+      if (selItem && !selItem.absorption && !selItem.returning && !collapsedMains.has(selected.id)) {
+        const nbrs = [...(neighbors.get(selected.id) || [])];
+        nbrs.forEach((nbrId, idx) => {
+          const target = projected.find((q) => q.n.id === nbrId);
+          if (!target || target.absorption || target.returning) return;
+
+          /* 整条线由暗到明线性淡入，不做端点生长 */
+          const progress = clamp(
+            (now - selectedAt - idx * 80) / LINK_REVEAL_MS,
+            0,
+            1
+          );
+          if (progress <= 0) return;
+
+          /* 纵深：两端平均深度，近亮远暗 */
+          const depthK = depthAlpha(Math.min(selItem.z, target.z), 1);
+
+          /* 方向渐变：从选中节点（亮）伸向邻居（渐隐），能量随距离衰减 */
+          const glow = ctx.createLinearGradient(selItem.x, selItem.y, target.x, target.y);
+          glow.addColorStop(0, `rgba(255,214,150,${(0.9 * progress * depthK).toFixed(3)})`);
+          glow.addColorStop(0.55, `rgba(255,205,130,${(0.4 * progress * depthK).toFixed(3)})`);
+          glow.addColorStop(1, `rgba(255,190,110,${(0.04 * progress * depthK).toFixed(3)})`);
+
+          ctx.lineCap = "round";
+          ctx.strokeStyle = glow;
+          ctx.lineWidth = 2.6;
           ctx.beginPath();
-          ctx.moveTo(item.x, item.y);
+          ctx.moveTo(selItem.x, selItem.y);
           ctx.lineTo(target.x, target.y);
           ctx.stroke();
-        }
-      }
 
-      /* 高亮连线 */
-      if (focus) {
-        for (const item of projected) {
-          const n = item.n;
-          for (const dep of n.deps) {
-            const target = projected.find((q) => q.n.id === dep);
-            if (!target) continue;
-            if (collapsedMains.has(n.id) || collapsedMains.has(dep) || item.absorption || target.absorption || item.returning || target.returning) continue;
-            if (!isRelated(n, focus) && !isRelated(target.n, focus)) continue;
-            ctx.strokeStyle = "rgba(255,210,122,.65)";
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(item.x, item.y);
-            ctx.lineTo(target.x, target.y);
-            ctx.stroke();
-          }
-        }
+          /* 亮芯：更细更亮，同样方向渐隐 */
+          const core = ctx.createLinearGradient(selItem.x, selItem.y, target.x, target.y);
+          core.addColorStop(0, `rgba(255,240,200,${(0.95 * progress * depthK).toFixed(3)})`);
+          core.addColorStop(0.6, `rgba(255,220,170,${(0.35 * progress * depthK).toFixed(3)})`);
+          core.addColorStop(1, "rgba(255,200,150,0)");
+          ctx.strokeStyle = core;
+          ctx.lineWidth = 1.1;
+          ctx.beginPath();
+          ctx.moveTo(selItem.x, selItem.y);
+          ctx.lineTo(target.x, target.y);
+          ctx.stroke();
+        });
       }
     }
     ctx.globalCompositeOperation = "source-over";
@@ -992,7 +1274,7 @@ export function createGalaxy({
         }
         const emergence = clamp((item.collapseProgress - 0.25) / 0.45, 0, 1);
         const r = drawVortex(item, n, t, emergence);
-        if (n === selected || n === hovered) {
+        if (n === selected) {
           ctx.fillStyle = "rgba(230,186,255,.92)";
           ctx.font = '11px "PingFang SC","Microsoft YaHei",sans-serif';
           ctx.textAlign = "center";
@@ -1010,14 +1292,19 @@ export function createGalaxy({
         : (isLiveMode ? 4.5 + n.S * 1.4 : 2.2 + n.S * 0.5)) * item.scale
         * (1 - item.absorbProgress * 0.9) * item.returnScale;
       const r = clamp(base, isLiveMode ? 4.5 : 1.5, 16);
-      const glowR = clamp(r * 5.2, 18, 150);
+      const glowR = clamp(r * 6.2, 20, 170);
       const dim = focus && !isRelated(n, focus) && !(isPublicMode && neighbors.get(n.id)?.has(focus.id)) ? 0.35 : 1;
       const alpha = depthAlpha(item.z, 0.95) * dim * (1 - item.absorbProgress) * item.returnVisibility;
       const local = n.tw ? 0.5 + 0.5 * Math.sin(t * n.tw.speed + n.tw.phase) : 0.5;
       const steady = n === selected || n === hovered || n.id === boundFocusNodeId;
       const pulse = steady ? 1 : (n.S >= 10 || isLiveMode ? 0.54 + 0.46 * local : 0.68 + 0.32 * local);
-      const glowA = alpha * pulse * (0.88 + 0.12 * breath);
-      const glowSize = glowR * (0.92 + 0.08 * local);
+      let linkGlow = 0;
+      if (linkLitAt && linkLitAt.has(n.id)) {
+        const sinceLit = now - linkLitAt.get(n.id);
+        if (sinceLit >= 0) linkGlow = Math.exp(-sinceLit / 900);
+      }
+      const glowA = alpha * pulse * (0.88 + 0.12 * breath) * (1 + linkGlow * 1.6);
+      const glowSize = glowR * (0.92 + 0.08 * local) * (1 + linkGlow * 0.25);
 
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = glowA;
@@ -1039,10 +1326,22 @@ export function createGalaxy({
 
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
-      ctx.fillStyle = `rgba(255,255,255,${(0.92 * alpha * (steady ? 1 : 0.9 + 0.1 * local)).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.arc(item.x, item.y, Math.max(1.2, r * 0.44), 0, TAU);
-      ctx.fill();
+
+      /* 中心高光：中间亮、边缘虚化，替代原来的生硬实心圆 */
+      const coreR = Math.max(2.4, r * 0.95);
+      ctx.globalAlpha = alpha * (steady ? 1 : 0.86 + 0.14 * local);
+      ctx.drawImage(coreSprite, item.x - coreR, item.y - coreR, coreR * 2, coreR * 2);
+      ctx.globalAlpha = 1;
+
+      /* 大主星：额外一层更亮更大的金色辉光 */
+      if (n.id === mainStarId) {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = alpha * (0.5 + 0.12 * breath);
+        const mainR = glowSize * 1.7;
+        ctx.drawImage(sprites.gold, item.x - mainR, item.y - mainR, mainR * 2, mainR * 2);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+      }
 
       if (steady) {
         ctx.strokeStyle = n.id === boundFocusNodeId
@@ -1054,16 +1353,12 @@ export function createGalaxy({
         ctx.stroke();
       }
 
-      const labelAtRest = knowledgeSources ? nodes.length <= (W > 640 ? 12 : 5) : isLiveMode;
-      const showLabel =
-        !item.absorption && !item.returning
-        && (steady || labelAtRest || (n.S >= 10 && W > 640));
+      /* 文字默认隐藏，只有选中节点时显示 */
+      const showLabel = !item.absorption && !item.returning && n === selected;
       if (showLabel) {
         ctx.font = '11px "PingFang SC","Microsoft YaHei",sans-serif';
         ctx.textAlign = "center";
-        ctx.fillStyle = steady
-          ? "rgba(255,210,122,.95)"
-          : `rgba(232,236,244,${(isLiveMode ? 0.78 : 0.4 * alpha).toFixed(3)})`;
+        ctx.fillStyle = "rgba(255,210,122,.95)";
         const labelText = isPublicMode
           ? (n.author ? `${n.author} · ${n.relationLabel || "依据"}` : n.name)
           : (isLiveMode && !knowledgeSources ? `${n.name} (${n.id})` : n.name);
@@ -1107,7 +1402,9 @@ export function createGalaxy({
     last = now;
     if (cameraReturn) {
       const p = clamp((now - cameraReturn.start) / cameraReturn.duration, 0, 1);
-      const k = ease(p);
+      const k = cameraReturn.easing === "out"
+        ? 1 - Math.pow(1 - p, 3)
+        : ease(p);
       for (const key of ["x", "y", "z", "yaw", "pitch"]) {
         camera[key] = cameraReturn.from[key] + (cameraReturn.to[key] - cameraReturn.from[key]) * k;
       }
@@ -1123,6 +1420,15 @@ export function createGalaxy({
     } else {
       updateCamera(dt);
     }
+
+    /* 用户按 WASD / 方向键移动时，暂停公转；松开后从当前角度继续 */
+    const orbiting =
+      !keys.has("w") && !keys.has("a") && !keys.has("s") && !keys.has("d") &&
+      !keys.has("arrowup") && !keys.has("arrowdown") && !keys.has("arrowleft") && !keys.has("arrowright");
+    if (orbiting && !reduceMotion.matches) {
+      orbitAngle += dt * 0.05;
+    }
+
     drawScene(reduceMotion.matches ? 0 : now / 1000);
     raf = requestAnimationFrame(frame);
   }
@@ -1130,6 +1436,7 @@ export function createGalaxy({
   /* ---------- 节点卡片 ---------- */
   function selectNode(n) {
     selected = n;
+    selectedAt = performance.now();
     card.hidden = false;
     if (pointSources) { pointSources.hidden = true; pointSources.replaceChildren(); }
     if (knowledgeSources) {
@@ -1231,6 +1538,7 @@ export function createGalaxy({
 
   function clearSelection() {
     selected = null;
+    selectedAt = 0;
     card.hidden = true;
     if (collapseButton) collapseButton.hidden = true;
     if (rewindButton) rewindButton.hidden = true;
@@ -1356,20 +1664,80 @@ export function createGalaxy({
   }
 
   /* ---------- 生命周期 ---------- */
+  function mainStarNode() {
+    let main = null;
+    for (const n of nodes) {
+      if (!main || n.S > main.S) main = n;
+    }
+    return main;
+  }
+
+  /* 以主星为中心，算刚好装下所有星星的镜头距离 */
   function getHome() {
+    const main = mainStarNode();
+    if (!main) return { ...HOME };
+
+    let R = 1;
+    for (const n of nodes) {
+      R = Math.max(
+        R,
+        Math.hypot(
+          n.pos.x - main.pos.x,
+          n.pos.y - main.pos.y,
+          n.pos.z - main.pos.z
+        )
+      );
+    }
+
     const vHalf = FOV / 2;
     const hHalf = Math.atan(Math.tan(vHalf) * (W / Math.max(1, H)));
     const minHalf = Math.min(vHalf, hHalf);
-    const fit = W / Math.max(1, H) < 1 ? 1.05 : 1.08;
-    const z = clamp((420 / Math.tan(minHalf)) * fit, 680, 2600);
-    return { ...HOME, z };
+    const fit = W / Math.max(1, H) < 1 ? 1.12 : 1.16;
+    const z = clamp((R / Math.tan(minHalf)) * fit, 220, 4200);
+
+    return {
+      x: main.pos.x,
+      y: main.pos.y,
+      z: main.pos.z + z,
+      yaw: 0,
+      pitch: 0,
+    };
   }
 
   function start() {
     if (running) return;
     running = true;
     resize();
-    Object.assign(camera, getHome());
+
+    const home = getHome();
+    const main = mainStarNode();
+
+    if (main && !reduceMotion.matches) {
+      /* 从主星正前方近距离出发，主星保持在画面中心，缓慢拉开 */
+      const from = {
+        x: main.pos.x,
+        y: main.pos.y,
+        z: main.pos.z + 130,
+        yaw: 0,
+        pitch: 0,
+      };
+      Object.assign(camera, from);
+      cameraReturn = {
+        start: performance.now(),
+        duration: 2600,
+        easing: "out",
+        from: { ...from },
+        to: { ...home },
+      };
+      if (resetButton) {
+        resetButton.disabled = true;
+        resetButton.textContent = "镜头推进中…";
+      }
+    } else {
+      Object.assign(camera, home);
+      cameraReturn = null;
+    }
+
     clearSelection();
     keys.clear();
     hinted(false);
@@ -1530,6 +1898,8 @@ export function createGalaxy({
       camera,
       get cameraReturn() { return cameraReturn; },
       project,
+      absorbedPositionAt,
+      makeAbsorbPlane,
       get projected() { return projected; },
     };
   }

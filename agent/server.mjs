@@ -99,7 +99,7 @@ function resolveEffectiveOrigin(server, configuredOrigin) {
       return { origin: strict.origin, host: strict.host, protocol: strict.protocol };
     }
     const addr = server.address();
-    const port = addr && typeof addr === 'object' && Number.isInteger(addr.port) ? addr.port : 3006;
+    const port = addr && typeof addr === 'object' && Number.isInteger(addr.port) ? addr.port : 3009;
     const dynamicUrl = new URL(`${parsed.protocol}//${parsed.hostname}:${port}`);
     return { origin: dynamicUrl.origin, host: dynamicUrl.host, protocol: dynamicUrl.protocol };
   }
@@ -115,7 +115,7 @@ function resolveEffectiveOrigin(server, configuredOrigin) {
     return { origin: dynamicUrl.origin, host: dynamicUrl.host, protocol: dynamicUrl.protocol };
   }
 
-  const fallback = new URL('http://127.0.0.1:3006');
+  const fallback = new URL('http://127.0.0.1:3009');
   return { origin: fallback.origin, host: fallback.host, protocol: fallback.protocol };
 }
 

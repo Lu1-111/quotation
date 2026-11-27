@@ -442,10 +442,8 @@ test('L-02-5 decomposePublicClaim 与 createPublicProposalResolver：模拟模�
   assert.ok(decomposePromptText.includes('15-45 字'));
   assert.ok(decomposePromptText.includes('综上所述'));
   assert.ok(decomposePromptText.includes('不仅……更……'));
-  assert.deepEqual(
-    decomposeModel.doGenerateCalls[0].providerOptions?.openaiCompatible,
-    { thinking: { type: 'disabled' } },
-  );
+  // 推理开关由模型适配层按供应商设置，公开分析提示词不覆盖它。
+  assert.equal(decomposeModel.doGenerateCalls[0].providerOptions?.openaiCompatible, undefined);
 
   // 2) decomposePublicClaim 非法 JSON / 无模型平稳降级
   const brokenModel = makeJsonModel(['这不是合法的 JSON 输出！！！']);

@@ -68,7 +68,7 @@ const HELP = `「报价」正式星图与真实公开 /v1 同源宿主（Node.js
 
 选项：
   --host <host>       监听主机地址（默认 127.0.0.1）
-  --port <port>       监听端口，0 表示随机空闲端口（默认 3006）
+  --port <port>       监听端口，0 表示随机空闲端口（默认 3007）
   --db <path>         指定独立公开会话 SQLite 数据库路径（默认 .data/sessions-public-web.sqlite）
   --base-url <url>    覆盖 AGENT_BASE_URL
   --model <name>      覆盖 AGENT_MODEL
@@ -557,7 +557,7 @@ function sendJsonResponse(res, status, payload, extraHeaders = {}, secrets = [])
 
 export async function startPublicWebHost({
   host = '127.0.0.1',
-  port = 3006,
+  port = 3007,
   dbPath = DEFAULT_DB_PATH,
   env = process.env,
   baseURL = undefined,
@@ -1169,7 +1169,7 @@ export async function main(args = [], {
       || (typeof env.AGENT_SERVER_PORT === 'string' && env.AGENT_SERVER_PORT.trim())
       || null;
     const port = parsed.options.port
-      ?? (rawEnvPort && /^[0-9]+$/.test(rawEnvPort) ? Number(rawEnvPort) : 3006);
+      ?? (rawEnvPort && /^[0-9]+$/.test(rawEnvPort) ? Number(rawEnvPort) : 3007);
 
     const dbPath = parsed.options.dbPath
       ?? (typeof env.AGENT_PUBLIC_DB_PATH === 'string' && env.AGENT_PUBLIC_DB_PATH.trim()

@@ -280,11 +280,6 @@ export async function decomposePublicClaim({
       prompt,
       abortSignal: scoped.signal,
       maxOutputTokens: 600,
-      providerOptions: {
-        openaiCompatible: {
-          thinking: { type: 'disabled' },
-        },
-      },
     });
 
     const rawObj = extractJsonObject(result?.text ?? '');
@@ -622,11 +617,6 @@ export function createPublicProposalResolver({
         prompt,
         abortSignal: scoped.signal,
         maxOutputTokens: 1200,
-        providerOptions: {
-          openaiCompatible: {
-            thinking: { type: 'disabled' },
-          },
-        },
       });
 
       const rawObj = extractJsonObject(result?.text ?? '');

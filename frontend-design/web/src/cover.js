@@ -19,6 +19,8 @@ import {
 
 const root = document.documentElement;
 const body = document.body;
+const workbenchMode = body.dataset.hostMode === "workbench_debate";
+let workbench;
 const toggle = document.getElementById("themeToggle");
 const toastEl = document.getElementById("toast");
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -251,6 +253,7 @@ const pageChrome = [
   document.querySelector(".cover"),
   document.querySelector(".public-degrade-dock"),
   document.querySelector(".analysis"),
+  document.getElementById("debateWorkspace"),
   document.querySelector(".foot"),
 ].filter(Boolean);
 
@@ -364,7 +367,7 @@ function applyView(view) {
   body.dataset.view = view;
   planet.setAttribute(
     "aria-label",
-    view === "info" ? "进入 Mind Galaxy" : "你的世界观星球",
+    workbenchMode ? "打开我的三维知识星图" : (view === "info" ? "进入 Mind Galaxy" : "你的世界观星球"),
   );
   try {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -405,12 +408,13 @@ function transitionView(view) {
 
 /* 星球 → Mind Galaxy */
 let galaxyClosing = false;
+let galaxyOpener = null;
 
 function setPageInert(on) {
   for (const el of pageChrome) el.inert = on;
 }
 
-function beginGalaxyReveal() {
+function beginGalaxyReveal(pointId) {
   setPageInert(true);
   galaxy.setAttribute("aria-hidden", "false");
   galaxy.classList.remove("closing");
@@ -419,11 +423,8 @@ function beginGalaxyReveal() {
   const scene = ensureGalaxy();
   syncGalaxyWithState(live.getState());
   scene.start();
-  setTimeout(() => {
-    if (galaxy.classList.contains("on")) {
-      galaxyBack.focus({ preventScroll: true });
-    }
-  }, 1500);
+  const focus = pointId && scene.selectNodeById(pointId) ? cardClose : galaxyBack;
+  focus.focus({ preventScroll: true });
 }
 
 function cleanupBlackHole() {
@@ -443,7 +444,7 @@ function cleanupBlackHole() {
   if (!galaxy.classList.contains("on")) setPageInert(false);
 }
 
-function playBlackHole(cx, cy) {
+function playBlackHole(cx, cy, pointId) {
   bhActive = true;
   setPageInert(true);
   root.style.setProperty("--bhx", `${cx}px`);
@@ -513,7 +514,7 @@ function playBlackHole(cx, cy) {
   bhTimers.push(
     setTimeout(() => {
       if (!bhActive) return;
-      beginGalaxyReveal();
+      beginGalaxyReveal(pointId);
       blackHole.classList.remove("on");
       blackHole.classList.add("vanish");
     }, 1000),
@@ -526,11 +527,13 @@ function playBlackHole(cx, cy) {
   );
 }
 
-function openGalaxy() {
+function openGalaxy(initialPoint) {
   if (viewSwitching || switching || bhActive || galaxy.classList.contains("on")) {
     return;
   }
 
+  const pointId = typeof initialPoint === "string" ? initialPoint : null;
+  galaxyOpener = document.activeElement;
   const rect = planet.getBoundingClientRect();
   const cx = rect.width ? rect.left + rect.width / 2 : innerWidth / 2;
   const cy = rect.height ? rect.top + rect.height / 2 : innerHeight / 2;
@@ -543,15 +546,16 @@ function openGalaxy() {
   galaxy.style.setProperty("--gr", `${radius + 6}px`);
 
   if (!reduceMotion.matches && window.scrollY < 160 && body.dataset.hostMode !== "public") {
-    playBlackHole(cx, cy);
+    playBlackHole(cx, cy, pointId);
   } else {
-    beginGalaxyReveal();
+    beginGalaxyReveal(pointId);
   }
 }
 
 function closeGalaxy() {
   if (bhActive && !galaxy.classList.contains("on")) {
     cleanupBlackHole();
+    galaxyOpener?.focus({ preventScroll: true });
     return;
   }
   if (!galaxy.classList.contains("on") || galaxyClosing) return;
@@ -561,8 +565,11 @@ function closeGalaxy() {
   galaxy.classList.add("closing");
   setTimeout(() => {
     galaxy.classList.remove("on", "closing");
-    galaxy.setAttribute("aria-hidden", "true");
     setPageInert(false);
+    const returnFocus = galaxyOpener?.isConnected && galaxyOpener !== document.body
+      ? galaxyOpener : (workbenchMode && body.dataset.view === "info" ? document.getElementById("galaxy-tab") : planet);
+    returnFocus.focus({ preventScroll: true });
+    galaxy.setAttribute("aria-hidden", "true");
     galaxyClosing = false;
   }, 470);
 }
@@ -2001,7 +2008,7 @@ function renderLiveState(state) {
   });
 }
 
-live.subscribe(renderLiveState);
+if (!workbenchMode) live.subscribe(renderLiveState);
 
 /* ---------- 交互按钮绑定 ---------- */
 async function enterDemoInfoView() {
@@ -2157,12 +2164,16 @@ demoLogin.addEventListener("click", () => {
 });
 
 planet.addEventListener("click", () => {
+  if (workbenchMode) { workbench?.openMap(); return; }
   if (body.dataset.view === "info") openGalaxy();
   else if (live.getState().hostMode === "public") publicHomeInput?.focus();
   else enterDemoInfoView();
 });
 
-backHome.addEventListener("click", () => transitionView("cover"));
+backHome.addEventListener("click", () => {
+  workbench?.leaveWorkspace();
+  transitionView("cover");
+});
 galaxyBack.addEventListener("click", closeGalaxy);
 galaxyEmptyBack?.addEventListener("click", closeGalaxy);
 openGalaxyFromWorkbench?.addEventListener("click", openGalaxy);
@@ -2232,6 +2243,7 @@ bindFocusNodeBtn?.addEventListener("click", () => {
 
 /* ---------- 启动探测：握手同源 `/v1` 主机并自动恢复已保存会话（刷新恢复） ---------- */
 (async function bootstrapLiveMode() {
+  if (workbenchMode) return;
   const hostOk = await live.checkHostAvailable();
   if (!hostOk) return;
   const restored = await live.restoreSavedSession();
@@ -2374,4 +2386,31 @@ if (supportsGlassFilter) {
   if (actionsEl) liquidGlass(actionsEl, { strength: 0.18, edge: 0.26 });
   const toastGlass = document.getElementById("toast");
   if (toastGlass) liquidGlass(toastGlass, { strength: 0.2, edge: 0.3 });
+}
+
+if (workbenchMode) {
+  demoCoverIntro.querySelector(".lede").textContent = "挑一句让你想摇头的话，试试哪一个理由，能让对方再想一想。";
+  aboutLinePrimary.textContent = "每轮选一句最想说的话。对方会接着你的理由往下谈，你也可以随时翻看知乎原文。";
+  aboutLineSecondary.textContent = "十二轮后，能查到出处的收获会留在你的知识星图里。";
+  infoNameEl.textContent = "你的观点交锋";
+  infoMetaEl.textContent = "十二轮选择 · 知乎公开出处";
+  infoHintEl.textContent = "点星球，看看阅读与交锋留下的星点。";
+  const workspace = document.getElementById("debateWorkspace");
+  workspace.hidden = false;
+  planet.setAttribute("aria-label", "打开我的三维知识星图");
+  galaxyCanvas.setAttribute("aria-label", "按领域排列的个人知识星图");
+  galaxyEmptyBack.textContent = "← 返回";
+  const { mountWorkbench } = await import("./workbench-starfield.js");
+  workbench = mountWorkbench({
+    enterWorkspace() { applyView("info"); },
+    closeMap: closeGalaxy,
+    openMapScene(map, sourceDetails, pointId) {
+      const scene = ensureGalaxy();
+      scene.setKnowledgeMap(map, sourceDetails);
+      openGalaxy(pointId);
+    },
+  });
+  document.getElementById("startDebate").addEventListener("click", workbench.openDebate);
+  document.getElementById("openKnowledge").addEventListener("click", workbench.openMap);
+  await workbench.connect();
 }

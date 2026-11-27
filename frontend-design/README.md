@@ -2,7 +2,9 @@
 
 本目录是「报价 / QUOTATION」的正式前端。
 
-当前 `web/index.html` 包含四个视图：
+正式版在 [本机 3006 首页](http://127.0.0.1:3006/) 使用 `web/index.html` 的星球封面、昼夜主题和三维画布。在 `agent/` 执行 `npm run serve:workbench:starfield` 后，封面上的「开始观点交锋」会取回工作台选出的三个观点。「我的知识星图」展示授权画像与已结算对局中的知识点，点击星点可以展开出处。工作台连接、模型和知乎搜索配置见 [工作台说明](../agent/README.md)。
+
+同一份前端在静态预览与合成演示模式下提供以下视图。
 
 - **封面（第 0 屏）**：白天 Neumorphism，夜晚 Liquid Glass，右上角切换主题；提供「使用演示账号」与「绑定知乎 · 即将开放」两个入口。
 - **信息页（第 1 屏）**：进入演示账号后，星球缩小并居中，显示「YOUR MIND GALAXY」、账号与判断数量。
@@ -34,7 +36,7 @@ frontend-design/
 └─ shots/                        # 截图、视频与 PDF 预览
 ```
 
-## 本地预览
+## 静态设计预览
 
 ```powershell
 python -m http.server 5173 --bind 127.0.0.1 --directory frontend-design/web
@@ -66,9 +68,9 @@ node web/src/verify/verify-p2.mjs
 
 ## 已知限制
 
-- 登录入口目前是占位：演示账号进入信息页，绑定知乎待后端接入。
+- 静态预览中的「绑定知乎」是设计占位。正式版从工作台连接已有账号。
 - 改写版本 `scope` 当前为 0%，展示的是“不撞承重墙”的极端情况。
-- 页面数据仍是 `quotation-case.js` 的合成示例，尚未接入数据采集或搜索模块。
+- 静态预览使用 `quotation-case.js` 中的示例。真实选题与知识星图需要启动上述工作台服务。
 - 鼠标视角目前是按住拖动，未启用 Pointer Lock；手机端为拖动转视角、点击节点。
 
 ## 归档

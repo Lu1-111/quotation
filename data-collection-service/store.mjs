@@ -167,6 +167,10 @@ export function createServiceStore(filename, { demo = false, now = Date.now, cli
         activeJob: publicJob(q("SELECT * FROM service_jobs WHERE user_id=? AND state IN ('queued','running')", userId)),
         latestSnapshot: latest ? { snapshotId: latest.id, receivedAt: iso(latest.received_at) } : null };
     },
+    accountKey(userId) {
+      const ref = q('SELECT account_ref FROM service_users WHERE id=?', userId)?.account_ref;
+      return ref ? hash(JSON.stringify([userId, ref])) : null;
+    },
     createJob(userId, { settings, deviceId } = {}) {
       return atomic(() => {
         sweep(); if (q("SELECT id FROM service_jobs WHERE user_id=? AND state IN ('queued','running')", userId)) deny('BUSY', '已有采集任务，请等待或取消。');

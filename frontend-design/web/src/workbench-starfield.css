@@ -1,0 +1,68 @@
+/* 正式模式复用封面、主题、转场和星图画布。其它宿主保留各自的首页入口。 */
+body:not([data-host-mode="workbench_debate"]) :is(#startDebate, #openKnowledge),
+body[data-host-mode="workbench_debate"] :is(#demoLogin, #bindZhihu, #analysis, #scrollCue),
+body[data-view="cover"] #debateWorkspace { display: none; }
+#openKnowledge { cursor: pointer; color: var(--text-2); }
+
+body[data-host-mode="workbench_debate"][data-view="info"] .cover {
+  min-height: auto;
+  gap: .65rem;
+  padding: 5.8rem 1.25rem 1rem;
+}
+body[data-host-mode="workbench_debate"][data-view="info"] .planet-wrap {
+  --planet-size: clamp(60px, 12vh, 110px);
+}
+body[data-host-mode="workbench_debate"] .info { gap: .3rem; }
+body[data-host-mode="workbench_debate"] .info .hint { margin-top: .3rem; }
+
+#debateWorkspace {
+  width: min(calc(100% - 2.5rem), 64rem);
+  margin: 0 auto;
+  padding: 1rem 0 5rem;
+  color: var(--text);
+  & nav, & .controls { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+  & nav { justify-content: center; }
+  & nav [aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+  & h1, & h2, & .claim { font-family: var(--font-serif); font-weight: 500; }
+  & h1 { font-size: clamp(1.75rem, 4vw, 2.55rem); line-height: 1.4; margin: .5rem 0; }
+  & h2 { font-size: 1.28rem; margin: .7rem 0; }
+  & p { line-height: 1.75; }
+  & .muted, & .option-note, & .source-row small { color: var(--text-2); font-size: .86rem; }
+  & #notice { color: var(--accent); text-align: center; }
+  & #notice:empty { display: none; }
+  & .hero { max-width: 42rem; margin: 1.8rem auto; text-align: center; }
+  & .hero .controls { justify-content: center; }
+  & .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,16rem),1fr)); gap: 1.1rem; }
+  & .card { padding: 1.3rem; border: 1px solid var(--line); border-radius: var(--radius-m);
+    background: var(--glass-bg); overflow-wrap: anywhere; box-shadow: 3px 6px 18px var(--glass-shadow); }
+  & .topic { display: grid; align-content: space-between; gap: 1rem; }
+  & .claim { font-size: 1.13rem; margin: .4rem 0; }
+  & .kicker { color: var(--accent); font-size: .8rem; }
+  & .debate { max-width: 47rem; margin: 1.5rem auto; }
+  & .bar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+  & progress { accent-color: var(--accent); width: 7rem; }
+  & .opponent { margin-block: 1.5rem; padding-block: .5rem; border-block: 1px solid var(--line); }
+  & blockquote { font: 1.16rem/1.85 var(--font-serif); margin: .65rem 0; white-space: pre-line; }
+  & .options, & .timeline, & .stars { display: grid; gap: .75rem; }
+  & .option-button { width: 100%; min-height: 44px; border: 0; padding: 0; text-align: left;
+    font: inherit; color: var(--text); background: transparent; line-height: 1.7; cursor: pointer; }
+  & .option-button strong { display: block; color: var(--accent); }
+  & .option-button:disabled { opacity: .6; cursor: wait; }
+  & .constellations { margin-top: 1rem; align-items: start; }
+}
+:is(#debateWorkspace, #knowledgeSources) details { margin: .55rem 0; line-height: 1.65; font-size: .88rem; }
+:is(#debateWorkspace, #knowledgeSources) summary { cursor: pointer; }
+:is(#debateWorkspace, #knowledgeSources) .source-row { margin: .7rem 0; overflow-wrap: anywhere; }
+:is(#debateWorkspace, #knowledgeSources) .source-row small { display: block; }
+#debateWorkspace .source-row a { color: var(--accent); }
+#knowledgeSources a { color: #ffd27a; }
+#knowledgeSources { color: #e8ecf4; }
+body[data-host-mode="workbench_debate"] .node-card {
+  max-height: calc(100svh - 9rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 640px) {
+  #debateWorkspace nav button, #debateWorkspace .controls button { min-height: 44px; }
+  body[data-host-mode="workbench_debate"] .node-card { max-height: min(55svh, calc(100svh - 7rem)); }
+}

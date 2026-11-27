@@ -28,14 +28,25 @@ export function buildTimeout(limits, toolNames = []) {
   return timeout;
 }
 
-export function createModel(modelConfig, { disableThinking = false } = {}) {
-  const isDeepSeek = /deepseek/i.test(`${modelConfig.baseURL ?? ''} ${modelConfig.modelName ?? ''}`);
+export function modelThinkingOptions(modelConfig, disableThinking = true) {
+  if (!disableThinking) return {};
+  const modelName = modelConfig.modelName ?? '';
+  const provider = `${modelConfig.baseURL ?? ''} ${modelName}`;
+  if (/glm-5\.3(?:\b|[-_])/i.test(modelName)) return { reasoning_effort: 'low' };
+  if (/deepseek|bigmodel\.cn|api\.z\.ai|\bglm-/i.test(provider)) {
+    return { thinking: { type: 'disabled' } };
+  }
+  return {};
+}
+
+export function createModel(modelConfig, { disableThinking = true } = {}) {
+  const thinkingOptions = modelThinkingOptions(modelConfig, disableThinking);
   const provider = createOpenAICompatible({
     name: modelConfig.providerName ?? 'openai-compatible',
     baseURL: modelConfig.baseURL,
     apiKey: modelConfig.apiKey ?? undefined,
-    ...(disableThinking && isDeepSeek
-      ? { transformRequestBody: (args) => ({ ...args, thinking: { type: 'disabled' } }) }
+    ...(Object.keys(thinkingOptions).length
+      ? { transformRequestBody: (args) => ({ ...args, ...thinkingOptions }) }
       : {}),
   });
   return provider.chatModel(modelConfig.modelName);

@@ -3,7 +3,7 @@
 // verifying_candidates -> evidence.verified -> streaming_explanation -> text.delta* -> commitTurn(turn.committed + turn.done)。
 
 import { streamText } from 'ai';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { createModel } from './agent.mjs';
 import {
   BackendServiceError,
   RATE_INTERPRETATION_NOTE,
@@ -4019,12 +4019,7 @@ export class TurnOrchestrator {
   _resolveModel() {
     if (this.model) return this.model;
     if (this.config?.model?.ready && this.config.model.baseURL && this.config.model.modelName) {
-      const provider = createOpenAICompatible({
-        name: this.config.model.providerName ?? 'openai-compatible',
-        baseURL: this.config.model.baseURL,
-        apiKey: this.config.model.apiKey ?? undefined,
-      });
-      this.model = provider.chatModel(this.config.model.modelName);
+      this.model = createModel(this.config.model);
       return this.model;
     }
     return null;
@@ -4782,11 +4777,6 @@ export class TurnOrchestrator {
         prompt: userPrompt,
         abortSignal: turnSignal,
         maxOutputTokens: Math.min(this.maxOutputTokens, 512),
-        providerOptions: {
-          openaiCompatible: {
-            thinking: { type: 'disabled' },
-          },
-        },
         onError: ({ error }) => {
           streamFailure = error;
         },
@@ -7013,11 +7003,6 @@ export class TurnOrchestrator {
           prompt: userPrompt,
           abortSignal: turnSignal,
           maxOutputTokens: this.maxOutputTokens,
-          providerOptions: {
-            openaiCompatible: {
-              thinking: { type: 'disabled' },
-            },
-          },
           onError: ({ error }) => {
             streamFailure = error;
           },

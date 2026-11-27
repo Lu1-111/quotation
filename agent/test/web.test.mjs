@@ -648,3 +648,54 @@ describe('交互模块 HTTP 路由接入', () => {
     }
   });
 });
+
+it('正式星图由工作台确认当前账号和画像快照，投影不交付正文', async () => {
+  let consented = true;
+  let owner = 'owner-a';
+  let requested = null;
+  const collection = {
+    userId: 'fake-user',
+    status: () => ({ demo: false, latestSnapshot: { snapshotId: 'latest' } }),
+    localContext: async () => ({ local: { bound: true, consented } }),
+    store: {
+      accountKey: () => owner,
+      profilePage(userId, options) {
+        requested = [userId, options];
+        if (owner !== 'owner-a') throw new Error('当前账号无法读取旧画像');
+        return { records: [{ title: '本机记录' }], page: { hasMore: false } };
+      },
+    },
+  };
+  let app;
+  const harness = await start({ createWebServer: {
+    collection,
+    profile: { snapshotId: 'profile-snapshot', generatedAt: 'v1', domains: [] },
+    starfieldBridge: {
+      async issuePair() {
+        await app.getStarfieldMaterials(await app.getStarfieldIdentity());
+        return { url: 'http://127.0.0.1:18775/#pair=synthetic' };
+      },
+      revoke() {},
+    },
+  } });
+  app = harness.app;
+  try {
+    assert.equal((await json(await fetch(harness.base + '/api/status'))).body.data.starfield.enabled, true);
+    const denied = await post(harness.base, '/api/starfield/connect', {}, { origin: 'https://other.test' });
+    assert.equal(denied.status, 403);
+    assert.equal(requested, null);
+    const linked = await json(await post(harness.base, '/api/starfield/connect', {}));
+    assert.equal(linked.status, 200);
+    assert.deepEqual(requested, ['fake-user', {
+      snapshotId: 'profile-snapshot', offset: 0, limit: 20, summaryMaxChars: 0, bodyMaxChars: 0,
+    }]);
+    assert.equal((await app.getStarfieldMaterials('owner-a')).profile.generatedAt, 'v1');
+    owner = 'owner-b';
+    assert.equal((await post(harness.base, '/api/starfield/connect', {})).status, 409);
+    consented = false;
+    assert.equal(await app.getStarfieldIdentity(), null);
+    assert.equal((await post(harness.base, '/api/starfield/connect', {})).status, 401);
+  } finally {
+    await app.close();
+  }
+});

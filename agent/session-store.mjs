@@ -1988,6 +1988,13 @@ export function createSessionStore(filenameOrOptions = ':memory:', maybeOptions 
     CREATE INDEX IF NOT EXISTS idx_turns_session_status
       ON turns (session_id, status, turn_number ASC);
 
+    CREATE TABLE IF NOT EXISTS debate_settlements (
+      session_id TEXT PRIMARY KEY REFERENCES sessions(session_id) ON DELETE CASCADE,
+      owner_id TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      delivered INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS turn_events (
       session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
       turn_id TEXT NOT NULL,
@@ -2148,6 +2155,13 @@ export function createSessionStore(filenameOrOptions = ':memory:', maybeOptions 
     `),
     listSessionsByOwner: db.prepare(`
       SELECT session_id FROM sessions WHERE owner_id = ?
+    `),
+    latestWorkbenchDebate: db.prepare(`
+      SELECT CASE WHEN json_type(metadata_json, '$.debate.settlement') = 'object'
+        THEN NULL ELSE session_id END AS resume_session_id
+      FROM sessions
+      WHERE owner_id = ? AND data_mode = 'real' AND json_extract(metadata_json, '$.experience') = 'workbench_debate'
+      ORDER BY created_at DESC, rowid DESC LIMIT 1
     `),
     deleteSessionsByOwner: db.prepare(`
       DELETE FROM sessions WHERE owner_id = ?
@@ -2621,8 +2635,8 @@ export function createSessionStore(filenameOrOptions = ':memory:', maybeOptions 
     });
   }
 
-  // 启动即恢复残留 running 轮次
-  recoverInterruptedTurns();
+  // 宿主需先取得独占监听端口时，可在监听就绪后显式恢复。
+  if (options.recoverOnOpen !== false) recoverInterruptedTurns();
 
   /* ---------- 2. 创建会话 ---------- */
   function createSession({
@@ -3965,6 +3979,10 @@ export function createSessionStore(filenameOrOptions = ':memory:', maybeOptions 
         committedPayload,
         ts,
       );
+      if (commitSpec.debateSettlement) {
+        db.prepare('INSERT INTO debate_settlements (session_id, owner_id, payload_json) VALUES (?, ?, ?)')
+          .run(sessionRow.session_id, sessionRow.owner_id, JSON.stringify(commitSpec.debateSettlement));
+      }
       appendEventInternal(
         sessionRow.session_id,
         turnRow.turn_id,
@@ -4291,6 +4309,7 @@ export function createSessionStore(filenameOrOptions = ':memory:', maybeOptions 
     recoverInterruptedTurns,
     createSession,
     getSession,
+    getResumableDebateId: (ownerId) => stmts.latestWorkbenchDebate.get(validateOwnerId(ownerId, false))?.resume_session_id ?? null,
     upsertEvidence,
     getEvidenceMap,
     updateOutboundPreview,
@@ -4303,6 +4322,12 @@ export function createSessionStore(filenameOrOptions = ':memory:', maybeOptions 
     commitTurn,
     cancelTurn,
     failTurn,
+    listPendingDebateSettlements: (ownerId) => db.prepare(
+      'SELECT session_id, payload_json FROM debate_settlements WHERE owner_id=? AND delivered=0 ORDER BY rowid',
+    ).all(ownerId).map((row) => ({ id: row.session_id, payload: JSON.parse(row.payload_json) })),
+    markDebateSettlementDelivered: (ownerId, sessionId) => db.prepare(
+      'UPDATE debate_settlements SET delivered=1 WHERE owner_id=? AND session_id=?',
+    ).run(ownerId, sessionId),
     retractFact: (arg0, opts = {}) => {
       // 兼容编排器 store.retractFact({ ownerId, sessionId, turnId, factId / targetId / targetRef }) 与纯状态 retractFact(sessionState, opts)
       if (

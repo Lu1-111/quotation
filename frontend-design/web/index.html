@@ -17,6 +17,7 @@
 </script>
 <link rel="stylesheet" href="./src/theme.css?v=14">
 <link rel="stylesheet" href="./src/cover.css?v=22">
+<link rel="stylesheet" href="./src/workbench-starfield.css">
 </head>
 <body class="page-cover" data-view="cover" data-host-mode="static">
 
@@ -108,6 +109,8 @@
     <p class="lede">把你公开说过的话，画成一张承重图。</p>
 
     <div class="actions">
+      <button class="btn btn-primary" id="startDebate" type="button">开始观点交锋</button>
+      <button class="btn btn-ghost" id="openKnowledge" type="button">我的知识星图</button>
       <button class="btn btn-primary" id="demoLogin" type="button">使用演示账号</button>
       <button class="btn btn-ghost" id="bindZhihu" type="button" disabled
               title="后端授权链路收口后开放">绑定知乎 · 即将开放</button>
@@ -126,6 +129,15 @@
   </a>
 
 </main>
+
+<section id="debateWorkspace" aria-label="观点交锋与知识星图" hidden>
+  <nav aria-label="板块">
+    <button class="analysis-btn" id="debate-tab" type="button" aria-pressed="true">观点交锋</button>
+    <button class="analysis-btn" id="galaxy-tab" type="button" aria-pressed="false">知识星图</button>
+  </nav>
+  <p role="status" id="notice"></p>
+  <div id="content"></div>
+</section>
 
 <!-- 公开模式温和降级 / 异常恢复提示条（封面与对话态共用唯一实例，确保保留原句并由用户决定是否重试或切离线示例） -->
 <div class="public-degrade-dock" id="publicDegradeDock" hidden>
@@ -547,6 +559,7 @@
     <p class="node-card-text" id="cardText"></p>
     <p class="node-card-meta" id="cardMeta"></p>
     <p class="node-card-evidence" id="cardEvidence" hidden></p>
+    <div id="knowledgeSources" hidden></div>
     <button class="node-card-collapse node-card-focus" id="nodeCardLocateCitation" type="button" hidden>在对话里看这条出处</button>
     <button class="node-card-collapse node-card-focus" id="nodeCardFocus" type="button" hidden>以此节点为焦点</button>
     <button class="node-card-collapse" id="nodeCardCollapse" type="button" hidden>坍缩这颗主星</button>

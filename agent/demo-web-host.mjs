@@ -95,7 +95,7 @@ const HELP = `「报价」正式星图与 /v1 同源合成演示宿主（Node.js
 
 选项：
   --host <host>   监听主机地址（默认 127.0.0.1）
-  --port <port>   监听端口，0 表示随机空闲端口（默认 3006）
+  --port <port>   监听端口，0 表示随机空闲端口（默认 3008）
   --db <path>     指定独立 SQLite 数据库路径（默认 .data/sessions-demo-web.sqlite）
   --help          显示本帮助说明
 
@@ -289,7 +289,7 @@ function sendJsonResponse(res, status, payload, extraHeaders = {}) {
 
 export async function startDemoWebHost({
   host = '127.0.0.1',
-  port = 3006,
+  port = 3008,
   dbPath = DEFAULT_DB_PATH,
   ownerId = 'demo-web-owner',
   internalToken: injectedInternalToken = null,
@@ -669,7 +669,7 @@ export async function main(args = [], {
       || (typeof env.AGENT_SERVER_PORT === 'string' && env.AGENT_SERVER_PORT.trim())
       || null;
     const port = parsed.options.port
-      ?? (rawEnvPort && /^[0-9]+$/.test(rawEnvPort) ? Number(rawEnvPort) : 3006);
+      ?? (rawEnvPort && /^[0-9]+$/.test(rawEnvPort) ? Number(rawEnvPort) : 3008);
 
     const dbPath = parsed.options.dbPath
       ?? (typeof env.AGENT_DB_PATH === 'string' && env.AGENT_DB_PATH.trim()

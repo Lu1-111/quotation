@@ -565,7 +565,7 @@ $("copyOld")?.addEventListener("click", () => copyText(currentCopyOldText));
 $("copyNew")?.addEventListener("click", () => copyText(currentCopyNewText));
 
 // 首次加载先做静态保底渲染；一旦实时会话就绪，renderLiveAnalysis 会全面接管
-renderStaticFallback();
+if (document.body.dataset.hostMode !== "workbench_debate") renderStaticFallback();
 
 /* 滚动出现 */
 const reveals = [...document.querySelectorAll(".reveal")];

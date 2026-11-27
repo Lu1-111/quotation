@@ -479,6 +479,49 @@ describe('P0-B / R-B1 旧工作台画像授权门禁', () => {
     }
   });
 
+  it('工作台主动生成使用已配置的云模型，保存设置和同步保持零云调用', async () => {
+    const harness = await startHarness();
+    const { app, base, collection, calls } = harness;
+    try {
+      const baseURL = 'https://api.example.com/v1';
+      const saved = await json(await post(base, '/api/settings', {
+        baseURL,
+        modelName: 'cloud-model-x',
+        apiKey: 'sk-synthetic-cloud-key',
+      }));
+      assert.equal(saved.status, 200);
+      assert.equal(saved.body.data.settings.allowPersonalData, false);
+      assert.equal(app.maybeRefreshProfile('startup'), null);
+      assert.equal((await post(base, '/api/collection/sync')).status, 200);
+      await waitForSyncFinished(base);
+
+      for (const headers of [
+        { origin: 'https://other.example' },
+        { host: 'other.example', origin: 'http://other.example' },
+      ]) {
+        const denied = await json(await fetch(`${base}/api/profile/refresh`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...headers },
+          body: JSON.stringify({ useConfiguredModel: true }),
+        }));
+        assert.equal(denied.status, 403);
+        assert.equal(denied.body.error.code, 'ORIGIN_DENIED');
+      }
+      assert.equal(collection.stats.recordsReads, 0);
+      assert.equal(calls.generate.length, 0);
+
+      const manual = await json(await post(base, '/api/profile/refresh', { useConfiguredModel: true }));
+      assert.equal(manual.status, 200);
+      assert.equal(manual.body.data.state.status, 'ready');
+      assert.equal(manual.body.data.profile.snapshotId, 'snap-syn-1');
+      assert.equal(calls.generate.length, 1);
+      assert.equal(calls.generate[0].model.baseURL, baseURL);
+      assert.equal(calls.savedProfiles.length, 1);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('R-B1.5 运行中关闭设置：立即向运行中的生成器传递取消信号，且即使生成器忽略信号随后 resolve，新画像也绝不落库', async () => {
     const store = await createTempStore();
     let generatorStarted;

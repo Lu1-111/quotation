@@ -401,6 +401,7 @@
           <h2>知识与偏好画像</h2>
           <div class="pf-meta" id="pfMeta">读取中…</div>
         </div>
+        <button id="btnConnectStarfield" hidden>连接正式星图</button>
         <button id="btnRefreshProfile">重新生成</button>
       </div>
       <div id="pfBody"></div>
@@ -471,6 +472,7 @@ let accountNickname = '';
 let profile = null;
 let profileState = null;
 let profileStale = false;
+let profileGate = null;
 let ixState = null;
 let ixBusy = false;
 let ixBusyLabel = '';
@@ -624,6 +626,7 @@ function fillForm(settings) {
 async function refreshStatus() {
   try {
     status = await api('/api/status');
+    $('btnConnectStarfield').hidden = !status.starfield?.enabled;
     renderChips();
     renderServers();
     fillForm(status.settings);
@@ -818,7 +821,7 @@ async function refreshCollection() {
       fillCollection();
       refreshStatus();
       announceSync(state);
-      // 同步成功后服务端会顺手重算画像，这里跟着刷新一次。
+      // 同步后重新读取画像和快照状态。
       if (state === 'succeeded') setTimeout(loadProfile, 800);
       return;
     }
@@ -942,6 +945,7 @@ async function loadProfile() {
     profile = data.profile;
     profileState = data.state;
     profileStale = data.stale;
+    profileGate = data.gate;
     renderProfile();
   } catch { /* 画像读不到不该影响其它页 */ }
 }
@@ -952,10 +956,14 @@ async function regenerateProfile() {
   profileState = { ...(profileState ?? {}), status: 'running' };
   renderProfile();
   try {
-    const data = await api('/api/profile/refresh', { method: 'POST' });
+    const data = await api('/api/profile/refresh', {
+      method: 'POST',
+      body: { useConfiguredModel: true },
+    });
     profile = data.profile;
     profileState = data.state;
     profileStale = data.stale;
+    profileGate = data.gate;
     toast('画像已更新', 'ok');
   } catch (error) {
     toast(`画像生成失败：${error.message}`, 'err');
@@ -965,6 +973,19 @@ async function regenerateProfile() {
     renderProfile();
   }
 }
+
+$('btnConnectStarfield').addEventListener('click', async () => {
+  const button = $('btnConnectStarfield');
+  button.disabled = true;
+  try {
+    const { url } = await api('/api/starfield/connect', { method: 'POST', body: {} });
+    window.location.assign(url);
+  } catch (error) {
+    toast(error.message, 'err');
+  } finally {
+    button.disabled = false;
+  }
+});
 
 function renderProfile() {
   const meta = $('pfMeta');
@@ -980,14 +1001,17 @@ function renderProfile() {
     if (profile.model) parts.push(`模型 ${profile.model}`);
     if (profile.coverage?.records) parts.push(`覆盖 ${profile.coverage.records} 条`);
     meta.append(el('div', null, parts.join(' · ')));
-    if (profileStale) meta.append(el('div', 'hint', '画像落后于最近一次同步，后台会自动重算；也可以点「重新生成」。'));
+    if (profileStale) meta.append(el('div', 'hint', '有了新记录。点「重新生成」可以看看最近的阅读变化。'));
     if (state.status === 'error' && state.error) meta.append(el('div', 'hint', `上次生成失败：${state.error}（当前显示的是更早的画像）`));
+  }
+  if (profileGate?.isCloudModel && profileGate.targetOrigin) {
+    meta.append(el('div', 'hint', `点「重新生成」会把最多 50 条采集记录的标题、摘要和话题等发送给 ${profileGate.targetOrigin}。`));
   }
 
   body.replaceChildren();
   if (!profile) {
     const box = el('div', 'pf-card');
-    box.append(el('div', 'pf-empty', '每次同步完成后会自动生成一份画像。也可以现在点右上角「重新生成」。'));
+    box.append(el('div', 'pf-empty', '同步后点「重新生成」，看看最近读了哪些话题。'));
     body.append(box);
     return;
   }
@@ -1370,7 +1394,7 @@ function renderInteraction() {
     left.append(el('strong', null, '板块一：选择一个有待纠正的观点'));
     const subText = ixState?.profileUsed
       ? '前两项结合你的个人知识画像与知乎检索生成，第三项来自知乎热门话题（不参考个人画像）。这些观点往往包含以偏概全或归因偏误，选中其一即可开启辩驳。'
-      : '当前尚未生成个人画像（可在「采集」同步后自动生成），前两项暂按通用知识议题检索生成，第三项来自知乎热门话题。';
+      : '当前使用通用议题。你可以在「采集」同步记录，再到「画像」生成一份阅读概览。';
     left.append(el('p', null, subText));
     const right = el('div', 'ix-actions');
     const refreshBtn = el('button', ixState?.viewpoints?.length ? '' : 'primary', ixState?.viewpoints?.length ? '换一批' : '生成候选观点');
@@ -1604,7 +1628,9 @@ await refreshCollection();
 if (col?.status?.latestSnapshot) loadRecords();
 renderDelivery();
 loadProfile();
-if (location.pathname === '/interaction' || location.hash === '#interaction') {
+if (new URLSearchParams(location.search).has('connect-starfield')) {
+  showPage('profile');
+} else if (location.pathname === '/interaction' || location.hash === '#interaction') {
   showPage('interaction');
 } else {
   input.focus();

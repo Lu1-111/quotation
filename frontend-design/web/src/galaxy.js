@@ -124,9 +124,9 @@ function layout(sourceNodes) {
 
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i];
-    const c = nodes.length <= 6
+    const c = n.center ?? (nodes.length <= 6
       ? { x: (i - (nodes.length - 1) / 2) * 140, y: (n.d || 0) * 110 - 40, z: (i % 2 === 0 ? 1 : -1) * 55 }
-      : (CENTERS[n.cluster] || { x: 0, y: 0, z: 0 });
+      : (CENTERS[n.cluster] || { x: 0, y: 0, z: 0 }));
     const rng = mulberry32(hashString(n.id));
     const angle = rng() * TAU;
     const depth = (n.d || 0) * 34 + rng() * 46 + 18;
@@ -190,8 +190,8 @@ function layout(sourceNodes) {
 
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
-      const c = CENTERS[n.cluster] || { x: 0, y: 0, z: 0 };
-      if (nodes.length > 6) {
+      const c = n.center ?? CENTERS[n.cluster] ?? { x: 0, y: 0, z: 0 };
+      if (n.center || nodes.length > 6) {
         fx[i] += (c.x - n.pos.x) * 0.0026;
         fy[i] += (c.y - n.pos.y) * 0.0026;
         fz[i] += (c.z - n.pos.z) * 0.0026;
@@ -243,7 +243,7 @@ function layout(sourceNodes) {
 
   const clusterCenters = {};
   for (const n of nodes) {
-    const c = (clusterCenters[n.cluster] ||= { x: 0, y: 0, z: 0, count: 0 });
+    const c = (clusterCenters[n.domainIndex ?? n.cluster] ||= { x: 0, y: 0, z: 0, count: 0, domain: n.domain });
     c.x += n.pos.x;
     c.y += n.pos.y;
     c.z += n.pos.z;
@@ -396,6 +396,8 @@ export function createGalaxy({
   let nodeById = new Map();
   let isLiveMode = false;
   let isPublicMode = false;
+  let knowledgeSources = null;
+  const pointSources = document.getElementById("knowledgeSources");
   let currentGraphVersion = 0;
   let boundFocusNodeId = null;
   let evidenceMap = new Map();
@@ -459,6 +461,7 @@ export function createGalaxy({
   function rebuildGraphState(sourceNodes, options = {}) {
     isLiveMode = Boolean(options.live);
     isPublicMode = Boolean(options.publicMode);
+    knowledgeSources = options.knowledgeSources ?? null;
     publicEdges = Array.isArray(options.edges) ? options.edges.slice() : [];
     currentGraphVersion = Number.isInteger(options.graphVersion) ? options.graphVersion : 0;
     boundFocusNodeId = options.boundFocusNodeId ?? null;
@@ -506,7 +509,9 @@ export function createGalaxy({
     }
 
     if (galaxyUserEl) {
-      if (isPublicMode) {
+      if (knowledgeSources) {
+        galaxyUserEl.textContent = `你的知识星图 · ${nodes.length} 个知识点 · v${currentGraphVersion}`;
+      } else if (isPublicMode) {
         const evidenceCount = nodes.filter((n) => n.kind !== "claim").length;
         galaxyUserEl.textContent = evidenceCount > 0
           ? `本次讨论 · ${evidenceCount} 条依据`
@@ -522,12 +527,15 @@ export function createGalaxy({
       galaxyEmptyEl.dataset.graphVersion = String(currentGraphVersion);
       const emptyTitleEl = galaxyEmptyEl.querySelector(".galaxy-empty-title");
       const emptyDescEl = galaxyEmptyEl.querySelector(".galaxy-empty-desc");
-      if (emptyTitleEl) {
+      if (knowledgeSources) {
+        emptyTitleEl.textContent = "你的星图正等第一颗星";
+        emptyDescEl.textContent = "更新工作台画像，或走完一场交锋，能核对的知识会留在这里。";
+      } else if (emptyTitleEl) {
         emptyTitleEl.textContent = isPublicMode
           ? "这里还在等你的一句话"
           : `当前已确认图为空（v${currentGraphVersion}）`;
       }
-      if (emptyDescEl) {
+      if (emptyDescEl && !knowledgeSources) {
         emptyDescEl.textContent = isPublicMode
           ? "回到对话里写下一句想说的话，找到的依据和关系就会慢慢点亮这片星图。"
           : "返回工作台输入句子并补充本人亲身事实后，已确认节点和支撑连线将实时呈现在星图中。";
@@ -542,7 +550,7 @@ export function createGalaxy({
   }
 
   // 默认先载入静态星图；一旦接入 /v1 实况会话，cover.js 会调用 setGraphData 同步同版图
-  rebuildGraphState(staticGraph, { live: false, graphVersion: 0 });
+  if (document.body.dataset.hostMode !== "workbench_debate") rebuildGraphState(staticGraph, { live: false, graphVersion: 0 });
 
   const ease = (p) => p * p * (3 - 2 * p);
   const progressSince = (start, now) => clamp((now - start) / collapseDuration(), 0, 1);
@@ -700,7 +708,7 @@ export function createGalaxy({
     for (const [cid, c] of Object.entries(clusterCenters)) {
       const p = project(c.x * scaleB, c.y * scaleB, c.z * scaleB);
       if (!p) continue;
-      const color = CLUSTERS[cid]?.color || [255, 210, 122];
+      const color = CLUSTERS[(Number(cid) - 1) % 4 + 1]?.color || [255, 210, 122];
       const local = 0.5 + 0.5 * Math.sin(t * 0.6 + Number(cid) * 1.7);
       const k = 0.56 + 0.44 * (0.6 * local + 0.4 * breath);
       const r = clamp(300 * p.scale, 60, H * 0.9) * (0.94 + 0.06 * breath);
@@ -712,6 +720,12 @@ export function createGalaxy({
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, TAU);
       ctx.fill();
+      if (knowledgeSources && c.domain) {
+        ctx.font = '12px "PingFang SC","Microsoft YaHei",sans-serif';
+        ctx.textAlign = "center";
+        ctx.fillStyle = `rgba(${color.join(",")},.72)`;
+        ctx.fillText(c.domain, p.x, p.y - 22, 120);
+      }
     }
 
     const core = project(0, 0, 0);
@@ -1009,7 +1023,7 @@ export function createGalaxy({
       ctx.globalAlpha = glowA;
       const sprite = isPublicMode
         ? (n.kind === "claim" ? sprites.gold : (sprites[n.relation] || sprites.unknown))
-        : (sprites[n.cluster] || sprites.white);
+        : (knowledgeSources && n.kind === "verified" ? sprites.gold : sprites[n.cluster] || sprites.white);
       ctx.drawImage(sprite, item.x - glowSize, item.y - glowSize, glowSize * 2, glowSize * 2);
 
       if ((isPublicMode && n.kind === "claim") || (!isPublicMode && (n.S >= 10 || (isLiveMode && n.S >= 1)))) {
@@ -1040,9 +1054,10 @@ export function createGalaxy({
         ctx.stroke();
       }
 
+      const labelAtRest = knowledgeSources ? nodes.length <= (W > 640 ? 12 : 5) : isLiveMode;
       const showLabel =
         !item.absorption && !item.returning
-        && (steady || isLiveMode || (n.S >= 10 && W > 640));
+        && (steady || labelAtRest || (n.S >= 10 && W > 640));
       if (showLabel) {
         ctx.font = '11px "PingFang SC","Microsoft YaHei",sans-serif';
         ctx.textAlign = "center";
@@ -1051,8 +1066,9 @@ export function createGalaxy({
           : `rgba(232,236,244,${(isLiveMode ? 0.78 : 0.4 * alpha).toFixed(3)})`;
         const labelText = isPublicMode
           ? (n.author ? `${n.author} · ${n.relationLabel || "依据"}` : n.name)
-          : (isLiveMode ? `${n.name} (${n.id})` : n.name);
-        ctx.fillText(labelText, item.x, item.y + r + 14);
+          : (isLiveMode && !knowledgeSources ? `${n.name} (${n.id})` : n.name);
+        const label = knowledgeSources && labelText.length > 14 ? labelText.slice(0, 14) + "…" : labelText;
+        ctx.fillText(label, item.x, item.y + r + 14);
       }
     }
     ctx.globalAlpha = 1;
@@ -1115,6 +1131,19 @@ export function createGalaxy({
   function selectNode(n) {
     selected = n;
     card.hidden = false;
+    if (pointSources) { pointSources.hidden = true; pointSources.replaceChildren(); }
+    if (knowledgeSources) {
+      cardCluster.textContent = n.domain;
+      cardName.textContent = n.name;
+      cardText.textContent = n.text;
+      cardMeta.textContent = n.kind === "verified" ? "交锋中核验过" : "从工作台阅读画像点亮";
+      for (const button of [focusButton, collapseButton, rewindButton, locateCitationButton, cardNodeIdEl, cardEvidenceEl]) {
+        if (button) button.hidden = true;
+      }
+      const refs = knowledgeSources(n.sources);
+      if (refs && pointSources) { pointSources.append(refs); pointSources.hidden = false; }
+      return;
+    }
 
     if (isPublicMode) {
       const evId = n.evidenceId || n.evidenceIds?.[0] || null;
@@ -1400,6 +1429,22 @@ export function createGalaxy({
     rebuildGraphState(liveNodes, { live: true, publicMode: false, ...options });
   }
 
+  function setKnowledgeMap(map, sourceDetails) {
+    // 同一领域的星点围绕同一中心，每个领域独立定位，四种既有星云颜色循环使用。
+    const domains = map.domains.filter((domain) => domain.points.length);
+    const nodes = domains.flatMap((domain, index) => {
+      const angle = index * Math.PI * (3 - Math.sqrt(5));
+      const y = 1 - 2 * (index + 0.5) / domains.length;
+      const radius = Math.sqrt(1 - y * y) * 240;
+      const center = { x: radius * Math.cos(angle), y: 210 * y, z: radius * Math.sin(angle) };
+      return domain.points.map((point) => ({
+        ...point, name: point.title, text: point.description || "", domain: domain.name,
+        cluster: (index % 4) + 1, domainIndex: index + 1, center,
+      }));
+    });
+    rebuildGraphState(nodes, { live: true, knowledgeSources: sourceDetails, graphVersion: map.version });
+  }
+
   function setPublicGraphData(publicAnalysis, options = {}) {
     const rawNodes = Array.isArray(publicAnalysis?.nodes) ? publicAnalysis.nodes : [];
     const rawEdges = Array.isArray(publicAnalysis?.edges) ? publicAnalysis.edges : [];
@@ -1495,6 +1540,7 @@ export function createGalaxy({
     reset,
     setGraphData,
     setPublicGraphData,
+    setKnowledgeMap,
     selectNodeById,
     getNodes: () => nodes.slice(),
   };

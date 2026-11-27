@@ -16,7 +16,7 @@ Schema：[http-api-v1.schema.json](schemas/http-api-v1.schema.json)（JSON Schem
   - 跨主体访问他人会话或事件流：`403 SESSION_FORBIDDEN`
   - `demo` 与 `real` 模式混用：`403 DATA_MODE_MISMATCH`（默认数据库亦按 `sessions-demo.sqlite` 与 `sessions-real.sqlite` 物理隔离）
 - **同源合成宿主（P1-C，`cd agent && npm run serve:demo:web`）**：
-  - 入口为 `agent/demo-web-host.mjs`，默认监听回环地址 `127.0.0.1:3006`，在单一来源下同时托管 `frontend-design/web/` 正式星图页面与 `/v1/*` 后端接口，使用独立 SQLite（默认 `.data/sessions-demo-web.sqlite`）与合成材料，零外部凭证可运行。
+  - 入口为 `agent/demo-web-host.mjs`，默认监听回环地址 `127.0.0.1:3008`，在单一来源下同时托管 `frontend-design/web/` 正式星图页面与 `/v1/*` 后端接口，使用独立 SQLite（默认 `.data/sessions-demo-web.sqlite`）与合成材料，零外部凭证可运行。
   - 宿主在服务端内存管理内部 Bearer，页面访问 `/`、`index.html` 或调用 `POST /api/host/session` 时签发不透明的 `HttpOnly; SameSite=Strict; Path=/` 同源会话 Cookie，仅代理允许的浏览器 `/v1` 路由（`POST /v1/sessions`、`GET /v1/sessions/:id`、`POST /v1/sessions/:id/turns`、`GET /v1/sessions/:id/turns/:turnId/events`、`POST /v1/sessions/:id/turns/:turnId/cancel`），并额外校验 `Sec-Fetch-Site`；内部 Bearer 绝不下发至浏览器。
   - 显式携带 `Authorization: Bearer <token>` 的直接 API 请求继续保持兼容，不依赖浏览器 Cookie。
 - 会话级个人材料开关 `usePersonalMaterials` 持久化与恢复：
@@ -139,3 +139,21 @@ turn.started → focus.selected → stage.changed → [evidence.verified] → te
 **归属隔离与原子提交约束**：
 - **公开证据与个人图严格分离**：`publicAnalysis` 中的全部公开检索出处与证据节点始终保持 `attribution: "other_author"`，属于本次公开讨论；绝不自动写入个人已确认图 `confirmedGraph`（`confirmedGraph` 仅承载经本人表达或本人确认的 `attribution: "self"` 节点，承重百分比亦仅用于有足够结构的已确认个人图）。
 - **与 `graphVersion` 原子提交**：`publicAnalysis` 随同一轮次的 `graphVersion` 在服务端事务内原子落库，并由同一份 `GET /v1/sessions/:id` 快照同步更新星图与对话卡片；主动取消、模型/检索失败或快照同步延迟期间，界面维持上一完整已提交版本，绝不出现回复与星图混版。
+
+## 工作台配对与正式观点交锋
+
+启用 `npm run serve:workbench:starfield` 时，`3006` 在原星球封面和三维星图中使用工作台配对会话。旧入口 `18775` 共用服务、账号与数据库，两个端口分别校验同源请求；公开对话宿主的 API 保持原契约。
+
+| 方法与路径 | 行为 |
+| --- | --- |
+| 工作台 `POST /api/starfield/connect` | 检查在用账号、授权、快照和画像，返回一次性正式星图链接 |
+| `POST /api/host/session` | 以 `{ pairCode }` 建立已配对会话，省略时查询连接状态。返回 `resumeSessionId`，仅在当前账号最近一局尚未结束时有值，用于跨端口恢复 |
+| `POST /v1/debate/topics` | 返回三个观点；`{ refresh: true }` 换一批 |
+| `POST /v1/sessions` | 以 `{ topicId }` 创建一局并锁定画像版本 |
+| `POST /v1/sessions/:id/turns` | 沿用 `clientRequestId` 和 `baseGraphVersion`。以 `action.type=open_debate` 开首轮，或以 `action={ type: "choose_debate_option", roundId, optionId }` 提交选择 |
+| `GET /v1/sessions/:id` | 查询 `debate`、当前回合、进度、结算与最近一次轮次状态 |
+| `GET /v1/sessions/:id/turns/:turnId/events` | 推送实时阶段、对手语句和终态；支持 `Last-Event-ID` |
+| `POST /v1/sessions/:id/turns/:turnId/cancel` | 取消正在生成的操作，保留此前提交 |
+| `GET /v1/knowledge-map` | 返回领域、已接触或核验的星点、出处与入图待处理状态 |
+
+星图接口采用工作台账号绑定，不把模型或采集凭证交给浏览器。对局运行只消费自己的状态，知识星图只在配对初始化与结算后改变。

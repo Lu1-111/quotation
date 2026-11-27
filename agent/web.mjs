@@ -19,7 +19,7 @@ import { createModel } from './agent.mjs';
 import { buildSystemPrompt } from './prompt.mjs';
 import { generateProfile, isStale, profilePromptBlock, PROFILE_RECORD_LIMIT, PROFILE_TIMEOUT_MS } from './profile.mjs';
 import { createInteractionController } from './interaction.mjs';
-import { evaluateLegacyProfileGate, evaluateLegacyProfileOutboundPolicy } from './material-policy.mjs';
+import { evaluateLegacyProfileGate, evaluateLegacyProfileOutboundPolicy, isLoopbackHost } from './material-policy.mjs';
 
 const AGENT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const UI_FILE = path.join(AGENT_DIR, 'public', 'index.html');
@@ -231,6 +231,7 @@ export function createWebServer({
   interaction: injectedInteraction = null,
   generateInteractionText,
   syncPollMs = 1500,
+  starfieldBridge = null,
 } = {}) {
   if (typeof loadConfig !== 'function' || typeof describeConfig !== 'function' || typeof createAgent !== 'function') {
     throw new TypeError('createWebServer 需要 loadConfig、describeConfig、createAgent。');
@@ -302,8 +303,7 @@ export function createWebServer({
     return cfg?.allowPersonalData === true;
   }
 
-  // 统一画像授权门禁：与新版 /v1 共用 material-policy.mjs 的个人材料与模型端点位置判断。
-  function evaluateProfileGate() {
+  function evaluateProfileGate(useConfiguredModel = false) {
     const { config: cfg, error: configError } = safeCurrentConfig();
     const allowPersonalData = isPersonalDataAllowed(cfg);
     const baseURL = settings.baseURL || cfg?.model?.baseURL || null;
@@ -311,6 +311,7 @@ export function createWebServer({
       allowPersonalData,
       modelConfig: cfg?.model ?? null,
       baseURL,
+      useConfiguredModel,
     });
     return { decision, config: cfg, configError };
   }
@@ -409,7 +410,7 @@ export function createWebServer({
         } else {
           markSyncFinished(job);
           stopSyncLoop();
-          // 每次同步成功就在后台重算画像，保证随时都有一份可参考的。
+          // 同步后为已授权的本机模型刷新画像。
           if (job?.state === 'succeeded') maybeRefreshProfile('sync');
         }
       } catch (error) {
@@ -452,6 +453,44 @@ export function createWebServer({
     return { records: records.slice(0, PROFILE_RECORD_LIMIT), counts, snapshotId, receivedAt };
   }
 
+  function collectionOwner() {
+    return collection?.store?.accountKey?.(collection.userId) ?? null;
+  }
+
+  async function getStarfieldIdentity() {
+    if (!collection || collection.status().demo) return null;
+    const context = await collection.localContext();
+    const local = context.local ?? context;
+    return local.consented && local.bound ? collectionOwner() : null;
+  }
+
+  async function getStarfieldMaterials(owner) {
+    if (!owner || await getStarfieldIdentity() !== owner) {
+      throw Object.assign(new AgentError('LOGIN_REQUIRED', '先在采集页登录知乎并授权。'), { httpStatus: 401 });
+    }
+    if (!collection.status().latestSnapshot) {
+      throw new AgentError('NO_COLLECTION_RECORDS', '先同步一次知乎记录。', 3);
+    }
+    if (!profile?.snapshotId) {
+      throw new AgentError('PROFILE_REQUIRED', '先在画像页点「重新生成」。', 3);
+    }
+    const records = [];
+    for (let offset = 0; offset < PROFILE_RECORD_LIMIT;) {
+      let page;
+      try {
+        page = collection.store.profilePage(collection.userId, {
+          snapshotId: profile.snapshotId, offset, limit: 20, summaryMaxChars: 0, bodyMaxChars: 0,
+        });
+      } catch {
+        throw new AgentError('PROFILE_REQUIRED', '当前画像的快照已不可用，请在工作台重新生成。', 3);
+      }
+      records.push(...page.records);
+      if (!page.page.hasMore) break;
+      offset = page.page.nextOffset;
+    }
+    return { snapshotId: profile.snapshotId, profile, records: records.slice(0, PROFILE_RECORD_LIMIT) };
+  }
+
   function awaitWithAbort(promise, signal, toError) {
     // 若上游忽略取消/超时信号并在之后才 reject，吸收该延后异常，避免未处理 Promise 拒绝。
     promise.catch(() => {});
@@ -474,9 +513,9 @@ export function createWebServer({
     });
   }
 
-  // 生成画像：手动与自动入口统一先过门禁；失败或运行中被取消时保留上一份，绝不落库未授权结果。
-  async function refreshProfile(reason = 'manual') {
-    const { decision, config: cfg, configError } = evaluateProfileGate();
+  // 生成失败或任务取消时保留上一份画像。
+  async function refreshProfile(reason = 'manual', { useConfiguredModel = false } = {}) {
+    const { decision, config: cfg, configError } = evaluateProfileGate(useConfiguredModel);
     if (!decision.allowed) {
       // 未授权被拒时不损坏既有合法状态（ready / idle），但保留清晰错误提示供前端展示。
       profileState.error = decision.message;
@@ -494,7 +533,7 @@ export function createWebServer({
 
     const generation = ++profileGeneration;
     const runController = new AbortController();
-    const runSlot = { generation, controller: runController, promise: null };
+    const runSlot = { generation, controller: runController, promise: null, useConfiguredModel };
     activeProfileRun = runSlot;
 
     const executeRun = async () => {
@@ -511,7 +550,7 @@ export function createWebServer({
           emptyError.httpStatus = 409;
           throw emptyError;
         }
-        const gateBeforeModel = evaluateProfileGate();
+        const gateBeforeModel = evaluateProfileGate(useConfiguredModel);
         if (generation !== profileGeneration || runController.signal.aborted || !gateBeforeModel.decision.allowed) {
           throw !gateBeforeModel.decision.allowed
             ? profileGateError(gateBeforeModel.decision)
@@ -528,7 +567,7 @@ export function createWebServer({
           if (timeoutSignal.aborted && !runController.signal.aborted) {
             return Object.assign(new AgentError('TIMEOUT', '画像生成超时，已中止。', 1), { httpStatus: 504 });
           }
-          const latestGate = evaluateProfileGate();
+          const latestGate = evaluateProfileGate(useConfiguredModel);
           if (!latestGate.decision.allowed) return profileGateError(latestGate.decision);
           return Object.assign(new AgentError('CANCELLED', '画像生成已取消，未保存任何结果。', 130), { httpStatus: 499 });
         };
@@ -546,7 +585,7 @@ export function createWebServer({
         const next = await awaitWithAbort(genPromise, runSignal, toAbortError);
 
         // 即使底层生成器忽略取消/超时信号并 resolve，落库前仍再次复核代际、超时与最新门禁状态，确保绝不落库。
-        const gateBeforeCommit = evaluateProfileGate();
+        const gateBeforeCommit = evaluateProfileGate(useConfiguredModel);
         if (generation !== profileGeneration || runController.signal.aborted || timeoutSignal.aborted || !gateBeforeCommit.decision.allowed) {
           if (timeoutSignal.aborted && !runController.signal.aborted) {
             throw Object.assign(new AgentError('TIMEOUT', '画像生成超时，结果不会保存。', 1), { httpStatus: 504 });
@@ -677,6 +716,7 @@ export function createWebServer({
     data.collection = { available: Boolean(collection), error: collection ? null : (collectionError ?? '采集组件未启动。') };
     // 采集服务已接管时，界面不再要求手填采集凭证。
     data.collectionAutoToken = Boolean(collection && collectionToken);
+    if (starfieldBridge) data.starfield = { enabled: true };
     return data;
   }
 
@@ -768,15 +808,16 @@ export function createWebServer({
       if (!Object.hasOwn(incoming, key)) next[key] = settings[key];
     }
     assertUsableSettings(next, incoming);
+    const modelChanged = ['baseURL', 'modelName', 'apiKey'].some((key) => next[key] !== settings[key]);
+    const personalDataRevoked = settings.allowPersonalData && !next.allowPersonalData;
     settings = next;
     personalDataExplicit = true;
     config = null;
     if (!settings.allowPersonalData) {
       collectionToken = null;
     }
-    // 同步立刻复核画像门禁：关闭个人材料或切到非回环模型时，先取消运行中的画像任务再继续后续异步步骤。
-    const { decision: profileGate } = evaluateProfileGate();
-    if (!profileGate.allowed) {
+    const { decision: profileGate } = evaluateProfileGate(activeProfileRun?.useConfiguredModel);
+    if (modelChanged || personalDataRevoked || !profileGate.allowed) {
       cancelRunningProfile('settings_revoked');
     }
     if (profileState.errorCode && ['PERSONAL_DATA_DISABLED', 'CLOUD_CONSENT_REQUIRED', 'MODEL_NOT_CONFIGURED'].includes(profileState.errorCode)) {
@@ -853,6 +894,7 @@ export function createWebServer({
     }
     if (path === '/api/collection/revoke' && method === 'POST') {
       cancelRunningProfile('collection_revoked');
+      starfieldBridge?.revoke(collectionOwner());
       const result = await api.revokeConsent();
       return sendOk(response, result ?? { revoked: true });
     }
@@ -893,6 +935,7 @@ export function createWebServer({
     if (path === '/api/collection/clear' && method === 'POST') {
       stopSyncLoop();
       cancelRunningProfile('collection_cleared');
+      starfieldBridge?.revoke(collectionOwner());
       sync.jobId = null;
       sync.state = null;
       sync.error = null;
@@ -1009,7 +1052,16 @@ export function createWebServer({
     }
 
     if (method === 'GET' && url.pathname === '/api/profile') return sendOk(response, profilePayload());
+    if (method === 'POST' && url.pathname === '/api/starfield/connect' && starfieldBridge) {
+      if (!isLoopbackHost(request.headers.host?.replace(/:\d+$/, ''))) {
+        sendJson(response, 403, errorEnvelope({ code: 'ORIGIN_DENIED', message: '请在本机工作台连接星图。' }));
+        return;
+      }
+      await readJson(request);
+      return sendOk(response, await starfieldBridge.issuePair());
+    }
     if (method === 'POST' && url.pathname === '/api/secrets/clear') {
+      if (settings.apiKey) cancelRunningProfile('settings_revoked');
       for (const key of SECRET_KEYS) settings[key] = '';
       await resetAgent();
       await saveSecrets(settings);
@@ -1017,7 +1069,13 @@ export function createWebServer({
     }
     if (method === 'POST' && url.pathname === '/api/profile/refresh') {
       try {
-        await refreshProfile('manual');
+        const body = await readJson(request);
+        const useConfiguredModel = body.useConfiguredModel === true;
+        if (useConfiguredModel && !isLoopbackHost(request.headers.host?.replace(/:\d+$/, ''))) {
+          sendJson(response, 403, errorEnvelope({ code: 'ORIGIN_DENIED', message: '请从本机工作台生成画像。' }));
+          return;
+        }
+        await refreshProfile('manual', { useConfiguredModel });
         return sendOk(response, profilePayload());
       } catch (error) {
         const safe = asSafeError(error);
@@ -1059,6 +1117,9 @@ export function createWebServer({
     refreshProfile,
     maybeRefreshProfile,
     getProfile: () => profilePayload(),
+    getConfig: currentConfig,
+    getStarfieldIdentity,
+    getStarfieldMaterials,
     interaction,
     async close() {
       stopSyncLoop();
@@ -1155,6 +1216,12 @@ function parsePort(argv) {
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
   const argv = process.argv.slice(2);
   const port = parsePort(argv);
+  const enableStarfield = argv.includes('--with-starfield');
+  const starfieldIndex = argv.indexOf('--starfield-port');
+  const starfieldPort = Number((starfieldIndex >= 0 ? argv[starfieldIndex + 1] : process.env.AGENT_STARFIELD_PORT) ?? 3006);
+  if (enableStarfield && (!Number.isSafeInteger(starfieldPort) || starfieldPort < 1 || starfieldPort > 65535 || starfieldPort === port)) {
+    throw new AgentError('INVALID_ARGUMENTS', '正式星图需要一个与工作台不同的有效端口。', 2);
+  }
   const collectionDemo = argv.includes('--collection-demo');
   const collectionPort = Number(process.env.COLLECTION_PORT || 3005);
   const [{ loadConfig, describeConfig }, { createAgent }, { connectServers }] = await Promise.all([
@@ -1186,6 +1253,7 @@ if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === imp
     process.stderr.write(`采集组件启动失败：${collectionError}\n`);
   }
 
+  let starfield = null;
   const app = createWebServer({
     env: process.env,
     settings: { ...persisted, ...storedSecrets },
@@ -1199,21 +1267,42 @@ if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === imp
     collectionError,
     profile: await readStoredProfile(),
     saveProfile: writeStoredProfile,
+    starfieldBridge: enableStarfield ? {
+      issuePair: () => {
+        if (!starfield) throw new AgentError('WORKBENCH_UNAVAILABLE', '正式星图正在启动，请稍后再试。', 1);
+        return starfield.issuePair();
+      },
+      revoke: (owner) => starfield?.revoke(owner),
+    } : null,
   });
-  app.server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-      process.stderr.write(`端口 ${port} 已被占用，可换一个：node web.mjs --port 3211\n`);
-    } else {
-      process.stderr.write(`启动失败：${error.message}\n`);
+  try {
+    // 先占用工作台入口，重复启动者不会提前恢复已经在另一进程运行的对局。
+    await new Promise((done, reject) => {
+      app.server.once('error', reject);
+      app.server.listen(port, DEFAULT_HOST, done);
+    });
+    if (enableStarfield) {
+      const { startWorkbenchStarfield } = await import('./workbench-starfield.mjs');
+      starfield = await startWorkbenchStarfield({
+        port: starfieldPort, workbenchPort: port,
+        compatibilityPort: starfieldPort === 3006 && port !== 18775 && collectionPort !== 18775 ? 18775 : undefined,
+        getConfig: app.getConfig, getIdentity: app.getStarfieldIdentity, getMaterials: app.getStarfieldMaterials,
+      });
+      process.stdout.write(`正式星图已启动：${starfield.origin}/\n`);
+      if (starfield.compatibilityOrigin) process.stdout.write(`旧星图地址也可使用：${starfield.compatibilityOrigin}/\n`);
     }
-    process.exitCode = 1;
-  });
-  app.server.listen(port, DEFAULT_HOST, () => {
-    process.stdout.write(`图形界面已启动：http://${DEFAULT_HOST}:${port}/（pid ${process.pid}）\n`);
-    process.stderr.write('配置在页面里填写；Ctrl+C 停止。\n');
-    // 启动时补一次画像：没有画像、或画像落后于当前快照就后台生成，不阻塞启动。
-    app.maybeRefreshProfile?.('startup');
-  });
+  } catch (error) {
+    const message = error.code === 'EADDRINUSE' ? `端口 ${error.port} 已被占用。` : (error.code ?? 'START_FAILED');
+    process.stderr.write(`启动失败：${message}\n`);
+    await starfield?.close();
+    await app.close();
+    await collection?.close();
+    shutdown.abort();
+    process.exit(1);
+  }
+  process.stdout.write(`图形界面已启动：http://${DEFAULT_HOST}:${port}/（pid ${process.pid}）\n`);
+  process.stderr.write('配置在页面里填写；Ctrl+C 停止。\n');
+  app.maybeRefreshProfile?.('startup');
 
   // 进程级兜底：被外部杀掉时没有堆栈可查，至少把两类异常与退出码打到 stderr，
   // 下次能从日志里区分"自己崩了"和"被宿主回收"。
@@ -1227,9 +1316,10 @@ if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === imp
     try { process.stderr.write(`进程退出，code=${code}\n`); } catch { /* 已无法写出 */ }
   });
   const stop = async () => {
-    shutdown.abort();
+    await starfield?.close();
     await app.close();
     try { await collection?.close(); } catch { /* 已关闭 */ }
+    shutdown.abort();
     process.exit(0);
   };
   process.once('SIGINT', stop);

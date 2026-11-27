@@ -46,7 +46,7 @@ node -v   # v24.22.3
 (cd frontend-design && node web/src/verify/verify-p0.mjs && node web/src/verify/verify-p1.mjs && node web/src/verify/verify-p2.mjs)
 # P0 10/10、P1 15/15、P2 27/27 全部通过
 
-# 4. 启动本机合成演示 HTTP/SSE 服务（监听 127.0.0.1:3006，物理隔离于 .data/sessions-demo.sqlite）
+# 4. 启动本机合成演示 HTTP/SSE 服务（当前默认监听 127.0.0.1:3009，物理隔离于 .data/sessions-demo.sqlite）
 (cd agent && AGENT_SERVER_TOKEN=local-dev-token-demo npm run serve:demo)
 ```
 
@@ -105,7 +105,7 @@ node -v   # v24.22.3
   ```bash
   export PATH="/home/lululu/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH"
   cd agent && npm run serve:demo:web
-  # 默认监听 http://127.0.0.1:3006/（支持 --host / --port / --db / --help）
+  # 当前默认监听 http://127.0.0.1:3008/（支持 --host / --port / --db / --help）
   # 同源托管 frontend-design/web/ 正式星图页面与 /v1 HTTP/SSE 接口；
   # 内部管理 Bearer，页面通过 HttpOnly SameSite=Strict 同源会话 Cookie 访问允许接口，并保持既有 Bearer API 兼容；
   # 默认使用独立数据库 .data/sessions-demo-web.sqlite 与合成上游，零外部凭证开箱可体验。

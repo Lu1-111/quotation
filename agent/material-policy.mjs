@@ -124,15 +124,18 @@ export function isLocalModelEndpoint(baseURL, modelConfig = null) {
 }
 
 /**
- * 旧工作台用户画像门禁（P0-B）：
- * - 手动刷新与全部自动触发（启动、同步完成、保存设置）统一走本门禁。
- * - 关闭个人材料授权时，立即拒绝（禁止读取记录、禁止调用模型）。
- * - 本轮旧工作台仅开放已授权的本机回环模型；非回环模型返回明确的未授权状态。
+ * 页面上的「重新生成」显式选择当前模型。自动刷新和既有 API 请求
+ * 继续要求开启个人材料且使用本机回环模型。
  */
-export function evaluateLegacyProfileGate({ allowPersonalData = false, modelConfig = null, baseURL = null } = {}) {
+export function evaluateLegacyProfileGate({
+  allowPersonalData = false,
+  modelConfig = null,
+  baseURL = null,
+  useConfiguredModel = false,
+} = {}) {
   const endpoint = classifyModelEndpoint(baseURL ?? modelConfig?.baseURL ?? null, modelConfig);
 
-  if (allowPersonalData !== true) {
+  if (!useConfiguredModel && allowPersonalData !== true) {
     return {
       allowed: false,
       code: 'PERSONAL_DATA_DISABLED',
@@ -142,7 +145,7 @@ export function evaluateLegacyProfileGate({ allowPersonalData = false, modelConf
     };
   }
 
-  if (!modelConfig?.ready) {
+  if (!modelConfig?.ready || (useConfiguredModel && !endpoint.targetOrigin)) {
     return {
       allowed: false,
       code: 'MODEL_NOT_CONFIGURED',
@@ -152,7 +155,7 @@ export function evaluateLegacyProfileGate({ allowPersonalData = false, modelConf
     };
   }
 
-  if (endpoint.isCloudModel || !endpoint.isLocalModel) {
+  if (!useConfiguredModel && !endpoint.isLocalModel) {
     return {
       allowed: false,
       code: 'CLOUD_CONSENT_REQUIRED',

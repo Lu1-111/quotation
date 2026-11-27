@@ -18,7 +18,7 @@ const HELP = `「报价」后端 HTTP/SSE 服务启动器（Node.js 24+）
 
 选项：
   --host <host>             监听主机地址（默认 127.0.0.1）
-  --port <port>             监听端口，0 表示随机空闲端口（默认 3006）
+  --port <port>             监听端口，0 表示随机空闲端口（默认 3009）
   --demo                    使用合成演示模式（默认数据文件 .data/sessions-demo.sqlite）
   --allow-personal-data     允许在授权前提下连接个人采集只读入口
   --db <path>               指定 SQLite 会话库路径（默认按 demo/real 物理隔离）
@@ -219,7 +219,7 @@ export async function startQuotationService(args = [], {
 
   const host = options.host ?? (typeof env.AGENT_SERVER_HOST === 'string' && env.AGENT_SERVER_HOST.trim() ? env.AGENT_SERVER_HOST.trim() : '127.0.0.1');
   const rawEnvPort = typeof env.AGENT_SERVER_PORT === 'string' && env.AGENT_SERVER_PORT.trim() ? env.AGENT_SERVER_PORT.trim() : null;
-  const port = options.port ?? (rawEnvPort && /^[0-9]+$/.test(rawEnvPort) ? Number(rawEnvPort) : 3006);
+  const port = options.port ?? (rawEnvPort && /^[0-9]+$/.test(rawEnvPort) ? Number(rawEnvPort) : 3009);
   const dbPath = resolveDefaultDbPath(dataMode, options.db ?? env.AGENT_DB_PATH);
 
   // 1. 初始化 SQLite 会话存储

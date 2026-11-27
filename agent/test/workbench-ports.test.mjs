@@ -4,13 +4,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { startWorkbenchStarfield } from '../workbench-starfield.mjs';
+import { syntheticStarfieldOAuth, mergeTestCookies } from '../fixtures/synthetic-starfield-oauth.mjs';
 
 test('正式首页与兼容端口共用绑定、进行中的回合、进度恢复和撤回状态', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'workbench-ports-'));
   let owner = 'reader-a';
   const waiting = Promise.withResolvers();
   const release = Promise.withResolvers();
+  const oauth = syntheticStarfieldOAuth();
   const config = {
+    ...oauth.config,
     port: 0, compatibilityPort: 0, debateDb: join(dir, 'debate.sqlite'), knowledgeDb: join(dir, 'knowledge.sqlite'),
     getIdentity: () => owner,
     getMaterials: () => ({ snapshotId: 'test', records: [], profile: { generatedAt: 'v1', domains: [], topics: [] } }),
@@ -33,14 +36,26 @@ test('正式首页与兼容端口共用绑定、进行中的回合、进度恢�
   const primary = runtime.origin;
   const previous = runtime.compatibilityOrigin;
   assert.notEqual(previous, primary);
-  let cookie;
+  for (const origin of [primary, previous]) {
+    for (const entry of ['/', '/index.html']) {
+      const response = await fetch(origin + entry, { redirect: 'manual' });
+      assert.equal(response.status, 303);
+      assert.equal(new URL(response.headers.get('location'), origin).pathname, '/login');
+    }
+    for (const [path, method] of [['/v1/knowledge-map', 'GET'], ['/api/host/session', 'POST'], ['/v1/debate/topics', 'POST']]) {
+      const response = await fetch(origin + path, { method });
+      assert.equal(response.status, 401);
+      assert.equal((await response.json()).error.code, 'ZHIHU_LOGIN_REQUIRED');
+    }
+  }
+  let cookie = await oauth.login(primary, owner);
   async function request(origin, path, body, requestOrigin = origin) {
     const res = await fetch(origin + path, {
       method: body ? 'POST' : 'GET',
       headers: { connection: "close", origin: requestOrigin, ...(body ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}) },
       body: body && JSON.stringify(body),
     });
-    if (res.headers.has('set-cookie')) cookie = res.headers.get('set-cookie').split(';')[0];
+    cookie = mergeTestCookies(cookie, res);
     return res;
   }
   async function json(origin, path, body) {
@@ -79,6 +94,7 @@ test('正式首页与兼容端口共用绑定、进行中的回合、进度恢�
   assert.equal((await json(previous, path)).debate.currentRound.id, 'r1');
   owner = 'reader-b';
   assert.equal((await json(primary, '/api/host/session', {})).resumeSessionId, null);
+  cookie = await oauth.login(primary, owner);
   const otherPair = new URL((await runtime.issuePair()).url);
   const other = await json(previous, '/api/host/session', { pairCode: otherPair.hash.slice(6) });
   assert.equal(other.connected, true);

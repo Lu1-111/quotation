@@ -116,6 +116,7 @@ async function api(path, body) {
   if (payload?.ok) return payload.data;
   const error = new Error(payload?.error?.message ?? '刚才没连上，可以再试一次。');
   error.code = payload?.error?.code;
+  if (error.code === 'ZHIHU_LOGIN_REQUIRED') location.replace('/login');
   throw error;
 }
 
@@ -343,7 +344,7 @@ async function refreshKnowledge(updateView = true) {
     else knowledgeError = error.message;
   }
   if (view === 'galaxy' && updateView !== false) render();
-  return knowledgeError || !host?.connected ? null : knowledge;
+  return knowledgeError || !host ? null : knowledge;
 }
 
 async function showKnowledge(sessionId = null) {
@@ -493,7 +494,11 @@ function renderKnowledge() {
   }
   if (knowledge.pending && !knowledgeError) root.append(action('有一局知识待入图，重试', refreshKnowledge));
   root.append(action('进入三维星图', openMap, { primary: true }));
-  if (!knowledge.domains.length) return root.append(el('p', '星图还很空。可以先更新工作台画像，或完成一次交锋。', 'muted'));
+  if (!knowledge.domains.length) {
+    root.append(el('p', '星图还很空。可以先更新工作台画像，或完成一次交锋。', 'muted'));
+    if (!host.connected) root.append(workbenchLink());
+    return;
+  }
   const groups = el('div', '', 'grid constellations');
   for (const domain of knowledge.domains) {
     const group = el('article', '', 'card constellation');
@@ -519,12 +524,18 @@ function renderKnowledge() {
   root.append(groups);
 }
 
+function workbenchLink() {
+  const link = el('a', '去工作台连接', 'analysis-btn primary');
+  link.href = host?.workbenchUrl ?? 'http://127.0.0.1:3210/?connect-starfield=1';
+  return link;
+}
+
 function render() {
   coverStart.textContent = snapshot ? (snapshot.debate.settlement ? '回看这场交锋' : '继续观点交锋') : '开始观点交锋';
   debateTab.setAttribute('aria-pressed', String(view === 'debate'));
   galaxyTab.setAttribute('aria-pressed', String(view === 'galaxy'));
-  debateTab.disabled = galaxyTab.disabled = !host?.connected;
-  notice.hidden = view === 'galaxy' && host?.connected;
+  debateTab.disabled = galaxyTab.disabled = !host || connectionError;
+  notice.hidden = view === 'galaxy' && Boolean(host);
   root.replaceChildren();
   if (!host?.connected) {
     if (connectionError) {
@@ -535,10 +546,9 @@ function render() {
       root.append(el('p', '正在连接你的工作台。', 'muted'));
       return;
     }
-    const intro = hero('把工作台的阅读带进星图。', '连接以后，你可以从自己关心的话题开始交锋，也可以看看这些阅读留下了哪些知识星点。');
-    const link = el('a', '去工作台连接', 'analysis-btn primary');
-    link.href = host?.workbenchUrl ?? 'http://127.0.0.1:3210/?connect-starfield=1';
-    intro.append(link);
+    if (view === 'galaxy') { renderKnowledge(); return; }
+    const intro = hero('把工作台的阅读带进星图。', '在工作台使用同一个知乎账号，同步阅读并生成画像。点「连接正式星图」，就能从你关心的话题开始交锋。');
+    intro.append(workbenchLink());
     root.append(intro);
     return;
   }
@@ -560,10 +570,11 @@ async function openMap(pointId = null) {
   const intent = ++navigation;
   await connecting;
   if (intent !== navigation) return;
-  if (!host?.connected) { shell.enterWorkspace(); render(); return; }
+  if (!host || connectionError) { shell.enterWorkspace(); render(); return; }
   const map = await refreshKnowledge(false);
   if (intent !== navigation) return;
-  if (map) shell.openMapScene(map, sourceDetails, typeof pointId === 'string' ? pointId : null);
+  if (map) shell.openMapScene(map, sourceDetails, typeof pointId === 'string' ? pointId : null,
+    host.connected ? null : host.workbenchUrl);
   else { shell.enterWorkspace(); view = 'galaxy'; render(); }
 }
 

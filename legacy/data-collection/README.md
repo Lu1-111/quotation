@@ -1,5 +1,8 @@
 # 知乎数据采集与本地 Agent 对接
 
+正式星图可以继续使用此工作台原来登记的 `/auth/zhihu/callback`。从星图发起的登录完成后回到本机 `3006`，从旧采集页发起的登录仍回到采集页。配置与启动步骤见[正式星图说明](../../agent/README.md)。
+
+
 Agent 解析当前浏览、点赞、收藏输出前，请阅读 [OUTPUT_FORMAT.md](OUTPUT_FORMAT.md)，并参考 [JSON Schema](schemas/collection-output.schema.json) 与 [完整合成样例](examples/history.snapshot.json)。本次正式对接协议为版本 3，OAuth 补充链路的新改动暂未发布。
 
 本机网页支持选择获取知乎浏览、点赞和收藏信息，按指定规则筛选、计算权重并写入 SQLite，同时提供 JSON 导出。项目也保留了 OAuth 接入原型，可在赛事开放项目凭证后继续联调公开创作和收藏接口。

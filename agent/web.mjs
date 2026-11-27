@@ -1119,6 +1119,7 @@ export function createWebServer({
     getProfile: () => profilePayload(),
     getConfig: currentConfig,
     getStarfieldIdentity,
+    getStarfieldAccountId: (owner) => collection?.store?.accountRefForOwner?.(collection.userId, owner) ?? null,
     getStarfieldMaterials,
     interaction,
     async close() {
@@ -1287,8 +1288,10 @@ if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === imp
         port: starfieldPort, workbenchPort: port,
         compatibilityPort: starfieldPort === 3006 && port !== 18775 && collectionPort !== 18775 ? 18775 : undefined,
         getConfig: app.getConfig, getIdentity: app.getStarfieldIdentity, getMaterials: app.getStarfieldMaterials,
+        getWorkbenchAccountId: app.getStarfieldAccountId,
       });
       process.stdout.write(`正式星图已启动：${starfield.origin}/\n`);
+      if (starfield.callbackOrigin) process.stdout.write(`知乎登录回调已启动：${starfield.callbackOrigin}/auth/zhihu/callback\n`);
       if (starfield.compatibilityOrigin) process.stdout.write(`旧星图地址也可使用：${starfield.compatibilityOrigin}/\n`);
     }
   } catch (error) {

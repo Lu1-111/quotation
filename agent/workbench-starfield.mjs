@@ -12,6 +12,7 @@ import { openKnowledgeMap } from './knowledge-map.mjs';
 import { apiError, apiOk, BackendServiceError } from './protocol.mjs';
 import { INITIAL_WILLPOWER, MAX_WILLPOWER } from './quotation.mjs';
 import { createSessionStore } from './session-store.mjs';
+import { createStarfieldLogin, createZhihuLoginProvider } from './zhihu-login.mjs';
 import { createLocalAgentTools } from '../information-search/agent-tools.mjs';
 
 const frontend = fileURLToPath(new URL('../frontend-design/web', import.meta.url));
@@ -27,14 +28,14 @@ const writeJson = (res, status, payload, headers = {}) => {
 };
 const ok = (res, data, status = 200, headers) => writeJson(res, status, apiOk(data), headers);
 
-async function body(req) {
+async function body(req, form = false) {
   let raw = '';
   for await (const chunk of req) {
     raw += chunk;
     if (Buffer.byteLength(raw) > 32_768) throw error('INVALID_ARGUMENTS', '提交内容过大。', 413);
   }
   try {
-    const parsed = JSON.parse(raw || '{}');
+    const parsed = form ? Object.fromEntries(new URLSearchParams(raw)) : JSON.parse(raw || '{}');
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
     return parsed;
   } catch {
@@ -117,6 +118,8 @@ export async function startWorkbenchStarfield({
   getIdentity,
   getMaterials,
   getConfig,
+  getWorkbenchAccountId = () => null,
+  oauthProvider = createZhihuLoginProvider(),
   agents: injectedAgents,
   debateDb = resolve(dataRoot, 'workbench-debate.sqlite'),
   knowledgeDb = resolve(dataRoot, 'knowledge-starfield.sqlite'),
@@ -124,7 +127,9 @@ export async function startWorkbenchStarfield({
   const sessions = createSessionStore(debateDb, { recoverOnOpen: false });
   const knowledge = openKnowledgeMap(knowledgeDb);
   const grants = new DatabaseSync(debateDb);
-  grants.exec('CREATE TABLE IF NOT EXISTS workbench_starfield_link (token_hash TEXT PRIMARY KEY, owner_id TEXT NOT NULL, expires INTEGER NOT NULL)');
+  // 旧配对表只有工作台主体。OAuth 登录另行签发，仅新表中的配对与当前登录关联。
+  grants.exec('CREATE TABLE IF NOT EXISTS starfield_oauth_pairs (token_hash TEXT PRIMARY KEY, owner_id TEXT NOT NULL, login_hash TEXT NOT NULL, expires INTEGER NOT NULL)');
+  const login = createStarfieldLogin({ db: grants, provider: oauthProvider });
   const tickets = new Map();
   const batches = new Map();
   const busyTopics = new Map();
@@ -147,21 +152,21 @@ export async function startWorkbenchStarfield({
   }
 
   const getGrant = grants.prepare(
-    'SELECT owner_id AS owner FROM workbench_starfield_link WHERE token_hash=? AND expires>?',
+    'SELECT owner_id AS owner FROM starfield_oauth_pairs WHERE token_hash=? AND expires>? AND login_hash=?',
   );
 
-  function assertGrant({ owner, credentialHash }) {
+  function assertGrant({ owner, credentialHash, loginHash }) {
     assertOpen();
-    if (getGrant.get(credentialHash, Date.now())?.owner !== owner) throw noAccess();
+    if (!login.valid(loginHash) || getGrant.get(credentialHash, Date.now(), loginHash)?.owner !== owner) throw noAccess();
   }
 
-  async function identify(req) {
+  async function identify(req, browser) {
     const credential = linkCookie(req);
     if (!credential) throw noAccess();
     const credentialHash = hash(credential);
-    const owner = getGrant.get(credentialHash, Date.now())?.owner;
+    const owner = getGrant.get(credentialHash, Date.now(), browser.credentialHash)?.owner;
     await assertOwner(owner);
-    const grant = { owner, credentialHash };
+    const grant = { owner, credentialHash, loginHash: browser.credentialHash };
     assertGrant(grant);
     return grant;
   }
@@ -184,12 +189,14 @@ export async function startWorkbenchStarfield({
     return sessions.getSession(owner, id, { expectedDataMode: 'real' });
   }
 
-  async function runTurn(owner, snapshot, turn, selected, controller) {
+  async function runTurn(grant, snapshot, turn, selected, controller) {
+    const { owner } = grant;
     const { sessionId } = snapshot;
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(95_000)]);
     const state = snapshot.metadata.debate;
     function event(name, value) {
       signal.throwIfAborted();
+      assertGrant(grant);
       sessions.appendTurnEvent(sessionId, turn.turnId, name, value);
     }
     const progress = (stage, message) => stage === 'opponent'
@@ -226,6 +233,7 @@ export async function startWorkbenchStarfield({
           .flatMap(({ citations = [] }) => citations.map(({ evidenceId }) => evidenceId)))];
         event('evidence.verified', { roundId, evidenceIds });
       }
+      assertGrant(grant);
       const result = sessions.commitTurn(sessionId, turn.turnId, {
         intent: 'analyze_statement',
         responseText: state.currentRound?.opponent.argument ?? '',
@@ -244,7 +252,8 @@ export async function startWorkbenchStarfield({
     }
   }
 
-  function streamEvents(req, res, owner, sessionId, turnId) {
+  function streamEvents(req, res, grant, sessionId, turnId) {
+    const { owner } = grant;
     const after = Math.max(0, Number.parseInt(req.headers['last-event-id'] ?? '0', 10) || 0);
     const history = sessions.listTurnEvents(owner, sessionId, turnId, { afterSeq: after });
     res.writeHead(200, {
@@ -254,6 +263,7 @@ export async function startWorkbenchStarfield({
     let terminal = false;
     function send(event) {
       if (res.writableEnded) return;
+      if (!login.valid(grant.loginHash)) { terminal = true; res.end(); return; }
       res.write('id: ' + event.id + '\nevent: ' + event.event + '\ndata: ' + JSON.stringify(event.data) + '\n\n');
       if (event.event === 'turn.done') {
         terminal = true;
@@ -266,12 +276,17 @@ export async function startWorkbenchStarfield({
       return;
     }
     const unsubscribe = sessions.subscribeTurnEvents(sessionId, turnId, send);
-    const ping = setInterval(() => res.write(': keepalive\n\n'), 12_000);
-    streams.set(res, owner);
+    const ping = setInterval(() => {
+      if (login.valid(grant.loginHash)) res.write(': keepalive\n\n');
+      else res.end();
+    }, 12_000);
+    streams.set(res, grant);
     res.once('close', () => { clearInterval(ping); streams.delete(res); unsubscribe(); });
   }
 
   const assets = new Map([
+    ['/login', ['login.html', 'text/html']],
+    ['/src/login.css', ['src/login.css', 'text/css']], ['/src/login.js', ['src/login.js', 'text/javascript']],
     ['/', ['index.html', 'text/html']], ['/index.html', ['index.html', 'text/html']],
     ...['theme', 'cover', 'workbench-starfield'].map((name) =>
       ['/src/' + name + '.css', ['src/' + name + '.css', 'text/css']]),
@@ -280,17 +295,74 @@ export async function startWorkbenchStarfield({
     ['/src/assets/black-hole.webp', ['src/assets/black-hole.webp', 'image/webp']],
   ]);
 
+  async function pairAccount(pairCode, browser) {
+    if (typeof pairCode !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(pairCode)) throw noAccess();
+    const key = hash(pairCode);
+    const ticket = tickets.get(key);
+    if (!ticket || ticket.expires <= Date.now()) throw noAccess();
+    tickets.delete(key);
+    const version = revocationVersion;
+    await assertOwner(ticket.owner);
+    const expected = await getWorkbenchAccountId(ticket.owner);
+    if (!expected || !browser.workbenchAccountId || expected !== browser.workbenchAccountId) {
+      throw error('WORKBENCH_ACCOUNT_MISMATCH', '这次知乎登录与工作台绑定的账号未能核对，请在工作台确认账号。', 403);
+    }
+    assertPairingVersion(version);
+    const materials = await getMaterials(ticket.owner);
+    await assertOwner(ticket.owner);
+    assertPairingVersion(version);
+    if (!login.valid(browser.credentialHash)) throw noAccess();
+    knowledge.seed(ticket.owner, materials);
+    const sid = token();
+    const expires = Math.min(browser.expires, Date.now() + 30 * 24 * 3600_000);
+    grants.prepare('DELETE FROM starfield_oauth_pairs WHERE expires<=?').run(Date.now());
+    grants.prepare('INSERT INTO starfield_oauth_pairs VALUES (?, ?, ?, ?)').run(hash(sid), ticket.owner, browser.credentialHash, expires);
+    return { owner: ticket.owner, cookie: cookieName + '=' + sid + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=' + Math.max(0, Math.floor((expires - Date.now()) / 1000)) };
+  }
+
+  async function finishPair(code, browser) {
+    try { return (await pairAccount(code, browser)).cookie; }
+    catch { return null; } // 配对过期或工作台切换账号时，本次有效知乎登录仍成功，进入自有空态。
+  }
+
   async function route(req, res) {
     assertOpen();
     const method = req.method;
     const localHost = '127.0.0.1:' + req.socket.localPort;
     const localOrigin = 'http://' + localHost;
-    if (req.headers.host !== localHost
-      || (req.headers.origin && req.headers.origin !== localOrigin)
-      || req.headers['sec-fetch-site'] === 'cross-site') {
+    const url = new URL(req.url, localOrigin);
+    const { pathname } = url;
+    const external = login.registeredOrigin && new URL(login.registeredOrigin);
+    const isExternalCallback = Boolean(external) && method === 'GET'
+      && pathname === '/auth/zhihu/callback' && req.headers.host === external.host;
+    const oauthReturn = method === 'GET' && ['/auth/zhihu/callback', '/auth/zhihu/finish'].includes(pathname);
+    const isPage = ['/', '/index.html', '/login'].includes(pathname) && ['GET', 'HEAD'].includes(method);
+    if ((req.headers.host !== localHost && !isExternalCallback)
+      || (!oauthReturn && req.headers.origin && req.headers.origin !== localOrigin)
+      || (req.headers['sec-fetch-site'] === 'cross-site' && !oauthReturn && !isPage)) {
       throw error('ORIGIN_DENIED', '请在本机正式星图页面打开。', 403);
     }
-    const { pathname } = new URL(req.url, localOrigin);
+    if (isExternalCallback) return login.callback(req, res, new URL(pathname + url.search, external), origin, finishPair);
+    if (method === 'GET' && pathname === '/auth/zhihu/callback') return login.callback(req, res, url, origin, finishPair);
+    if (method === 'GET' && pathname === '/auth/zhihu/finish') return login.finish(req, res, url, finishPair);
+    if (method === 'GET' && pathname === '/health') return ok(res, { mode: 'workbench_debate', dataMode: 'real' });
+    if (pathname === '/auth/zhihu/start' && ['GET', 'POST'].includes(method)) {
+      const form = method === 'POST' ? await body(req, true) : {};
+      return login.start(req, res, origin, form.pairCode ?? null);
+    }
+    const browser = login.read(req);
+    if (method === 'POST' && pathname === '/auth/zhihu/logout') {
+      if (browser) {
+        for (const [stream, grant] of streams) if (grant.loginHash === browser.credentialHash) stream.end();
+        for (const job of operations.values()) if (job.loginHash === browser.credentialHash) job.controller.abort();
+      }
+      return login.logout(req, res, false);
+    }
+    if (method === 'GET' && pathname === '/auth/zhihu/status') {
+      return ok(res, { configured: login.configured, authenticated: Boolean(browser), loginUrl: '/auth/zhihu/start' });
+    }
+    if (isPage && !browser && pathname !== '/login') return login.redirect(res, '/login');
+    if (isPage && browser && pathname === '/login') return login.redirect(res, origin + '/');
     if ((method === 'GET' || method === 'HEAD') && assets.has(pathname)) {
       const [file, type] = assets.get(pathname);
       let data = await readFile(resolve(frontend, file));
@@ -300,31 +372,18 @@ export async function startWorkbenchStarfield({
       res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
       return res.end(method === 'HEAD' ? undefined : data);
     }
-    if (method === 'GET' && pathname === '/health') return ok(res, { mode: 'workbench_debate', dataMode: 'real' });
+    if (!browser) throw error('ZHIHU_LOGIN_REQUIRED', '请先登录知乎。', 401);
     if (method === 'POST' && pathname === '/api/host/session') {
       const input = await body(req);
       const context = { mode: 'workbench_debate', workbenchUrl: workspace + '/?connect-starfield=1' };
       if (input.pairCode) {
-        const key = hash(String(input.pairCode));
-        const ticket = tickets.get(key);
-        if (!ticket || ticket.expires <= Date.now()) throw noAccess();
-        tickets.delete(key);
-        const version = revocationVersion;
-        await assertOwner(ticket.owner);
-        assertPairingVersion(version);
-        const materials = await getMaterials(ticket.owner);
-        await assertOwner(ticket.owner);
-        assertPairingVersion(version);
-        knowledge.seed(ticket.owner, materials);
-        const sid = token();
-        const maxAge = 30 * 24 * 3600;
-        grants.prepare('INSERT INTO workbench_starfield_link VALUES (?, ?, ?)').run(hash(sid), ticket.owner, Date.now() + maxAge * 1000);
-        return ok(res, { ...context, connected: true, resumeSessionId: sessions.getResumableDebateId(ticket.owner) }, 200, {
-          'set-cookie': cookieName + '=' + sid + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=' + maxAge,
+        const paired = await pairAccount(input.pairCode, browser);
+        return ok(res, { ...context, connected: true, resumeSessionId: sessions.getResumableDebateId(paired.owner) }, 200, {
+          'set-cookie': paired.cookie,
         });
       }
       try {
-        const grant = await identify(req);
+        const grant = await identify(req, browser);
         assertGrant(grant);
         return ok(res, { ...context, connected: true, resumeSessionId: sessions.getResumableDebateId(grant.owner) });
       } catch (err) {
@@ -333,7 +392,14 @@ export async function startWorkbenchStarfield({
       }
     }
 
-    const grant = await identify(req);
+    let grant;
+    try { grant = await identify(req, browser); }
+    catch (err) {
+      if (err.code === 'WORKBENCH_LINK_REQUIRED' && method === 'GET' && pathname === '/v1/knowledge-map') {
+        return ok(res, { version: 0, domains: [], pending: false });
+      }
+      throw err;
+    }
     const { owner } = grant;
     if (method === 'POST' && pathname === '/v1/debate/topics') {
       const { refresh = false } = await body(req);
@@ -406,7 +472,7 @@ export async function startWorkbenchStarfield({
       const [, sid, tid, type] = match;
       let snapshot = session(owner, sid);
       if (method === 'GET' && !pathname.includes('/turns')) return ok(res, present(snapshot));
-      if (method === 'GET' && type === 'events') return streamEvents(req, res, owner, sid, tid);
+      if (method === 'GET' && type === 'events') return streamEvents(req, res, grant, sid, tid);
       if (method === 'POST' && type === 'cancel') {
         const result = sessions.cancelTurn(owner, sid, tid);
         if (operations.get(sid)?.turnId === tid) operations.get(sid).controller.abort();
@@ -435,11 +501,11 @@ export async function startWorkbenchStarfield({
         });
         if (!begun.reused) {
           const controller = new AbortController();
-          const promise = runTurn(owner, snapshot, begun.turn, selected, controller)
+          const promise = runTurn(grant, snapshot, begun.turn, selected, controller)
             .finally(() => {
               if (operations.get(sid)?.turnId === begun.turn.turnId) operations.delete(sid);
             });
-          operations.set(sid, { owner, turnId: begun.turn.turnId, controller, promise });
+          operations.set(sid, { owner, loginHash: grant.loginHash, turnId: begun.turn.turnId, controller, promise });
         }
         return ok(res, { turnId: begun.turn.turnId, status: begun.turn.status }, begun.reused ? 200 : 202);
       }
@@ -456,6 +522,7 @@ export async function startWorkbenchStarfield({
   });
   const server = createServer(handle);
   const servers = [server];
+  let compatibilityServer, callbackOrigin;
   function close() {
     return shutdownTask ??= Promise.resolve().then(async () => {
       const jobs = [...operations.values(), ...busyTopics.values()];
@@ -471,15 +538,37 @@ export async function startWorkbenchStarfield({
     });
   }
   try {
-    const listen = (item, listenPort) => new Promise((done, reject) => {
+    const listen = (item, listenPort, host = '127.0.0.1') => new Promise((done, reject) => {
       item.once('error', reject);
-      item.listen(listenPort, '127.0.0.1', done);
+      item.listen(listenPort, host, () => { item.off('error', reject); done(); });
     });
     await listen(server, port);
     if (compatibilityPort != null && compatibilityPort !== server.address().port) {
-      const previous = createServer(handle);
-      servers.push(previous);
-      await listen(previous, compatibilityPort);
+      compatibilityServer = createServer(handle);
+      servers.push(compatibilityServer);
+      await listen(compatibilityServer, compatibilityPort);
+    }
+    const registered = login.registeredOrigin && new URL(login.registeredOrigin);
+    if (login.configured && registered?.protocol === 'http:') {
+      const localPort = Number(registered.port || 80);
+      if (!servers.some((item) => item.address().port === localPort)) {
+        const callbackServer = createServer((req, res) => {
+          if (req.method !== 'GET' || req.headers.host !== registered.host || req.url?.split('?')[0] !== '/auth/zhihu/callback') {
+            return writeJson(res, 404, apiError('NOT_FOUND', '此入口仅接收知乎登录回调。'));
+          }
+          if (!origin || shutdownTask) return writeJson(res, 503, apiError('WORKBENCH_UNAVAILABLE', '正式星图正在重启。'));
+          login.callback(req, res, new URL(req.url, registered), origin, finishPair)
+            .catch(() => login.redirect(res, origin + '/login?error=provider_error'));
+        });
+        try {
+          await listen(callbackServer, localPort, registered.hostname.replace(/^\[|\]$/g, ''));
+          servers.push(callbackServer);
+          callbackOrigin = registered.origin;
+        } catch (err) {
+          // 已在运行的老工作台通过 sf. state 分流这一条回调；不接管现有服务。
+          if (err.code !== 'EADDRINUSE') throw err;
+        }
+      }
     }
     // 确认全部入口归当前进程后才恢复孤儿轮次，以免重复启动打断仍在服务的旧进程。
     sessions.recoverInterruptedTurns();
@@ -490,14 +579,12 @@ export async function startWorkbenchStarfield({
   }
   return {
     origin,
-    compatibilityOrigin: servers[1] ? 'http://127.0.0.1:' + servers[1].address().port : null,
+    compatibilityOrigin: compatibilityServer ? 'http://127.0.0.1:' + compatibilityServer.address().port : null,
+    callbackOrigin,
     async issuePair() {
       assertOpen();
       const version = revocationVersion;
       const owner = await getIdentity();
-      await assertOwner(owner);
-      assertPairingVersion(version);
-      await getMaterials(owner);
       await assertOwner(owner);
       assertPairingVersion(version);
       const code = token();
@@ -510,12 +597,12 @@ export async function startWorkbenchStarfield({
       if (!owner) return;
       if (shutdownTask) return;
       revocationVersion += 1;
-      grants.prepare('DELETE FROM workbench_starfield_link WHERE owner_id=?').run(owner);
+      grants.prepare('DELETE FROM starfield_oauth_pairs WHERE owner_id=?').run(owner);
       for (const [key, entry] of tickets) if (entry.owner === owner) tickets.delete(key);
       batches.delete(owner);
       busyTopics.get(owner)?.controller.abort(noAccess());
       busyTopics.delete(owner);
-      for (const [stream, streamOwner] of streams) if (streamOwner === owner) stream.end();
+      for (const [stream, grant] of streams) if (grant.owner === owner) stream.end();
       for (const [sessionId, operation] of operations) {
         if (operation.owner !== owner) continue;
         sessions.cancelTurn(owner, sessionId, operation.turnId, { reason: '工作台授权已撤回。' });

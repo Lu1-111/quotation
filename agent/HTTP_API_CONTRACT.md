@@ -146,6 +146,12 @@ turn.started → focus.selected → stage.changed → [evidence.verified] → te
 
 | 方法与路径 | 行为 |
 | --- | --- |
+| `GET /login`、`GET /auth/zhihu/status` | 登录页及公开状态。未登录访问正式首页进入登录页 |
+| `GET /auth/zhihu/start` | 关联此次浏览器登录请求，前往知乎官方授权页 |
+| `POST /auth/zhihu/start` | 从工作台发起时，同源接收单次配对票据，继续官方授权 |
+| `GET /auth/zhihu/callback` | 接收官方授权码，校验本次请求关联，服务端换取凭证并核对知乎身份 |
+| `GET /auth/zhihu/finish` | 公网回调回到本机的最后一步，核对一次性句柄和浏览器登录标识 |
+| `POST /auth/zhihu/logout` | 结束当前浏览器的登录会话，返回登录页 |
 | 工作台 `POST /api/starfield/connect` | 检查在用账号、授权、快照和画像，返回一次性正式星图链接 |
 | `POST /api/host/session` | 以 `{ pairCode }` 建立已配对会话，省略时查询连接状态。返回 `resumeSessionId`，仅在当前账号最近一局尚未结束时有值，用于跨端口恢复 |
 | `POST /v1/debate/topics` | 返回三个观点；`{ refresh: true }` 换一批 |

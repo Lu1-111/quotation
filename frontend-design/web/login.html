@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#e9edf2">
+  <meta name="referrer" content="same-origin">
+  <title>登录星图 / 报价</title>
+  <link rel="stylesheet" href="/src/theme.css">
+  <link rel="stylesheet" href="/src/cover.css">
+  <link rel="stylesheet" href="/src/login.css">
+  <script type="module" src="/src/login.js"></script>
+</head>
+<body class="login-page">
+  <header class="topbar">
+    <div class="brand" aria-label="报价 QUOTATION">
+      <span class="brand-cn">报价</span><span class="brand-en">QUOTATION</span>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换到夜间模式" aria-pressed="false">
+      <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2"/>
+        <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.7 1.7M16.9 16.9l1.7 1.7M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7"/>
+      </svg>
+      <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8 8.6 8.6 0 1 0 20.2 14.6Z"/>
+      </svg>
+    </button>
+  </header>
+  <main class="cover" aria-labelledby="loginTitle">
+    <div class="planet-wrap" aria-hidden="true">
+      <div class="orbit"></div>
+      <div class="planet"><span class="planet-glow"></span></div>
+    </div>
+    <section class="intro">
+      <h1 id="loginTitle">这里，有一片属于你的星图。</h1>
+      <p class="lede">用知乎账号登录，看看你读过的世界。</p>
+      <form class="actions" method="get" action="/auth/zhihu/start">
+        <button class="btn btn-primary" id="zhihuLogin" type="submit" disabled>使用知乎登录</button>
+      </form>
+      <p id="loginStatus" class="login-status" role="status">正在确认知乎登录是否可用。</p>
+      <button id="retryLoginStatus" class="analysis-btn" type="button" hidden>重新检查登录服务</button>
+      <noscript><p class="lede">请开启浏览器 JavaScript，然后刷新页面。</p></noscript>
+    </section>
+  </main>
+</body>
+</html>

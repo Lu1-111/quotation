@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { closeSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -28,6 +28,7 @@ const host = process.env.HOST || '127.0.0.1';
 const appOrigin = new URL(process.env.APP_ORIGIN || `http://127.0.0.1:${port}`);
 const demo = process.argv.includes('--demo');
 const isLoopback = (name) => ['127.0.0.1', 'localhost', '[::1]', '::1'].includes(name);
+const exportCorsOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173', 'http://[::1]:5173']);
 if (appOrigin.href !== `${appOrigin.origin}/` || !['http:', 'https:'].includes(appOrigin.protocol)) {
   throw new Error('APP_ORIGIN 必须是 HTTP 或 HTTPS 的站点根地址。');
 }
@@ -145,6 +146,30 @@ function redirect(res, location, cookies = []) {
   res.end();
 }
 
+// 新星图和旧采集页可共用赛事已经登记的 callback，只转交星图自己签发的流程。
+async function relayStarfieldCallback(url) {
+  const port = Number(process.env.AGENT_STARFIELD_PORT || 3006);
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('正式星图端口无效。');
+  const origin = 'http://127.0.0.1:' + port;
+  const location = await new Promise((done, reject) => {
+    const req = httpRequest({
+      hostname: '127.0.0.1', port, path: CALLBACK + url.search,
+      headers: { host: appOrigin.host }, signal: AbortSignal.timeout(5000),
+    }, (upstream) => {
+      upstream.resume();
+      done(upstream.statusCode === 303 ? upstream.headers.location : null);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+  if (!location) throw new Error('正式星图暂未接收此回调。');
+  const target = new URL(location, origin);
+  if (target.origin !== origin || !['/auth/zhihu/finish', '/login'].includes(target.pathname)) {
+    throw new Error('正式星图返回了无效地址。');
+  }
+  return target.href;
+}
+
 async function requestBody(req) {
   const chunks = [];
   let size = 0;
@@ -174,6 +199,19 @@ async function handle(req, res) {
   }
 
   const { pathname } = url;
+  if (pathname === '/api/history/export' && (req.method === 'GET' || req.method === 'OPTIONS')) {
+    const exportOrigin = exportCorsOrigins.has(req.headers.origin) ? req.headers.origin : null;
+    if (exportOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', exportOrigin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Vary', 'Origin');
+    }
+    if (req.method === 'OPTIONS') {
+      if (exportOrigin) res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.writeHead(204);
+      return res.end();
+    }
+  }
   const session = sessionFor(req);
   if (pathname.startsWith('/api/history/')) {
     if (!historyAvailable) return json(res, 403, { error: '知乎信息采集服务需要在本机启动并访问。' });
@@ -263,6 +301,10 @@ async function handle(req, res) {
   }
 
   if (req.method === 'GET' && pathname === CALLBACK) {
+    if (/^sf\.[A-Za-z0-9_-]{43}$/.test(url.searchParams.get('state') ?? '')) {
+      try { return redirect(res, await relayStarfieldCallback(url)); }
+      catch { return json(res, 503, { error: '正式星图暂时未能接收登录回调，请回到星图重新登录。' }); }
+    }
     const clearFlow = cookie(flowCookie, '', 0);
     const flow = cookieValue(req, flowCookie);
     const attempt = pending.get(flow);

@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startWorkbenchStarfield } from '../workbench-starfield.mjs';
 import { createDebateAgents, DEBATE_ROUNDS } from '../debate-agents.mjs';
 import { modelThinkingOptions } from '../agent.mjs';
+import { syntheticStarfieldOAuth, mergeTestCookies } from '../fixtures/synthetic-starfield-oauth.mjs';
 
 const now = Date.parse('2026-11-27T00:00:00Z');
 const fact = '在开放式办公室里，键盘敲击声会干扰邻座同事。';
@@ -81,7 +83,8 @@ test('工作台配对、三题、十二轮选择及独立知识库端到端', as
     domains: [{ name: '团队管理', share: .7, evidence: [privateTitle] }, { name: '软件技术', share: .3, evidence: [] }],
     topics: ['协作'], summary: '敏感内容不得进入外部请求',
   };
-  const runtime = await startWorkbenchStarfield({ port: 0, debateDb, knowledgeDb, agents,
+  const oauth = syntheticStarfieldOAuth();
+  const runtime = await startWorkbenchStarfield({ port: 0, debateDb, knowledgeDb, agents, ...oauth.config,
     getIdentity: async () => owner,
     getMaterials: async () => ({ profile, snapshotId: 's1',
       records: [{ title: privateTitle, topics: ['团队协作'], domains: ['团队管理'] }] }),
@@ -97,13 +100,15 @@ test('工作台配对、三题、十二轮选择及独立知识库端到端', as
     return { response, payload: await response.json() };
   };
   try {
-    assert.equal((await request('/v1/knowledge-map')).status, 401);
-    assert.equal((await request('/')).status, 200);
+    assert.equal((await read('/v1/knowledge-map')).payload.error.code, 'ZHIHU_LOGIN_REQUIRED');
+    const login = await oauth.login(runtime.origin, owner);
+    assert.deepEqual((await read('/v1/knowledge-map', { cookie: login })).payload.data.domains, []);
+    assert.equal((await read('/api/host/session', { cookie: login, input: {} })).payload.data.connected, false);
     const pair = new URL((await runtime.issuePair()).url).hash.slice(6);
-    const link = await read('/api/host/session', { input: { pairCode: pair } });
+    const link = await read('/api/host/session', { cookie: login, input: { pairCode: pair } });
     assert.equal(link.payload.data.connected, true);
-    assert.equal((await request('/api/host/session', { input: { pairCode: pair } })).status, 401);
-    const cookie = link.response.headers.get('set-cookie').split(';')[0];
+    assert.equal((await request('/api/host/session', { cookie: login, input: { pairCode: pair } })).status, 401);
+    const cookie = mergeTestCookies(login, link.response);
     const get = async (path) => (await read(path, { cookie })).payload.data;
     const send = async (path, input) => await read(path, { cookie, input });
 
@@ -210,9 +215,15 @@ test('工作台配对、三题、十二轮选择及独立知识库端到端', as
     // 即使浏览器还带原 Cookie，工作台切换账号也无法读取此前会话。
     owner = 'synthetic-reader-b';
     assert.equal((await request(sid, { cookie })).status, 401);
+    const wrongPair = new URL((await runtime.issuePair()).url).hash.slice(6);
+    const mismatch = await request('/api/host/session', { cookie: login, input: { pairCode: wrongPair } });
+    assert.equal(mismatch.status, 403);
+    assert.equal((await mismatch.json()).error.code, 'WORKBENCH_ACCOUNT_MISMATCH');
+    assert.equal(mismatch.headers.getSetCookie().length, 0);
+    const loginB = await oauth.login(runtime.origin, owner);
     const secondPair = new URL((await runtime.issuePair()).url).hash.slice(6);
-    const linked = await read('/api/host/session', { input: { pairCode: secondPair } });
-    const otherCookie = linked.response.headers.get('set-cookie').split(';')[0];
+    const linked = await read('/api/host/session', { cookie: loginB, input: { pairCode: secondPair } });
+    const otherCookie = mergeTestCookies(loginB, linked.response);
     assert.equal((await request(sid, { cookie: otherCookie })).status, 403);
     assert.equal((await read('/v1/knowledge-map', { cookie: otherCookie })).payload.data.version, 1);
 
@@ -234,7 +245,9 @@ test('统一模型工厂在可关闭的智谱与 DeepSeek 模型上关掉思考'
 test('取消回合和重启保持已提交进度，旧取消请求不会中断新回合', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'workbench-starfield-recover-'));
   const names = fixtures();
+  const oauth = syntheticStarfieldOAuth();
   const args = {
+    ...oauth.config,
     port: 0,
     debateDb: join(dir, 'debate.sqlite'),
     knowledgeDb: join(dir, 'knowledge.sqlite'),
@@ -258,18 +271,19 @@ test('取消回合和重启保持已提交进度，旧取消请求不会中断�
     return original(state, num, emit, signal);
   };
   let runtime = await startWorkbenchStarfield(args);
-  let cookie;
+  let cookie = '';
   const request = async (path, input) => {
     const res = await fetch(runtime.origin + path, {
       method: input ? 'POST' : 'GET',
       headers: { ...(cookie ? { cookie } : {}), ...(input ? { 'content-type': 'application/json' } : {}) },
       body: input ? JSON.stringify(input) : undefined,
     });
-    if (res.headers.has('set-cookie')) cookie = res.headers.get('set-cookie').split(';')[0];
+    cookie = mergeTestCookies(cookie, res);
     return res;
   };
   const json = async (path, input) => (await (await request(path, input)).json()).data;
   try {
+    cookie = await oauth.login(runtime.origin, 'synthetic-owner');
     const pairCode = new URL((await runtime.issuePair()).url).hash.slice(6);
     await json('/api/host/session', { pairCode });
     const { topics } = await json('/v1/debate/topics', {});
@@ -321,8 +335,9 @@ test('撤回授权后，正在兑换的配对码与旧会话都不能恢复权�
   const entered = Promise.withResolvers();
   const release = Promise.withResolvers();
   let pauseMaterials = false;
+  const oauth = syntheticStarfieldOAuth();
   const runtime = await startWorkbenchStarfield({
-    port: 0,
+    ...oauth.config, port: 0,
     debateDb: join(dir, 'debate.sqlite'),
     knowledgeDb: join(dir, 'knowledge.sqlite'),
     agents: fixtures().agents,
@@ -335,16 +350,18 @@ test('撤回授权后，正在兑换的配对码与旧会话都不能恢复权�
       return { snapshotId: 's1', records: [], profile: { generatedAt: 'v1', domains: [], topics: [] } };
     },
   });
+  let login = '';
   const issue = async () => new URL((await runtime.issuePair()).url).hash.slice(6);
   const link = (pairCode) => fetch(runtime.origin + '/api/host/session', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: login },
     body: JSON.stringify({ pairCode }),
   });
   try {
+    login = await oauth.login(runtime.origin, owner);
     const initial = await link(await issue());
     assert.equal(initial.status, 200);
-    const cookie = initial.headers.get('set-cookie').split(';')[0];
+    const cookie = mergeTestCookies(login, initial);
     const pairCode = await issue();
     pauseMaterials = true;
     const exchange = link(pairCode);
@@ -354,7 +371,8 @@ test('撤回授权后，正在兑换的配对码与旧会话都不能恢复权�
     const revoked = await exchange;
     assert.equal(revoked.status, 401);
     assert.equal(revoked.headers.get('set-cookie'), null);
-    assert.equal((await fetch(runtime.origin + '/v1/knowledge-map', { headers: { cookie } })).status, 401);
+    const cleared = await fetch(runtime.origin + '/v1/knowledge-map', { headers: { cookie } });
+    assert.deepEqual((await cleared.json()).data.domains, []);
     assert.equal((await link(pairCode)).status, 401);
 
     pauseMaterials = false;
@@ -369,8 +387,28 @@ test('撤回授权后，正在兑换的配对码与旧会话都不能恢复权�
 test('正式星球封面在手机上走完十二轮，三维星点保留本轮出处并能返回封面', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'workbench-cover-browser-'));
   const { agents } = fixtures();
+  // 使用不同主机名的本机授权站点，让 Chromium 真正执行跨站回调和 SameSite Cookie 规则。
+  let oauth;
+  const provider = createServer((req, res) => {
+    if (new URL(req.url, oauth.authorizeUrl).pathname !== '/authorize') {
+      res.writeHead(404).end();
+      return;
+    }
+    const issued = new URL(req.url, oauth.authorizeUrl);
+    assert.equal(issued.searchParams.has('pair'), false);
+    const next = oauth.finish(issued, 'synthetic-cover-reader');
+    const cancelled = new URL(issued.searchParams.get('redirect_uri'));
+    cancelled.searchParams.set('state', issued.searchParams.get('state'));
+    cancelled.searchParams.set('error', 'access_denied');
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<a href="' + next.replaceAll('&', '&amp;') + '">确认使用合成账号</a>' +
+      '<a href="' + cancelled.href.replaceAll('&', '&amp;') + '">取消合成授权</a>');
+  });
+  await new Promise((done, reject) => provider.once('error', reject).listen(0, '127.0.0.1', done));
+  t.after(() => new Promise((done) => provider.close(done)));
+  oauth = syntheticStarfieldOAuth('http://localhost:' + provider.address().port + '/authorize');
   const runtime = await startWorkbenchStarfield({
-    port: 0,
+    ...oauth.config, port: 0,
     debateDb: join(dir, 'debate.sqlite'),
     knowledgeDb: join(dir, 'knowledge.sqlite'),
     agents,
@@ -408,12 +446,31 @@ test('正式星球封面在手机上走完十二轮，三维星点保留本轮�
   };
 
   await page.goto(runtime.origin);
+  assert.equal(new URL(page.url()).pathname, '/login');
+  assert.equal(await page.locator('#planet').count(), 0);
+  assert.equal(await button('开始观点交锋').count(), 0);
+  await button('使用知乎登录').click();
+  await page.getByRole('link', { name: '取消合成授权' }).click();
+  await page.waitForURL(runtime.origin + '/login?error=cancelled');
+  await page.getByText(/你取消了这次授权/u).waitFor();
+  assert.equal(await button('开始观点交锋').count(), 0);
+  await button('使用知乎登录').click();
+  await page.getByRole('link', { name: '确认使用合成账号' }).click();
+  await page.waitForURL(runtime.origin + '/');
   await page.getByRole('heading', { name: /对方买不买得起/u }).waitFor();
   assert.ok(await page.locator('#planet').isVisible());
   assert.equal(await button('使用演示账号').isVisible(), false);
+  await button('我的知识星图').click();
+  const galaxy = page.getByRole('dialog', { name: 'Mind Galaxy' });
+  await galaxy.waitFor();
+  await galaxy.getByText('你的星图正等第一颗星', { exact: true }).waitFor();
+  await galaxy.getByText(/0 个知识点.*v0/u).waitFor();
+  assert.equal(await button('← 返回').count(), 1);
+  await button('← 返回').click();
+  await galaxy.waitFor({ state: 'hidden' });
   await button('开始观点交锋').click();
   await page.getByRole('link', { name: '去工作台连接' }).waitFor();
-  assert.equal(calls.filter(({ pathname }) => pathname.startsWith('/v1/')).length, 0);
+  assert.equal(calls.filter(({ pathname }) => pathname === '/v1/debate/topics').length, 0);
 
   const pair = new URL((await runtime.issuePair()).url);
   pair.searchParams.set('debug', '1');
@@ -421,7 +478,6 @@ test('正式星球封面在手机上走完十二轮，三维星点保留本轮�
   await button('找三个观点').waitFor();
   await showCover();
   await button('我的知识星图').click();
-  const galaxy = page.getByRole('dialog', { name: 'Mind Galaxy' });
   await galaxy.waitFor();
   await galaxy.getByText(/1 个知识点.*v1/u).waitFor();
   // 画布星点没有 DOM 元素，读取引擎投影坐标后，用触屏命中该点。
@@ -477,9 +533,33 @@ test('正式星球封面在手机上走完十二轮，三维星点保留本轮�
   await button('← 返回').click();
   await galaxy.waitFor({ state: 'hidden' });
   await showCover();
-  assert.deepEqual([...new Set(calls.map(({ origin }) => origin))], [runtime.origin]);
+  const origins = calls.filter(({ pathname }) => pathname !== '/authorize').map(({ origin }) => origin);
+  assert.deepEqual([...new Set(origins)], [runtime.origin]);
+  assert.equal(calls.filter(({ origin, pathname }) => origin + pathname === oauth.authorizeUrl).length, 2);
   assert.equal(calls.filter(({ pathname, method }) => pathname === '/v1/sessions' && method === 'POST').length, 1);
   assert.equal(calls.filter(({ pathname, method }) => pathname.endsWith('/turns') && method === 'POST').length, 13);
   assert.equal(calls.filter(({ pathname, type }) => pathname.endsWith('/events') && type === 'eventsource').length, 13);
   assert.deepEqual(errors, []);
+
+  // 先在工作台取配对票据、再首次登录，回调应当完成这次绑定。
+  const fresh = await browser.newPage();
+  fresh.setDefaultTimeout(8000);
+  const beforeLoginPair = await runtime.issuePair();
+  await fresh.goto(beforeLoginPair.url);
+  assert.equal(new URL(fresh.url()).pathname, '/login');
+  const [started] = await Promise.all([
+    fresh.waitForResponse((response) => new URL(response.url()).pathname === '/auth/zhihu/start'),
+    fresh.getByRole('button', { name: '使用知乎登录' }).click(),
+  ]);
+  assert.equal(started.request().method(), 'POST');
+  assert.equal(started.status(), 303);
+  const [handshake] = await Promise.all([
+    fresh.waitForResponse((response) => new URL(response.url()).pathname === '/api/host/session' && response.request().method() === 'POST'),
+    fresh.getByRole('link', { name: '确认使用合成账号' }).click(),
+  ]);
+  // 已结算的历史局不作为进行中的对局恢复。
+  const restored = (await handshake.json()).data;
+  assert.equal(restored.connected, true);
+  assert.equal(restored.resumeSessionId, null);
+  assert.equal(new URL(fresh.url()).hash, '');
 });

@@ -2399,14 +2399,18 @@ if (workbenchMode) {
   workspace.hidden = false;
   planet.setAttribute("aria-label", "打开我的三维知识星图");
   galaxyCanvas.setAttribute("aria-label", "按领域排列的个人知识星图");
-  galaxyEmptyBack.textContent = "← 返回";
+  galaxyEmptyBack.hidden = true;
   const { mountWorkbench } = await import("./workbench-starfield.js");
   workbench = mountWorkbench({
     enterWorkspace() { applyView("info"); },
     closeMap: closeGalaxy,
-    openMapScene(map, sourceDetails, pointId) {
+    openMapScene(map, sourceDetails, pointId, workbenchUrl) {
       const scene = ensureGalaxy();
       scene.setKnowledgeMap(map, sourceDetails);
+      const connectLink = document.getElementById("galaxyConnectWorkbench");
+      connectLink.hidden = !workbenchUrl;
+      if (workbenchUrl) connectLink.href = workbenchUrl;
+      else connectLink.removeAttribute("href");
       openGalaxy(pointId);
     },
   });

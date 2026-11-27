@@ -167,6 +167,11 @@ export function createServiceStore(filename, { demo = false, now = Date.now, cli
         activeJob: publicJob(q("SELECT * FROM service_jobs WHERE user_id=? AND state IN ('queued','running')", userId)),
         latestSnapshot: latest ? { snapshotId: latest.id, receivedAt: iso(latest.received_at) } : null };
     },
+    // 仅供同进程工作台核对 OAuth hash_id，外部 API 不暴露绑定指纹。
+    accountRefForOwner(userId, owner) {
+      const ref = q('SELECT account_ref FROM service_users WHERE id=?', userId)?.account_ref;
+      return ref && owner === hash(JSON.stringify([userId, ref])) ? ref : null;
+    },
     accountKey(userId) {
       const ref = q('SELECT account_ref FROM service_users WHERE id=?', userId)?.account_ref;
       return ref ? hash(JSON.stringify([userId, ref])) : null;

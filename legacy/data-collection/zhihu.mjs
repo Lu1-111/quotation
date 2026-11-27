@@ -69,8 +69,46 @@ function normalizeContent(item) {
   };
 }
 
+// OAuth 登录与用户数据查询的凭据和接口相互独立。
+export function createZhihuAccountAuth({ appId, appKey, redirectUri, fetchImpl = fetch }) {
+  return {
+    authorizeUrl(state) {
+      const url = new URL('/authorize', AUTH_ORIGIN);
+      url.search = new URLSearchParams({ app_id: appId, redirect_uri: redirectUri, response_type: 'code', state });
+      return url.href;
+    },
+    async exchange(code) {
+      const body = await requestJson(new URL('/access_token', AUTH_ORIGIN), {
+        method: 'POST',
+        body: new URLSearchParams({
+          app_id: appId, app_key: appKey, grant_type: 'authorization_code', redirect_uri: redirectUri, code,
+        }),
+      }, fetchImpl);
+      const grant = oauthResult(body);
+      const lifetime = Number(grant.expires_in);
+      if (typeof grant.access_token !== 'string' || !grant.access_token || !Number.isFinite(lifetime) || lifetime <= 0) {
+        throw new ZhihuError('知乎未返回有效的访问令牌。');
+      }
+      return { token: grant.access_token, expiresAt: Date.now() + lifetime * 1000 };
+    },
+    async identity(token) {
+      const profile = oauthResult(await requestJson(new URL('/user', AUTH_ORIGIN), {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      }, fetchImpl));
+      const accountId = typeof profile.uid === 'string' && /^\d+$/.test(profile.uid)
+        ? `uid:${profile.uid}`
+        : typeof profile.hash_id === 'string' && profile.hash_id ? `hash:${profile.hash_id}` : null;
+      if (!accountId) throw new ZhihuError('知乎没有返回可用于绑定账号的用户标识。');
+      const hashId = typeof profile.hash_id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(profile.hash_id)
+        ? profile.hash_id : null;
+      return { accountId, hashId, nickname: typeof profile.fullname === 'string' ? profile.fullname : '' };
+    },
+  };
+}
+
 export function createZhihu({ appId, appKey, accessSecret, redirectUri, fetchImpl = fetch }) {
   const ready = Boolean(appId && appKey && accessSecret);
+  const login = createZhihuAccountAuth({ appId, appKey, redirectUri, fetchImpl });
 
   async function userData(path, query, token) {
     const url = new URL(`/api/v1/user/${path}`, DATA_ORIGIN);
@@ -112,34 +150,11 @@ export function createZhihu({ appId, appKey, accessSecret, redirectUri, fetchImp
 
   return {
     ready,
-    authorizeUrl(state) {
-      const url = new URL('/authorize', AUTH_ORIGIN);
-      url.search = new URLSearchParams({ app_id: appId, redirect_uri: redirectUri, response_type: 'code', state });
-      return url.href;
-    },
-    async exchange(code) {
-      const body = await requestJson(new URL('/access_token', AUTH_ORIGIN), {
-        method: 'POST',
-        body: new URLSearchParams({
-          app_id: appId, app_key: appKey, grant_type: 'authorization_code', redirect_uri: redirectUri, code,
-        }),
-      }, fetchImpl);
-      const grant = oauthResult(body);
-      const lifetime = Number(grant.expires_in);
-      if (typeof grant.access_token !== 'string' || !grant.access_token || !Number.isFinite(lifetime) || lifetime <= 0) {
-        throw new ZhihuError('知乎未返回有效的访问令牌。');
-      }
-      return { token: grant.access_token, expiresAt: Date.now() + lifetime * 1000 };
-    },
+    authorizeUrl: login.authorizeUrl,
+    exchange: login.exchange,
     async profile(token) {
-      const profile = oauthResult(await requestJson(new URL('/user', AUTH_ORIGIN), {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      }, fetchImpl));
-      const accountId = typeof profile.uid === 'string' && /^\d+$/.test(profile.uid)
-        ? `uid:${profile.uid}`
-        : typeof profile.hash_id === 'string' && profile.hash_id ? `hash:${profile.hash_id}` : null;
-      if (!accountId) throw new ZhihuError('知乎没有返回可用于绑定账号的用户标识。');
-      return { accountId, nickname: typeof profile.fullname === 'string' ? profile.fullname : '' };
+      const { accountId, nickname } = await login.identity(token);
+      return { accountId, nickname };
     },
     async snapshot(token) {
       const [creations, collection] = await Promise.all([

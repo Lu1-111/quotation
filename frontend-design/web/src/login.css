@@ -1,0 +1,24 @@
+.login-page .cover { gap: clamp(26px, 5.8vh, 58px); }
+.login-page .planet-wrap { --planet-size: clamp(132px, 27vmin, 244px); }
+.login-page .planet { cursor: default; }
+.login-page .planet:hover { transform: none; }
+.login-page .intro { max-width: 680px; }
+.login-page .intro h1 { font-size: clamp(26px, 3.7vw, 44px); text-wrap: balance; }
+.login-page .actions { margin-top: 9px; }
+.login-page .btn-primary { min-height: 46px; }
+.login-page .btn:disabled { color: var(--text-2); opacity: .65; cursor: default; }
+.login-page .login-status {
+  max-width: 38ch;
+  margin: 0;
+  min-height: 1.8em;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+.login-page #retryLoginStatus { min-height: 42px; }
+.login-page #retryLoginStatus[hidden] { display: none; }
+@media (max-width: 640px) {
+  .login-page .actions { width: auto; }
+  .login-page .btn-primary { min-width: 154px; }
+}

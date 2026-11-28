@@ -1,11 +1,15 @@
 /* 封面星球：鼠标轨迹形成的液态窗口，露出第二层星球
    - 轨迹沿鼠标实际路径生成柔软的液态缎带，边缘随时间起伏
-   - 第二层图片只在轨迹内显示，并叠加球体明暗，保持立体感
+   - 速度越快，头部拉长、缎带收细，慢速时更饱满
+   - 第二层带轻微视差与放大，像球壳下面的世界
+   - 边缘按画布尺寸做模糊，并描一圈液面高光
    - 未加载第二层图片时使用程序生成的电影感地球兜底
    - 尊重 prefers-reduced-motion：不播放 */
 
 const TRAIL_LIFE = 1.15; // 轨迹存活时间（秒）
 const MIN_STEP = 2; // 采样最小间隔（px）
+const LAYER_ZOOM = 1.04; // 第二层放大倍数，给视差留余量
+const PARALLAX = 0.035; // 视差强度
 
 export function createLiquidPlanet(planet, canvas, imageUrl) {
   if (!planet || !canvas) return null;
@@ -14,7 +18,7 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
   const mask = document.createElement("canvas");
   const mctx = mask.getContext("2d");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
-  const canFilter = "filter" in canvas.getContext("2d");
+  const canFilter = "filter" in ctx;
 
   const image = new Image();
   let imageReady = false;
@@ -35,6 +39,9 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
   let active = false;
   let rise = 0;
   let headSeen = 0;
+  let smoothSpeed = 0;
+  let parX = 0;
+  let parY = 0;
   let pointer = { x: 0, y: 0 };
   let points = [];
 
@@ -93,10 +100,16 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
     ensure();
   }
 
+  /* 触屏抬手后不一定有 pointerleave，主动收尾 */
+  function onUp(event) {
+    if (event.pointerType === "touch") onLeave();
+  }
+
   planet.addEventListener("pointerenter", onMove);
   planet.addEventListener("pointermove", onMove);
   planet.addEventListener("pointerleave", onLeave);
   planet.addEventListener("pointercancel", onLeave);
+  planet.addEventListener("pointerup", onUp);
 
   /* 电影感地球兜底纹理 */
   function drawFallback() {
@@ -161,7 +174,13 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
     ctx.fillRect(0, 0, W, H);
   }
 
+  /* 第二层：随指针反向轻移并微微放大，读起来像球壳下的另一颗星球 */
   function drawSecondLayer() {
+    ctx.save();
+    ctx.translate(W / 2 + parX, H / 2 + parY);
+    ctx.scale(LAYER_ZOOM, LAYER_ZOOM);
+    ctx.translate(-W / 2, -H / 2);
+
     if (imageReady) {
       const scale = Math.max(W / image.width, H / image.height);
       const dw = image.width * scale;
@@ -170,35 +189,53 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
     } else {
       drawFallback();
     }
+    ctx.restore();
   }
 
   /* 用二次曲线把一串点连成平滑路径 */
-  function trace(list, move) {
-    if (list.length === 1) {
-      if (move) mctx.moveTo(list[0].x, list[0].y);
-      else mctx.lineTo(list[0].x, list[0].y);
-      return;
-    }
-    if (move) mctx.moveTo(list[0].x, list[0].y);
-    else mctx.lineTo(list[0].x, list[0].y);
+  function trace(c, list, move) {
+    if (!list.length) return;
+    if (move) c.moveTo(list[0].x, list[0].y);
+    else c.lineTo(list[0].x, list[0].y);
+    if (list.length === 1) return;
     for (let i = 1; i < list.length - 1; i++) {
       const mx = (list[i].x + list[i + 1].x) / 2;
       const my = (list[i].y + list[i + 1].y) / 2;
-      mctx.quadraticCurveTo(list[i].x, list[i].y, mx, my);
+      c.quadraticCurveTo(list[i].x, list[i].y, mx, my);
     }
     const tail = list[list.length - 1];
-    mctx.lineTo(tail.x, tail.y);
+    c.lineTo(tail.x, tail.y);
   }
 
-  /* 沿鼠标路径生成液态缎带：宽度按寿命收窄，两侧边缘波长随时间流动 */
-  function drawRibbon(baseHalf, now) {
+  function addHeadPath(c, shape) {
+    if (!shape || !shape.length) return;
+    c.moveTo(shape[0].x, shape[0].y);
+    for (let i = 1; i < shape.length; i++) c.lineTo(shape[i].x, shape[i].y);
+    c.closePath();
+  }
+
+  /* 指针速度（px/s），用最近两个采样点估算 */
+  function pointerVelocity() {
+    const n = points.length;
+    if (n < 2) return { vx: 0, vy: 0, speed: 0 };
+    const a = points[n - 2];
+    const b = points[n - 1];
+    const ms = Math.max(8, b.t - a.t);
+    const vx = ((b.x - a.x) / ms) * 1000;
+    const vy = ((b.y - a.y) / ms) * 1000;
+    return { vx, vy, speed: Math.hypot(vx, vy) };
+  }
+
+  /* 沿鼠标路径生成液态缎带：宽度按寿命收窄，并按速度变细 */
+  function ribbonPoints(baseHalf, now) {
     const pts = points;
-    if (pts.length < 2) return;
+    if (pts.length < 2) return null;
 
     const t = now * 0.001;
     const left = [];
     const right = [];
     let cum = 0;
+    let speedFactor = 1;
 
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
@@ -210,11 +247,18 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
       dx /= len;
       dy /= len;
 
-      if (i > 0) cum += Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y);
+      if (i > 0) {
+        const step = Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y);
+        cum += step;
+        const ms = Math.max(8, p.t - pts[i - 1].t);
+        const sp = (step / ms) * 1000;
+        const raw = 1 / (1 + 0.4 * Math.min(1, sp / 1800));
+        speedFactor += (raw - speedFactor) * 0.35;
+      }
 
       const age = Math.min(1, (now - p.t) / (TRAIL_LIFE * 1000));
       const s = 1 - age;
-      const half = baseHalf * (0.1 + 0.82 * Math.sqrt(s));
+      const half = baseHalf * (0.1 + 0.82 * Math.sqrt(s)) * speedFactor;
 
       /* 两段不同频率的波叠加，边缘像被搅动的液体 */
       const wob =
@@ -230,32 +274,35 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
       });
     }
 
-    mctx.beginPath();
-    trace(left, true);
-    right.reverse();
-    trace(right, false);
-    mctx.closePath();
-    mctx.fill();
+    return { left, right };
   }
 
-  /* 指针处的液滴：缓慢变形的圆，撑起轨迹的头部 */
-  function drawHead(baseHalf, now) {
+  /* 指针处的液滴：静止时是缓慢变形的圆，移动时沿速度方向拉长 */
+  function headShape(baseHalf, now) {
     const t = now * 0.001;
-    const r = baseHalf * 1.02;
+    const k = Math.min(1, smoothSpeed / 2200);
+    const along = baseHalf * 1.02 * (1 + 0.55 * k);
+    const across = baseHalf * 1.02 * (1 - 0.2 * k);
+
+    const pv = pointerVelocity();
+    const angle = k > 0.04 ? Math.atan2(pv.vy, pv.vx) : 0;
+    const ca = Math.cos(angle);
+    const sa = Math.sin(angle);
+
     const steps = 48;
-    mctx.beginPath();
+    const shape = [];
     for (let i = 0; i <= steps; i++) {
       const a = (i / steps) * Math.PI * 2;
-      const rr =
-        r *
-        (1 + 0.085 * Math.sin(a * 3 + t * 2.6) + 0.055 * Math.sin(a * 5 - t * 2.1));
-      const x = pointer.x + Math.cos(a) * rr;
-      const y = pointer.y + Math.sin(a) * rr;
-      if (i === 0) mctx.moveTo(x, y);
-      else mctx.lineTo(x, y);
+      const wob =
+        1 + 0.085 * Math.sin(a * 3 + t * 2.6) + 0.055 * Math.sin(a * 5 - t * 2.1);
+      const lx = Math.cos(a) * along * wob;
+      const ly = Math.sin(a) * across * wob;
+      shape.push({
+        x: pointer.x + lx * ca - ly * sa,
+        y: pointer.y + lx * sa + ly * ca,
+      });
     }
-    mctx.closePath();
-    mctx.fill();
+    return shape;
   }
 
   function buildMask(headAlpha, now) {
@@ -265,14 +312,26 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
     mctx.globalCompositeOperation = "source-over";
     mctx.fillStyle = "#fff";
 
+    const geom = ribbonPoints(baseHalf, now);
+    const head = headShape(baseHalf, now);
+
     /* 轨迹按寿命自然收窄，不做整体加速淡出 */
     mctx.globalAlpha = 1;
-    drawRibbon(baseHalf, now);
+    if (geom) {
+      mctx.beginPath();
+      trace(mctx, geom.left, true);
+      trace(mctx, geom.right.slice().reverse(), false);
+      mctx.closePath();
+      mctx.fill();
+    }
 
     mctx.globalAlpha = Math.min(1, Math.max(0, headAlpha));
-    drawHead(baseHalf, now);
+    mctx.beginPath();
+    addHeadPath(mctx, head);
+    mctx.fill();
 
     mctx.globalAlpha = 1;
+    return { geom, head };
   }
 
   /* 只在露出的第二层上叠加球体明暗，保持星球立体感 */
@@ -310,6 +369,37 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
     ctx.globalCompositeOperation = "source-over";
   }
 
+  /* 沿窗口边缘描一圈液面高光，只落在已经露出的范围里 */
+  function drawEdge(geom, head, alpha) {
+    if (alpha <= 0.01 || (!geom && !head)) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    const build = () => {
+      ctx.beginPath();
+      if (geom) {
+        trace(ctx, geom.left, true);
+        trace(ctx, geom.right.slice().reverse(), false);
+        ctx.closePath();
+      }
+      addHeadPath(ctx, head);
+    };
+
+    ctx.strokeStyle = `rgba(255, 198, 126, ${(0.1 * alpha).toFixed(3)})`;
+    ctx.lineWidth = 5;
+    build();
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(255, 228, 180, ${(0.3 * alpha).toFixed(3)})`;
+    ctx.lineWidth = 1.3;
+    build();
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
     last = now;
@@ -317,6 +407,16 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
     if (active) rise = Math.min(1, rise + dt / 0.2);
     const headAge = Math.max(0, now - headSeen) / (TRAIL_LIFE * 1000);
     const headAlpha = active ? rise : rise * Math.max(0, 1 - headAge);
+
+    const pv = pointerVelocity();
+    const targetSpeed = active ? pv.speed : 0;
+    smoothSpeed += (targetSpeed - smoothSpeed) * (1 - Math.exp(-dt * 14));
+
+    const parTargetX = -(pointer.x - W / 2) * PARALLAX;
+    const parTargetY = -(pointer.y - H / 2) * PARALLAX;
+    const kp = 1 - Math.exp(-dt * 6);
+    parX += (parTargetX - parX) * kp;
+    parY += (parTargetY - parY) * kp;
 
     const cutoff = now - TRAIL_LIFE * 1000;
     points = points.filter((p) => p.t >= cutoff);
@@ -330,16 +430,18 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
 
     ctx.clearRect(0, 0, W, H);
     drawSecondLayer();
-    buildMask(headAlpha, now);
+    const { geom, head } = buildMask(headAlpha, now);
 
-    /* 用模糊把遮罩边缘化成液体，再裁出第二层 */
+    /* 用与画布尺寸匹配的模糊把遮罩边缘化成液体，再裁出第二层 */
+    const blurPx = Math.max(2, Math.min(10, Math.min(W, H) * 0.022));
     ctx.save();
     ctx.globalCompositeOperation = "destination-in";
-    if (canFilter) ctx.filter = "blur(5px)";
+    if (canFilter) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
     ctx.drawImage(mask, 0, 0, W, H);
     ctx.restore();
 
     shadeReveal();
+    drawEdge(geom, head, active ? 1 : Math.max(0, headAlpha));
 
     raf = requestAnimationFrame(frame);
   }
@@ -353,6 +455,7 @@ export function createLiquidPlanet(planet, canvas, imageUrl) {
       planet.removeEventListener("pointermove", onMove);
       planet.removeEventListener("pointerleave", onLeave);
       planet.removeEventListener("pointercancel", onLeave);
+      planet.removeEventListener("pointerup", onUp);
       ctx.clearRect(0, 0, W, H);
     },
   };

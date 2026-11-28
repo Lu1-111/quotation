@@ -5,7 +5,7 @@
    - demo 模式：完整保留「使用演示账号」与工作台交互，确保 R-C1/R-C2/F-C1/F-C2 零回归 */
 
 import { createGalaxy } from "./galaxy.js?v=33";
-import { createLiquidPlanet } from "./planet-liquid.js?v=35";
+import { createLiquidPlanet } from "./planet-liquid.js?v=38";
 import { renderLiveAnalysis } from "./analysis.js?v=33";
 import {
   createLiveSessionController,

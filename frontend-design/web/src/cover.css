@@ -154,6 +154,18 @@ body[data-view="info"] .back-btn { display: grid; }
   letter-spacing: .2em;
   color: var(--text-3);
 }
+.settings-section + .settings-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.about .settings-label {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: var(--text-3);
+}
 :root[data-theme="dark"] .about {
   background: linear-gradient(
     180deg,
@@ -2798,7 +2810,16 @@ body[data-host-mode="public"] .shared-status-strip .meta-pill {
   height: 12px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 0 rgba(212, 160, 72, 0.45);
+}
+/* 扩散的光环用 transform/opacity 做，避免每帧重绘 box-shadow */
+.public-live-orb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 160, 72, .55);
+  opacity: .75;
+  transform: scale(1);
   animation: publicOrbPulse 1.8s ease-out infinite;
 }
 .public-live-steps {
@@ -2835,9 +2856,9 @@ body[data-host-mode="public"] .shared-status-strip .meta-pill {
   animation: publicCaretBlink 0.9s steps(2, start) infinite;
 }
 @keyframes publicOrbPulse {
-  0% { transform: scale(.92); box-shadow: 0 0 0 0 rgba(212, 160, 72, 0.45); }
-  70% { transform: scale(1.06); box-shadow: 0 0 0 9px rgba(212, 160, 72, 0); }
-  100% { transform: scale(.92); box-shadow: 0 0 0 0 rgba(212, 160, 72, 0); }
+  0% { transform: scale(1); opacity: .7; }
+  70% { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
 }
 @keyframes publicOrbitShimmer {
   0% { background-position: 100% 0; }
@@ -2849,7 +2870,7 @@ body[data-host-mode="public"] .shared-status-strip .meta-pill {
 }
 @media (prefers-reduced-motion: reduce) {
   .public-live-orbit,
-  .public-live-orb,
+  .public-live-orb::after,
   .public-reply-text.is-streaming::after,
   .info .hint::before,
   .public-stage-hint::before,

@@ -547,10 +547,12 @@ export function createGalaxy({
   const LINK_REVEAL_MS = 700;
   const collapseDuration = () => (reduceMotion.matches ? 1 : COLLAPSE_MS);
 
-  const stars = makeStars(1300);
-  const dust = makeDust(340);
-  const swirlDust = makeSwirlDust(3600);
-  const haloNoise = makeHaloNoise(2400);
+  /* 按颜色排序，绘制时 fillStyle 每帧只切换一两次 */
+  const byGold = (a, b) => (a.gold ? 1 : 0) - (b.gold ? 1 : 0);
+  const stars = makeStars(1300).sort(byGold);
+  const dust = makeDust(340).sort(byGold);
+  const swirlDust = makeSwirlDust(3600).sort(byGold);
+  const haloNoise = makeHaloNoise(2400).sort(byGold);
   const vortexCloud = makeVortexCloud();
   const vortexSoft = blurSprite(vortexCloud, 4);
   const vortexHaze = blurSprite(vortexCloud, 9);
@@ -852,7 +854,10 @@ export function createGalaxy({
     viewSp = Math.sin(camera.pitch);
   }
 
-  function project(x, y, z) {
+  /* 粒子循环里复用同一份投影结果，避免每帧产生上千个临时对象 */
+  const scratch = { x: 0, y: 0, z: 0, scale: 0 };
+
+  function projectInto(x, y, z, out) {
     const dx = x - camera.x;
     const dy = y - camera.y;
     const dz = z - camera.z;
@@ -862,12 +867,15 @@ export function createGalaxy({
     const z2 = -dy * viewSp + z1 * viewCp;
     if (z2 > -NEAR) return null;
     const inv = focal / -z2;
-    return {
-      x: W / 2 + x1 * inv,
-      y: H / 2 - y2 * inv,
-      z: z2,
-      scale: inv,
-    };
+    out.x = W / 2 + x1 * inv;
+    out.y = H / 2 - y2 * inv;
+    out.z = z2;
+    out.scale = inv;
+    return out;
+  }
+
+  function project(x, y, z) {
+    return projectInto(x, y, z, { x: 0, y: 0, z: 0, scale: 0 });
   }
 
   function resize() {
@@ -922,18 +930,21 @@ export function createGalaxy({
     ctx.globalCompositeOperation = "lighter";
 
     /* 螺旋尘埃盘：绕大主星 Y 轴差速旋转 */
+    let style = "";
     for (const p of swirlDust) {
       const a = p.theta + t * 0.06 * p.speed;
       const lx = p.r * Math.cos(a);
       const lz = p.r * Math.sin(a);
       const ly = p.y + Math.sin(t * 0.22 + p.phase) * p.wobble;
-      const sp = project(cx + lx, cy + ly, cz + lz);
+      const sp = projectInto(cx + lx, cy + ly, cz + lz, scratch);
       if (!sp) continue;
       const tw = 0.55 + 0.45 * Math.sin(t * 0.6 + p.phase);
       ctx.globalAlpha = p.a * tw * clamp(sp.scale * 1.1, 0.25, 1);
-      ctx.fillStyle = p.gold
-        ? "rgba(255,214,138,1)"
-        : "rgba(150,176,214,1)";
+      const color = p.gold ? "rgba(255,214,138,1)" : "rgba(150,176,214,1)";
+      if (color !== style) {
+        ctx.fillStyle = color;
+        style = color;
+      }
       ctx.fillRect(sp.x, sp.y, p.s, p.s);
     }
 
@@ -941,16 +952,19 @@ export function createGalaxy({
     const slow = t * 0.02;
     const cosS = Math.cos(slow);
     const sinS = Math.sin(slow);
+    style = "";
     for (const p of haloNoise) {
       const rx = p.x * cosS - p.z * sinS;
       const rz = p.x * sinS + p.z * cosS;
-      const sp = project(cx + rx, cy + p.y, cz + rz);
+      const sp = projectInto(cx + rx, cy + p.y, cz + rz, scratch);
       if (!sp) continue;
       const tw = 0.5 + 0.5 * Math.sin(t * p.speed + p.phase);
       ctx.globalAlpha = p.a * tw * clamp(sp.scale, 0.25, 1);
-      ctx.fillStyle = p.gold
-        ? "rgba(255,214,138,1)"
-        : "rgba(168,188,220,1)";
+      const color = p.gold ? "rgba(255,214,138,1)" : "rgba(168,188,220,1)";
+      if (color !== style) {
+        ctx.fillStyle = color;
+        style = color;
+      }
       ctx.fillRect(sp.x, sp.y, p.s, p.s);
     }
 
@@ -1009,22 +1023,32 @@ export function createGalaxy({
     const rc = Math.cos(rot);
     const rs = Math.sin(rot);
 
+    let style = "";
     for (const d of dust) {
-      const p = project(d.x * rc - d.z * rs, d.y, d.x * rs + d.z * rc);
+      const p = projectInto(d.x * rc - d.z * rs, d.y, d.x * rs + d.z * rc, scratch);
       if (!p) continue;
       const tw = 0.56 + 0.44 * Math.sin(t * d.speed + d.phase);
       ctx.globalAlpha = d.a * tw * clamp(p.scale * 1.2, 0.25, 1);
-      ctx.fillStyle = d.gold ? "rgba(255,210,122,1)" : "rgba(198,214,240,1)";
+      const color = d.gold ? "rgba(255,210,122,1)" : "rgba(198,214,240,1)";
+      if (color !== style) {
+        ctx.fillStyle = color;
+        style = color;
+      }
       ctx.fillRect(p.x, p.y, d.s, d.s);
     }
 
+    style = "";
     for (const star of stars) {
-      const p = project(star.x, star.y, star.z);
+      const p = projectInto(star.x, star.y, star.z, scratch);
       if (!p) continue;
       const s = Math.sin(t * star.speed + star.phase);
       const tw = 0.4 + 0.6 * s;
       ctx.globalAlpha = star.a * tw * clamp(p.scale * 1.4, 0.25, 1);
-      ctx.fillStyle = star.gold ? "rgba(255,210,122,1)" : "rgba(226,236,255,1)";
+      const color = star.gold ? "rgba(255,210,122,1)" : "rgba(226,236,255,1)";
+      if (color !== style) {
+        ctx.fillStyle = color;
+        style = color;
+      }
       ctx.fillRect(p.x, p.y, star.s, star.s);
 
       if (star.sparkle && s > 0.76) {

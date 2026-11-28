@@ -4,7 +4,7 @@
    - public 模式：首页第一屏直接自由输入「这句话，你想怎么说？」，同一会话承接温柔对话、核验出处、可编辑改写与双向星图
    - demo 模式：完整保留「使用演示账号」与工作台交互，确保 R-C1/R-C2/F-C1/F-C2 零回归 */
 
-import { createGalaxy } from "./galaxy.js?v=33";
+import { createGalaxy } from "./galaxy.js?v=40";
 import { createLiquidPlanet } from "./planet-liquid.js?v=38";
 import { renderLiveAnalysis } from "./analysis.js?v=33";
 import {

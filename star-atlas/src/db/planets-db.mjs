@@ -23,17 +23,19 @@ export const PLANETS_DB_FORMAT_DECLARATION = Object.freeze({
   },
   recordSchema: {
     id: 'string，星球唯一编号（如 PL-0001）。',
-    domain: 'string，知识点所属领域（如“人工智能”“物理学”“认知心理学”等；星图写入 Agent 会进行语义归类，不会死板按字面拆分）。',
-    knowledgePoint: 'string，提炼出的核心知识点名称（简洁、概念化，绝非直接复制粘贴的帖子标题）。',
-    summary: 'string，对该知识点的结构化说明摘要（概括核心原理、要点或结论，30-160 字）。',
-    weight: 'number，知识点权重（1-100 整数）；权重越高，在星图中星球体积越大、亮度越高。',
+    domain: 'string，知识点所属领域（完全由归纳出的知识点本身所属学科/技术领域决定，不由原帖标题或栏目决定；星图写入 Agent 会做语义归并）。',
+    knowledgePoint: 'string，主标题——从帖子中归纳提炼的核心知识点概念名称（简洁、可复用，绝非原帖标题或内容粘贴）。',
+    summary: 'string，对该知识点本身的结构化说明摘要（阐述概念原理、方法或结论，30-160 字）。',
+    weight: 'number，知识点权重（1-100 整数）。',
+    sources: 'Array<{ key: string, title: string, url: string | null, author: string, contentType: string }>，该知识点归纳自哪些原始帖子的出处列表（仅作出处溯源展示，不决定星球知识属性）。',
     status: 'string，写入星图状态："pending"（待写入星图）| "placed"（已写入星图）。',
-    sourceRecordKeys: 'string[]，来源用户记录 key 列表（溯源用，可为空数组）。',
+    sourceRecordKeys: 'string[]，来源用户记录 key 列表（与 sources 对应，用于增量去重）。',
     createdAt: 'string，记录创建时间（ISO-8601）。',
     updatedAt: 'string，记录最近更新时间（ISO-8601）。',
     placedAt: 'string | null，被星图写入 Agent 写入星图的时间。',
   },
   agentRules: [
+    '决定星球所有核心属性（domain、knowledgePoint、summary、weight）的是从帖子中归纳出的知识点本身，而不是用户浏览的帖子本身；原帖仅作为出处记录在 sources 字段中。',
     '数据转换 Agent 写入时必须确保每条记录具备独立知识价值，严禁写入网文、纯日常、八卦情绪帖或直接粘贴原帖内容。',
     '星图写入 Agent 读取本库时应重点处理 status === "pending" 的条目；写入星图后将其标记为 "placed"。',
     '若外部手动向 records 新增了缺少 id 或 status 的条目，数据库读取器会自动补全默认 status="pending" 并触发星图写入 Agent。',
@@ -61,6 +63,25 @@ function cleanString(value, maxLen = 200) {
   return value.replace(/\s+/g, ' ').trim().slice(0, maxLen);
 }
 
+function normalizeSources(rawSources) {
+  if (!Array.isArray(rawSources)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const item of rawSources) {
+    if (!item || typeof item !== 'object') continue;
+    const key = cleanString(String(item.key || ''), 80);
+    const title = cleanString(String(item.title || ''), 140);
+    const url = typeof item.url === 'string' && /^https?:\/\//i.test(item.url.trim()) ? item.url.trim().slice(0, 400) : null;
+    const author = cleanString(String(item.author || ''), 48);
+    const contentType = cleanString(String(item.contentType || ''), 24);
+    const dedup = key || url || title;
+    if (!dedup || seen.has(dedup)) continue;
+    seen.add(dedup);
+    out.push({ key, title: title || key, url, author, contentType });
+  }
+  return out.slice(0, 8);
+}
+
 export function normalizePlanetEntry(raw, fallbackId) {
   const domain = cleanString(raw?.domain, 40) || '通识与跨学科';
   const knowledgePoint = cleanString(raw?.knowledgePoint, 80);
@@ -69,16 +90,24 @@ export function normalizePlanetEntry(raw, fallbackId) {
     throw new Error('星球记录缺少必填字段 knowledgePoint（知识点）。');
   }
   const now = new Date().toISOString();
+  const sources = normalizeSources(raw?.sources);
+  const sourceKeys = [
+    ...new Set([
+      ...(Array.isArray(raw?.sourceRecordKeys)
+        ? raw.sourceRecordKeys.map((k) => cleanString(String(k), 80)).filter(Boolean)
+        : []),
+      ...sources.map((s) => s.key).filter(Boolean),
+    ]),
+  ];
   return {
     id: cleanString(raw?.id, 32) || fallbackId,
     domain,
     knowledgePoint,
     summary: summary || `${knowledgePoint}的核心概念与知识要点。`,
     weight: clampWeight(raw?.weight),
+    sources,
     status: raw?.status === 'placed' ? 'placed' : 'pending',
-    sourceRecordKeys: Array.isArray(raw?.sourceRecordKeys)
-      ? [...new Set(raw.sourceRecordKeys.map((k) => cleanString(String(k), 80)).filter(Boolean))]
-      : [],
+    sourceRecordKeys: sourceKeys,
     createdAt: typeof raw?.createdAt === 'string' && raw.createdAt ? raw.createdAt : now,
     updatedAt: typeof raw?.updatedAt === 'string' && raw.updatedAt ? raw.updatedAt : now,
     placedAt: typeof raw?.placedAt === 'string' ? raw.placedAt : null,
@@ -188,6 +217,7 @@ export function createPlanetsDatabase(filePath) {
           const nextWeight = clampWeight(Math.max(existing.weight, incomingWeight) + 4);
           existing.weight = nextWeight;
           existing.sourceRecordKeys = mergedKeys;
+          existing.sources = normalizeSources([...(existing.sources || []), ...(raw.sources || [])]);
           if (cleanString(raw.summary, 300).length > existing.summary.length) {
             existing.summary = cleanString(raw.summary, 300);
           }
@@ -296,6 +326,38 @@ export function createPlanetsDatabase(filePath) {
     }
   }
 
+  async function backfillSources(recordByKey) {
+    return enqueue(async () => {
+      if (!recordByKey || recordByKey.size === 0) return read();
+      const db = await read();
+      let changed = false;
+      for (const rec of db.records) {
+        if ((rec.sources || []).length > 0 || !(rec.sourceRecordKeys || []).length) continue;
+        const resolved = [];
+        for (const key of rec.sourceRecordKeys) {
+          const src = recordByKey.get(key);
+          if (src) {
+            resolved.push({
+              key: src.key,
+              title: src.title || key,
+              url: src.url || null,
+              author: src.author || '',
+              contentType: src.contentType || '',
+            });
+          }
+        }
+        if (resolved.length > 0) {
+          rec.sources = normalizeSources(resolved);
+          changed = true;
+        }
+      }
+      if (changed) {
+        await writeInternal(db, 'planets_sources_backfilled');
+      }
+      return db;
+    });
+  }
+
   return {
     filePath,
     formatDeclaration: PLANETS_DB_FORMAT_DECLARATION,
@@ -303,6 +365,7 @@ export function createPlanetsDatabase(filePath) {
     ensureInitialized,
     read,
     addPlanets,
+    backfillSources,
     markPlaced,
     resetAllPending,
     clear,

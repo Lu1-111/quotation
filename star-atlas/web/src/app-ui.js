@@ -105,14 +105,80 @@ function toOriginalGalaxyNodes(starMap) {
       S: 2,
       d: 1,
       cluster: slot,
-      clusterLabel: `${p.domain} · ${p.branchName}`,
-      // 沿用星图写入 Agent 决定的星系空间区域中心
+      // 注意：故意不传 n.domain，避免原版 galaxy.js 在 3D 画布上绘制常驻领域文字；
+      // 真实领域、分支与出处通过下方 knowledgeSources 回调渲染在详情卡中。
       center: g?.center || p.pos || { x: 0, y: 0, z: 0 },
       name: p.knowledgePoint,
       text: p.summary,
       deps: depsByPlanet.get(p.id) || [],
+      sources: {
+        id: p.id,
+        domain: p.domain,
+        branchName: p.branchName,
+        weight: p.weight,
+        items: Array.isArray(p.sources) ? p.sources : [],
+      },
     };
   });
+}
+
+const CONTENT_TYPE_LABELS = { answer: '知乎回答', article: '知乎专栏', pin: '知乎想法', question: '知乎问题', zvideo: '知乎视频' };
+
+// 利用原版 galaxy.js 内置的 knowledgeSources 回调渲染星球详情卡：
+// - 顶行显示真实语义领域与分支（取代旧版“推荐确实拓宽过我”）
+// - 主标题为归纳出的知识点（由 galaxy.js 的 cardName 渲染）
+// - 下方为知识点摘要与可点击跳转的原始出处列表（同时自动隐藏旧版承重/坍缩/焦点按钮）
+function renderPlanetProvenance(meta) {
+  if (!meta || typeof meta !== 'object') return null;
+  cardCluster.textContent = meta.branchName ? `${meta.domain} · ${meta.branchName}` : meta.domain || '';
+  cardMeta.textContent = `知识点编号 ${meta.id} · 所属领域：${meta.domain || '未分类'}`;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'ks-box';
+
+  const heading = document.createElement('p');
+  heading.className = 'ks-title';
+  heading.textContent = '出处与溯源';
+  wrap.appendChild(heading);
+
+  const items = Array.isArray(meta.items) ? meta.items : [];
+  if (items.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'ks-empty';
+    empty.textContent = '由工作台手动录入或直接归纳自知识库。';
+    wrap.appendChild(empty);
+    return wrap;
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'ks-list';
+  for (const src of items) {
+    const li = document.createElement('li');
+    li.className = 'ks-item';
+
+    const titleEl = src.url ? document.createElement('a') : document.createElement('span');
+    titleEl.className = 'ks-link';
+    titleEl.textContent = src.title || src.key || '知乎原帖';
+    if (src.url) {
+      titleEl.href = src.url;
+      titleEl.target = '_blank';
+      titleEl.rel = 'noopener noreferrer';
+    }
+    li.appendChild(titleEl);
+
+    const subParts = [];
+    if (src.contentType && CONTENT_TYPE_LABELS[src.contentType]) subParts.push(CONTENT_TYPE_LABELS[src.contentType]);
+    if (src.author) subParts.push(`作者：${src.author}`);
+    if (subParts.length) {
+      const sub = document.createElement('span');
+      sub.className = 'ks-sub';
+      sub.textContent = subParts.join(' · ');
+      li.appendChild(sub);
+    }
+    list.appendChild(li);
+  }
+  wrap.appendChild(list);
+  return wrap;
 }
 
 function ensureGalaxy() {
@@ -134,8 +200,9 @@ function ensureGalaxy() {
 function pushStarMapToOriginalGalaxy() {
   const scene = ensureGalaxy();
   const nodes = toOriginalGalaxyNodes(state.starMap);
-  // 直接调用原版 galaxy.js 的 setGraphData（不传入 knowledgeSources，画布上不绘制任何文字）
-  scene.setGraphData(nodes, { graphVersion: nodes.length });
+  // 传入原版 galaxy.js 支持的 knowledgeSources 渲染器：
+  // 画布零文字（因节点不含 n.domain），点击星球时卡片展示“主标题知识点 + 摘要 + 出处原帖”
+  scene.setGraphData(nodes, { graphVersion: nodes.length, knowledgeSources: renderPlanetProvenance });
 
   const { galaxies, planets, links } = state.starMap;
   const userEl = $('galaxyUser');

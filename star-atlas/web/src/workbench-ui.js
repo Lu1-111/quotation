@@ -196,6 +196,15 @@ function renderPlanets() {
   for (const rec of [...records].reverse()) {
     const row = document.createElement('div');
     row.className = 'planet-row';
+    const sourcesHtml = (rec.sources || []).length
+      ? `<p class="planet-row-source">出处：${rec.sources
+          .map((s) =>
+            s.url
+              ? `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title || s.key)}</a>`
+              : escapeHtml(s.title || s.key),
+          )
+          .join('；')}</p>`
+      : '';
     row.innerHTML = `
       <div class="planet-row-top">
         <span class="planet-row-id">${escapeHtml(rec.id)} · ${escapeHtml(rec.domain)}</span>
@@ -203,6 +212,7 @@ function renderPlanets() {
       </div>
       <div class="planet-row-title">${escapeHtml(rec.knowledgePoint)}</div>
       <p class="planet-row-summary">${escapeHtml(rec.summary)}</p>
+      ${sourcesHtml}
     `;
     box.appendChild(row);
   }

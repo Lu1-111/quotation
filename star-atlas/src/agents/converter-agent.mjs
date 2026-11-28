@@ -11,15 +11,16 @@ export const CONVERTER_AGENT_INSTRUCTIONS = [
   '你是「数据转换与知识提炼 Agent」。你的任务是读取用户数据库中的阅读与互动记录，将其转化为可构建个人知识星图的「知识星球条目」，严格遵循星球数据库格式规范写入。',
   '',
   '【核心筛选与提炼原则（必须严格执行）】',
-  '1. 坚决丢弃不具备知识属性的数据：包括但不限于网络小说/爽文/虚构故事、个人日常晒图/流水账、明星/社会八卦与纯情绪宣泄、无实质信息的吐槽短句。不要为这些条目生成任何星球。',
-  '2. 绝对禁止将帖子标题或摘要直接复制粘贴为知识点！你必须站在“构建知识体系”的视角，提炼出用户从该帖子中真正了解到的概念、原理、方法或结论：',
+  '1. 决定星球所有核心属性（domain、knowledgePoint、summary、weight）的是“从帖子中归纳出的知识点本身”，而不是“用户浏览的帖子本身”！帖子只是该知识点的出处（由系统根据 sourceRecordKeys 自动绑定到 sources 出处列表），切忌把帖子当成星球！',
+  '2. 坚决丢弃不具备知识属性的数据：包括但不限于网络小说/爽文/虚构故事、个人日常晒图/流水账、明星/社会八卦与纯情绪宣泄、无实质信息的吐槽短句。不要为这些条目生成任何星球。',
+  '3. 绝对禁止将帖子标题或摘要直接复制粘贴为知识点！你必须站在“构建知识体系”的视角，提炼出用户从该帖子中真正了解到的概念、原理、方法或结论：',
   '   - 例如原帖标题为《从 PPO 到 GRPO：DeepSeek-R1 为什么能用组内相对优势替代 Critic 网络？》，应提炼为知识点：「GRPO 组内相对策略优化」，摘要概括其核心机理（通过组内相对奖励归一化替代 Critic 价值网络，降低显存开销并以 KL 散度约束防止策略坍缩）。',
-  '   - 知识点名称（knowledgePoint）应简洁凝练（4-18 个汉字或中英术语），像知识图谱词条而非知乎提问句（不要带问号、不要以“如何看待/为什么/怎么”开头）。',
-  '3. 内容摘要（summary）为 35-140 字的知识说明，直述核心概念、因果机制、应用场景或关键结论，不得出现“这篇回答讲了”“作者认为”“知乎网友”等原帖搬运口吻。',
-  '4. 所属领域（domain）使用清晰规范的中文大类领域名（如“人工智能”“物理学”“认知心理学”“行为经济学”“信息论与数学”“生物医学”等），尽量保持同类一致，不要过细碎片化。',
-  '5. 权重（weight）为 1-100 的整数：综合参考用户记录原始权重、行为类型（点赞/收藏高于普通浏览）、互动热度与知识点本身的基础重要性（基础核心概念 70-95，进阶专题 45-75，轻量补充 25-50）。',
-  '6. 如果多条记录指向同一个核心知识点，可以合并提炼为一颗权重更高的星球，并在 sourceRecordKeys 中同时列出它们的 key。',
-  '7. 只输出一个合法 JSON 对象，不要 Markdown 代码块，不要任何多余解释。',
+  '   - 知识点名称（knowledgePoint）将直接作为星球详情卡的主标题，必须简洁凝练（4-18 个汉字或中英术语），像知识图谱词条而非知乎提问句（不要带问号、不要以“如何看待/为什么/怎么”开头，不要写“吐槽/经历/感受”等帖子语境词）。',
+  '4. 内容摘要（summary）为 35-140 字的知识说明，直述该知识点的核心概念、因果机制、应用场景或关键结论，不得出现“这篇回答讲了”“作者认为”“知乎网友”“楼主吐槽”等原帖搬运口吻。',
+  '5. 所属领域（domain）由该知识点本身的学科/专业领域决定（如“人工智能”“物理学”“认知心理学”“行为经济学”“信息论与数学”“生物医学”等），尽量保持同类一致，不要过细碎片化。',
+  '6. 权重（weight）为 1-100 的整数：综合参考用户记录原始权重、行为类型（点赞/收藏高于普通浏览）、互动热度与知识点本身的基础重要性（基础核心概念 70-95，进阶专题 45-75，轻量补充 25-50）。',
+  '7. 如果多条记录指向同一个核心知识点，必须合并提炼为一颗星球，并在 sourceRecordKeys 中同时列出它们的 key（系统会自动把多篇原帖都附在该星球的出处列表下）。',
+  '8. 只输出一个合法 JSON 对象，不要 Markdown 代码块，不要任何多余解释。',
   '',
   '【星球数据库目标记录规范】',
   JSON.stringify(PLANETS_DB_FORMAT_DECLARATION.recordSchema, null, 2),
@@ -59,7 +60,23 @@ function isObviouslyNoise(record) {
   return NOISE_PATTERNS.some((re) => re.test(text));
 }
 
-function normalizeConvertedPlanet(raw, validKeys) {
+function buildSourcesForKeys(keys = [], recordMap = new Map()) {
+  const out = [];
+  for (const k of keys) {
+    const rec = recordMap.get(k);
+    if (!rec) continue;
+    out.push({
+      key: rec.key,
+      title: rec.title || k,
+      url: rec.url || null,
+      author: rec.author || '',
+      contentType: rec.contentType || '',
+    });
+  }
+  return out;
+}
+
+function normalizeConvertedPlanet(raw, validKeys, recordMap) {
   const kp = String(raw?.knowledgePoint || '').replace(/\s+/g, ' ').trim();
   const summary = String(raw?.summary || '').replace(/\s+/g, ' ').trim();
   const domain = String(raw?.domain || '').replace(/\s+/g, ' ').trim() || '通识与跨学科';
@@ -86,6 +103,7 @@ function normalizeConvertedPlanet(raw, validKeys) {
     summary: (summary || `${cleanedKp}的核心概念与知识要点。`).slice(0, 260),
     weight,
     sourceRecordKeys,
+    sources: buildSourcesForKeys(sourceRecordKeys, recordMap),
   };
 }
 
@@ -152,6 +170,17 @@ export function convertRecordsWithFallbackRules(records = []) {
       summary: cleanSummary,
       weight,
       sourceRecordKeys: [record.key].filter(Boolean),
+      sources: record.key
+        ? [
+            {
+              key: record.key,
+              title: record.title || record.key,
+              url: record.url || null,
+              author: record.author || '',
+              contentType: record.contentType || '',
+            },
+          ]
+        : [],
     });
   }
 
@@ -220,6 +249,7 @@ export function createConverterAgent({ userDb, planetsDb, getModel, onProgress }
 
         let batchResult;
         if (model) {
+          const batchRecordMap = new Map(batch.map((r) => [r.key, r]));
           const json = await generateStructuredJson({
             model,
             instructions: CONVERTER_AGENT_INSTRUCTIONS,
@@ -229,7 +259,7 @@ export function createConverterAgent({ userDb, planetsDb, getModel, onProgress }
           });
           const rawPlanets = Array.isArray(json?.planets) ? json.planets : [];
           const planets = rawPlanets
-            .map((p) => normalizeConvertedPlanet(p, batchKeySet))
+            .map((p) => normalizeConvertedPlanet(p, batchKeySet, batchRecordMap))
             .filter(Boolean);
           const discarded = Array.isArray(json?.discarded) ? json.discarded : [];
           batchResult = { planets, discarded };

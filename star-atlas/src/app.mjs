@@ -81,6 +81,26 @@ export async function createStarAtlasApp({
     starMapStore.ensureInitialized(),
   ]);
 
+  // 为已有星球记录自动回填结构化出处（title / url / author），确保存量星球也能展示出处溯源
+  async function syncBackfilledSources() {
+    const [uData, pData, sMap] = await Promise.all([userDb.read(), planetsDb.read(), starMapStore.read()]);
+    const recByKey = new Map((uData.records || []).map((r) => [r.key, r]));
+    const updatedPlanets = await planetsDb.backfillSources(recByKey);
+    const planetById = new Map((updatedPlanets.records || []).map((p) => [p.id, p]));
+    let mapChanged = false;
+    for (const sp of sMap.planets || []) {
+      const dbRec = planetById.get(sp.planetDbId || sp.id);
+      if (dbRec?.sources?.length && (!Array.isArray(sp.sources) || sp.sources.length === 0)) {
+        sp.sources = dbRec.sources;
+        mapChanged = true;
+      }
+    }
+    if (mapChanged) {
+      await starMapStore.save(sMap);
+    }
+  }
+  await syncBackfilledSources().catch(() => {});
+
   const sseClients = new Set();
   const pipelineLog = [];
 

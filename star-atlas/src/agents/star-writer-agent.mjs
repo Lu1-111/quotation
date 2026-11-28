@@ -356,12 +356,15 @@ export function createStarWriterAgent({ planetsDb, starMapStore, getModel, onSta
   function applyPlacementToStarMap(starMap, entry, decision) {
     const alreadyExists = starMap.planets.find((p) => p.planetDbId === entry.id);
     if (alreadyExists) {
-      // 已写入则只同步最新权重与摘要
+      // 已写入则只同步最新权重、摘要与出处列表
       const metrics = computeVisualMetricsFromWeight(entry.weight);
       alreadyExists.weight = metrics.weight;
       alreadyExists.sizeFactor = metrics.sizeFactor;
       alreadyExists.brightness = metrics.brightness;
       alreadyExists.summary = entry.summary;
+      if (Array.isArray(entry.sources) && entry.sources.length) {
+        alreadyExists.sources = entry.sources;
+      }
       return { planet: alreadyExists, createdGalaxy: false, addedLinks: [] };
     }
 
@@ -398,6 +401,7 @@ export function createStarWriterAgent({ planetsDb, starMapStore, getModel, onSta
       brightness: metrics.brightness,
       pos,
       sourceRecordKeys: entry.sourceRecordKeys || [],
+      sources: Array.isArray(entry.sources) ? entry.sources : [],
       placedAt: new Date().toISOString(),
     };
     starMap.planets.push(planet);
@@ -539,8 +543,8 @@ export function createStarWriterAgent({ planetsDb, starMapStore, getModel, onSta
   }
 
   const handleDbChange = ({ reason }) => {
-    // 忽略自身刚写回 placed 状态触发的事件，避免空循环
-    if (reason === 'planets_placed' || reason === 'init') return;
+    // 忽略自身刚写回 placed 状态或出处回填触发的事件，避免空循环
+    if (reason === 'planets_placed' || reason === 'planets_sources_backfilled' || reason === 'init') return;
     processPending().catch((err) => {
       events.emit('error', err);
     });

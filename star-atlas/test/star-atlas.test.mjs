@@ -308,6 +308,14 @@ test('端到端 HTTP 服务：演示采集 -> 用户库 -> 画像 Agent + 数据
       assert.equal(starMap.planets.length, planetsDb.records.length, '星图写入 Agent 应实时将全部星球写入 3D 星图');
       assert.ok(starMap.galaxies.length >= 3, '多领域数据应自动划分出合理数量的星系');
       assert.ok(planetsDb.records.every((r) => r.status === 'placed'));
+      assert.ok(
+        planetsDb.records.every((r) => Array.isArray(r.sources) && r.sources.length >= 1 && r.sources[0].title),
+        '每颗从帖子归纳出的星球都应携带结构化出处（sources）',
+      );
+      assert.ok(
+        starMap.planets.every((p) => Array.isArray(p.sources) && p.sources.length >= 1 && p.sources[0].title),
+        '星图节点应透传结构化出处供详情卡展示',
+      );
 
       // 第二轮演示采集（增量：新增 AI 同义领域与全新生物医学领域）
       const prevGalaxies = starMap.galaxies.length;

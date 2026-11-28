@@ -15,7 +15,8 @@ import { createSessionStore } from './session-store.mjs';
 import { createStarfieldLogin, createZhihuLoginProvider } from './zhihu-login.mjs';
 import { createLocalAgentTools } from '../information-search/agent-tools.mjs';
 
-const frontend = fileURLToPath(new URL('../frontend-design/web', import.meta.url));
+/* 报价版前端已归档，主前端迁到 star-atlas/web */
+const frontend = fileURLToPath(new URL('../frontend-design/archive/2026-11-28-web', import.meta.url));
 const dataRoot = fileURLToPath(new URL('./.data', import.meta.url));
 const cookieName = 'quotation_workbench_starfield';
 const token = () => randomBytes(32).toString('base64url');

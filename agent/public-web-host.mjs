@@ -18,7 +18,8 @@ import { createMaterialsAdapter } from './materials.mjs';
 import { createTurnOrchestrator } from './turn-orchestrator.mjs';
 
 const AGENT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const FRONTEND_WEB_DIR = path.resolve(AGENT_DIR, '..', 'frontend-design', 'web');
+/* 报价版前端已归档，主前端迁到 star-atlas/web；这里仍托管归档副本以保持公开链路可用 */
+const FRONTEND_WEB_DIR = path.resolve(AGENT_DIR, '..', 'frontend-design', 'archive', '2026-11-28-web');
 const DEFAULT_DB_PATH = path.resolve(AGENT_DIR, '.data', 'sessions-public-web.sqlite');
 export const PUBLIC_SESSION_COOKIE_NAME = 'quotation_public_sid';
 const MAX_HOST_SESSIONS = 512;

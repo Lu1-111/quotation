@@ -1,0 +1,22 @@
+{
+  "name": "star-atlas",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "以 3D 知识星图为交互核心的多智能体个人知识体系构建系统",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=../.env --env-file-if-exists=.env src/server.mjs",
+    "dev": "node --env-file-if-exists=../.env --env-file-if-exists=.env src/server.mjs",
+    "browser:install": "playwright-core install chromium",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "3.0.94",
+    "ai": "7.0.179",
+    "playwright-core": "1.65.1",
+    "zod": "4.6.7"
+  }
+}

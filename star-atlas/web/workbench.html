@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>数据工作台 · 报价 / QUOTATION</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#e9edf2">
+<script>
+  try {
+    var p = new URLSearchParams(location.search).get("theme");
+    var saved = localStorage.getItem("quotation-theme");
+    document.documentElement.dataset.theme =
+      p === "dark" || (!p && saved === "dark") ? "dark" : "light";
+  } catch (e) {}
+</script>
+<link rel="stylesheet" href="./src/theme.css?v=14">
+<link rel="stylesheet" href="./src/cover.css?v=38">
+<link rel="stylesheet" href="./src/atlas.css?v=3">
+<style>
+  body.wb-page {
+    min-height: 100svh;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 64px;
+  }
+  .wb-main {
+    width: min(1140px, 100%);
+    margin: 0 auto;
+    padding: 96px clamp(18px, 4vw, 44px) 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .wb-hero {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .wb-hero-kicker {
+    margin: 0 0 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--accent);
+  }
+  .wb-hero h1 {
+    margin: 0 0 6px;
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: clamp(26px, 3.2vw, 34px);
+    letter-spacing: 0.03em;
+  }
+  .wb-hero p {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--text-2);
+  }
+  .wb-hero-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .wb-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .wb-card {
+    border-radius: 22px;
+    padding: 22px 24px;
+    background: var(--bg);
+    box-shadow:
+      8px 8px 20px var(--shade),
+      -8px -8px 20px var(--light);
+  }
+  :root[data-theme="dark"] .wb-card {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 100%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 22px 50px rgba(0, 0, 0, 0.45);
+  }
+  .wb-card-title {
+    margin: 0 0 8px;
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 18px;
+  }
+  .qr-stage {
+    margin-top: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px dashed var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 180px;
+    text-align: center;
+  }
+  .qr-stage img {
+    max-width: 240px;
+    max-height: 240px;
+    border-radius: 12px;
+    background: #fff;
+    padding: 8px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.14);
+  }
+  .wb-tabs-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .wb-tab-pane {
+    display: none;
+  }
+  .wb-tab-pane.active {
+    display: block;
+  }
+  @media (max-width: 860px) {
+    .wb-grid-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body class="wb-page">
+
+<header class="topbar">
+  <div class="topbar-left">
+    <a class="brand" href="/" style="text-decoration:none;color:inherit">
+      <span class="brand-cn">报价</span>
+      <span class="brand-en">QUOTATION · WORKBENCH</span>
+    </a>
+  </div>
+  <div class="topbar-right">
+    <a class="topbar-workbench-btn" href="/" style="display:inline-flex;align-items:center;text-decoration:none">星图首页</a>
+    <a class="topbar-workbench-btn" href="/#galaxy" style="display:inline-flex;align-items:center;text-decoration:none;color:var(--accent)">直接看 3D 星图 →</a>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换到夜间模式" aria-pressed="false">
+      <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2"/>
+        <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.7 1.7M16.9 16.9l1.7 1.7M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7"/>
+      </svg>
+      <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8 8.6 8.6 0 1 0 20.2 14.6Z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main class="wb-main">
+  <section class="wb-hero">
+    <div>
+      <p class="wb-hero-kicker">STAR ATLAS WORKBENCH</p>
+      <h1>知乎登录、数据采集与星图构建工作台</h1>
+      <p>在当前浏览器页面直接完成知乎授权登录 → 采集写入用户库 → 自动触发画像、转换与星图写入 Agent → 进入三维星图。</p>
+    </div>
+    <div class="wb-hero-actions">
+      <a class="drawer-btn" href="/">返回星球封面</a>
+      <a class="drawer-btn primary" href="/#galaxy" id="heroOpenMapBtn">进入 3D 星图（<span id="heroPlanetCount">0</span> 颗星球）→</a>
+    </div>
+  </section>
+
+  <!-- 第一步：在浏览器页面内完成知乎登录授权（双通道均无需依赖外部隐藏窗口） -->
+  <section class="wb-grid-2">
+    <!-- 通道 A：知乎官方 OAuth 浏览器授权 -->
+    <article class="wb-card">
+      <div class="panel-head">
+        <span class="panel-kicker">LOGIN A · 知乎官方 OAuth 浏览器授权</span>
+        <span class="status-chip" id="oauthStatusChip">检测中...</span>
+      </div>
+      <h2 class="wb-card-title">知乎官方授权页登录</h2>
+      <p class="panel-desc" id="oauthDesc">直接在当前浏览器打开知乎官方授权窗口（<code>openapi.zhihu.com</code>），确认授权后自动回跳到本工作台并绑定知乎身份，支持直接拉取官方创作与收藏。</p>
+      <div class="btn-row">
+        <a class="drawer-btn primary" id="btnOAuthLogin" href="/auth/zhihu/start?returnTo=/workbench" style="text-decoration:none">在浏览器打开知乎官方授权</a>
+        <button type="button" class="drawer-btn" id="btnSyncOAuth" disabled>同步官方创作与收藏</button>
+        <button type="button" class="drawer-btn danger" id="btnOAuthLogout" hidden>退出授权</button>
+      </div>
+      <p class="muted-note" id="oauthAccountNote" style="margin-top:12px"></p>
+    </article>
+
+    <!-- 通道 B：页面内知乎扫码登录（采集近 50 条浏览历史） -->
+    <article class="wb-card">
+      <div class="panel-head">
+        <span class="panel-kicker">LOGIN B · 页面内扫码登录（获取近 50 条浏览历史）</span>
+        <span class="status-chip" id="qrStatusChip">未登录</span>
+      </div>
+      <h2 class="wb-card-title">工作台内扫码登录知乎</h2>
+      <p class="panel-desc">直接在下方渲染实时知乎登录二维码，用手机知乎 App 扫码即可登录（无需系统弹窗，后台启动同样可用）；登录后即可高速采集近 50 条浏览足迹。</p>
+      <div class="btn-row">
+        <button type="button" class="drawer-btn primary" id="btnStartQr">在页面内加载知乎二维码</button>
+        <button type="button" class="drawer-btn" id="btnOpenDesktopWin">弹出独立 Edge 窗口</button>
+      </div>
+      <div class="qr-stage" id="qrStage">
+        <p class="muted-note" id="qrHintText">点击上方「在页面内加载知乎二维码」，用知乎 App 扫码即可完成登录。</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- 第二步：数据采集控制与四大 Agent 实时流水线 -->
+  <section class="wb-grid-2">
+    <article class="wb-card">
+      <div class="panel-head">
+        <span class="panel-kicker">STEP 2 · 高速采集与同步（≤15s 初次 / ≤10s 增量）</span>
+        <span class="status-chip" id="collectStatusChip">就绪</span>
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="optHistory" checked> 浏览历史（近 50 条）</label>
+        <label><input type="checkbox" id="optLikes"> 点赞记录</label>
+        <label><input type="checkbox" id="optCollections"> 收藏夹</label>
+        <label><input type="checkbox" id="optFilter" checked> 规则预过滤</label>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="drawer-btn primary" id="btnSyncReal">同步浏览历史并生成星图</button>
+        <button type="button" class="drawer-btn" id="btnSyncDemo">演示数据一键体验</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-item"><span>最近采集耗时</span><strong id="statDuration">—</strong></div>
+        <div class="stat-item"><span>同步模式</span><strong id="statMode">—</strong></div>
+        <div class="stat-item"><span>用户库条数</span><strong id="statUserCount">0 条</strong></div>
+        <div class="stat-item"><span>耗时预算达标</span><strong id="statBudget">—</strong></div>
+      </div>
+    </article>
+
+    <article class="wb-card">
+      <div class="panel-head">
+        <span class="panel-kicker">AGENT PIPELINE · 实时协作状态</span>
+      </div>
+      <ul class="pipeline-list">
+        <li><span>1. 数据采集模块 → user-db.json</span><span class="pipe-state" id="pipeCollect">待命</span></li>
+        <li><span>2. 画像 Agent（绑定同步）→ profile.json</span><span class="pipe-state" id="pipeProfile">待命</span></li>
+        <li><span>3. 数据转换 Agent（过滤提炼）→ planets-db.json</span><span class="pipe-state" id="pipeConverter">待命</span></li>
+        <li><span>4. 星图写入 Agent（实时监听）→ star-map.json</span><span class="pipe-state active" id="pipeWriter">实时监听中</span></li>
+      </ul>
+      <div class="log-box" id="pipelineLogBox">
+        <p class="muted-note">等待运行动态...</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- 第三步：画像 / 星球库 / 模型设置 切换面板 -->
+  <section class="wb-card">
+    <div class="panel-head" style="margin-bottom:16px">
+      <div class="wb-tabs-bar">
+        <button type="button" class="drawer-tab active" data-wtab="profile">用户知识画像</button>
+        <button type="button" class="drawer-tab" data-wtab="planets">星球数据库（<span id="tabPlanetCount">0</span>）</button>
+        <button type="button" class="drawer-tab" data-wtab="settings">大模型设置</button>
+      </div>
+      <span class="status-chip" id="llmStatusChip">未配置</span>
+    </div>
+
+    <div class="wb-tab-pane active" data-wpane="profile">
+      <div class="panel-head">
+        <span class="panel-kicker">USER KNOWLEDGE PROFILE</span>
+        <button type="button" class="drawer-btn sm" id="btnRefreshProfile">重新生成画像</button>
+      </div>
+      <div id="profileContent">
+        <p class="muted-note">尚未生成画像。完成一次采集后画像 Agent 会自动生成并保存。</p>
+      </div>
+    </div>
+
+    <div class="wb-tab-pane" data-wpane="planets">
+      <div class="wb-grid-2">
+        <div>
+          <p class="panel-kicker" style="margin:0 0 8px">手动写入知识点（测试星图写入 Agent 实时监听）</p>
+          <form id="addPlanetForm" class="atlas-form">
+            <div class="form-row-2">
+              <label>所属领域
+                <input type="text" id="inDomain" placeholder="如：AI 或 天体物理" required>
+              </label>
+              <label>权重（1-100）
+                <input type="number" id="inWeight" min="1" max="100" value="82" required>
+              </label>
+            </div>
+            <label>知识点名称
+              <input type="text" id="inKnowledgePoint" placeholder="如：FlashAttention 分块显存优化" required>
+            </label>
+            <label>知识点摘要
+              <textarea id="inSummary" rows="2" placeholder="简明说明该知识点的核心原理或结论" required></textarea>
+            </label>
+            <div class="btn-row">
+              <button type="submit" class="drawer-btn primary">写入星球库并实时落星图</button>
+              <button type="button" class="drawer-btn" id="btnRebuildMap">重建星图</button>
+              <button type="button" class="drawer-btn danger" id="btnResetAll">清空数据</button>
+            </div>
+          </form>
+        </div>
+        <div>
+          <p class="panel-kicker" style="margin:0 0 8px">星球数据库分条记录（planets-db.json）</p>
+          <div class="planets-table" id="planetsListBox">
+            <p class="muted-note">星球数据库暂无记录。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wb-tab-pane" data-wpane="settings">
+      <form id="llmSettingsForm" class="atlas-form" style="max-width:520px">
+        <label>Base URL
+          <input type="url" id="inBaseUrl" placeholder="https://api.deepseek.com/v1">
+        </label>
+        <label>Model Name
+          <input type="text" id="inModelName" placeholder="deepseek-chat">
+        </label>
+        <label>API Key（留空则保持已保存密钥不变）
+          <input type="password" id="inApiKey" placeholder="sk-..." autocomplete="off">
+        </label>
+        <div class="btn-row">
+          <button type="submit" class="drawer-btn primary">保存模型配置</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="./src/workbench-ui.js?v=1"></script>
+</body>
+</html>

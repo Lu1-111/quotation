@@ -1,0 +1,664 @@
+/* 仅在原版 theme.css + cover.css 之上做轻量增量样式：
+   严格保留原版首页布局、配色、字体与按钮质感，只为顶栏「数据工作台」按钮、星图辅助 HUD 和侧滑工作台抽屉补齐样式。 */
+
+/* 禁止封面无意义下滑（已移除下滑后的旧分析区块） */
+body.page-cover {
+  overflow-x: hidden;
+}
+
+/* 顶栏右侧「数据工作台」柔和胶囊按钮（与原版浅色新拟态 / 深色液态玻璃一致） */
+.topbar-workbench-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow:
+    5px 5px 12px var(--shade),
+    -5px -5px 12px var(--light);
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), transform 140ms var(--ease);
+}
+
+:root[data-theme="dark"] .topbar-workbench-btn {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.03) 100%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.topbar-workbench-btn:hover {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .topbar-workbench-btn:hover {
+  border-color: rgba(255, 210, 122, 0.6);
+}
+.topbar-workbench-btn:active {
+  transform: scale(0.96);
+}
+
+/* 星图左上角 HUD 按钮组 */
+.galaxy-hud-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 星图底部领域星系导航胶囊 */
+.galaxy-legend-bar {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(20px, 4vh, 34px);
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(680px, calc(100vw - 260px));
+  overflow-x: auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(12, 16, 26, 0.56);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  backdrop-filter: blur(18px) saturate(170%);
+  scrollbar-width: none;
+}
+.galaxy-legend-bar:empty {
+  display: none;
+}
+.galaxy-legend-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(232, 236, 244, 0.85);
+  font-family: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.legend-chip:hover,
+.legend-chip.active {
+  border-color: rgba(255, 210, 122, 0.65);
+  background: rgba(255, 210, 122, 0.13);
+  color: #ffd27a;
+}
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.galaxy-empty-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.galaxy-reset.primary-pill {
+  border-color: rgba(255, 210, 122, 0.65);
+  color: #ffd27a;
+  background: rgba(255, 210, 122, 0.1);
+}
+
+/* 星球详情卡增量字段（分支色点、权重条、关联星链） */
+.atlas-node-card {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+.node-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.branch-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px currentColor;
+}
+.node-weight-box {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.node-weight-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: rgba(232, 236, 244, 0.72);
+  margin-bottom: 6px;
+}
+.node-weight-row strong {
+  font-family: var(--font-mono);
+  color: #ffd27a;
+}
+.node-weight-track {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.node-weight-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #72bcff, #ffd27a);
+  transition: width 0.35s var(--ease);
+}
+.node-links-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.node-links-title {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: rgba(232, 236, 244, 0.5);
+}
+.node-links-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.node-link-btn {
+  width: 100%;
+  text-align: left;
+  padding: 8px 11px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e8ecf4;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.node-link-btn:hover {
+  border-color: rgba(255, 210, 122, 0.6);
+  background: rgba(255, 210, 122, 0.1);
+}
+.node-link-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.node-link-tag {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(114, 188, 255, 0.16);
+  color: #8ccaff;
+}
+.node-link-tag.cross {
+  background: rgba(255, 210, 122, 0.18);
+  color: #ffd27a;
+}
+.node-link-reason {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: rgba(232, 236, 244, 0.62);
+}
+
+/* 数据工作台侧滑抽屉（浅色新拟态 / 深色液态玻璃自适应） */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 20, 32, 0.34);
+  backdrop-filter: blur(4px);
+}
+.atlas-drawer {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 90;
+  width: min(510px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow:
+    12px 12px 30px var(--shade),
+    -8px -8px 24px var(--light);
+  overflow: hidden;
+  animation: drawer-in 0.28s var(--ease) both;
+}
+:root[data-theme="dark"] .atlas-drawer,
+body.galaxy-open .atlas-drawer {
+  background: linear-gradient(180deg, rgba(18, 22, 34, 0.94) 0%, rgba(10, 13, 22, 0.96) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e8ecf4;
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 30px 80px rgba(0, 0, 0, 0.65);
+}
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: none; }
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.drawer-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.drawer-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.drawer-tab.active {
+  color: var(--accent);
+  border-color: rgba(169, 119, 34, 0.42);
+  background: rgba(217, 154, 43, 0.1);
+}
+.tab-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.85;
+}
+.drawer-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 20px;
+  cursor: pointer;
+}
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px 22px;
+}
+.drawer-pane {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
+.drawer-pane.active {
+  display: flex;
+}
+
+.panel-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.35);
+}
+:root[data-theme="dark"] .panel-card,
+body.galaxy-open .panel-card {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.panel-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+}
+.panel-desc {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text-2);
+}
+.panel-desc code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(120, 130, 150, 0.14);
+}
+
+.drawer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 4px 4px 10px var(--shade), -4px -4px 10px var(--light);
+  transition: transform 140ms var(--ease), color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+:root[data-theme="dark"] .drawer-btn,
+body.galaxy-open .drawer-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #e8ecf4;
+  box-shadow: none;
+}
+.drawer-btn.primary {
+  color: var(--accent);
+  border-color: rgba(169, 119, 34, 0.55);
+}
+:root[data-theme="dark"] .drawer-btn.primary,
+body.galaxy-open .drawer-btn.primary {
+  background: rgba(255, 210, 122, 0.14);
+  border-color: rgba(255, 210, 122, 0.55);
+  color: #ffd27a;
+}
+.drawer-btn.danger {
+  color: var(--danger);
+}
+.drawer-btn.sm {
+  padding: 5px 11px;
+  font-size: 11.5px;
+}
+.drawer-btn:active {
+  transform: scale(0.97);
+}
+.drawer-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status-chip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  background: rgba(100, 145, 210, 0.14);
+  color: var(--text-2);
+}
+.status-chip.ok {
+  background: rgba(58, 175, 125, 0.16);
+  color: #2f8f66;
+}
+:root[data-theme="dark"] .status-chip.ok,
+body.galaxy-open .status-chip.ok {
+  color: #63d8a3;
+}
+.status-chip.warn {
+  background: rgba(217, 154, 43, 0.18);
+  color: var(--accent);
+}
+
+.check-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.check-row label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+.stat-item {
+  padding: 9px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+.stat-item span {
+  display: block;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-bottom: 3px;
+}
+.stat-item strong {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.pipeline-list {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.pipeline-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: rgba(120, 130, 150, 0.08);
+}
+.pipe-state {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.pipe-state.active {
+  color: #2f8f66;
+}
+:root[data-theme="dark"] .pipe-state.active,
+body.galaxy-open .pipe-state.active {
+  color: #63d8a3;
+}
+.pipe-state.running {
+  color: var(--accent);
+}
+.pipe-state.error {
+  color: var(--danger);
+}
+
+.log-box {
+  max-height: 165px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(120, 130, 150, 0.08);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+.log-entry {
+  margin: 0 0 5px;
+  color: var(--text-2);
+}
+.log-entry strong {
+  color: var(--accent);
+  margin-right: 6px;
+}
+.muted-note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.profile-summary {
+  margin: 0 0 14px;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.8;
+}
+.domain-bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.domain-bar-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  margin-bottom: 4px;
+}
+.domain-bar-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(120, 130, 150, 0.16);
+  overflow: hidden;
+}
+.domain-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #72bcff, #d99a2b);
+}
+.tag-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.topic-tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  border: 1px solid var(--line);
+  color: var(--text-2);
+}
+
+.atlas-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.atlas-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  gap: 10px;
+}
+.atlas-form input,
+.atlas-form textarea {
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+}
+:root[data-theme="dark"] .atlas-form input,
+:root[data-theme="dark"] .atlas-form textarea,
+body.galaxy-open .atlas-form input,
+body.galaxy-open .atlas-form textarea {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.atlas-form input:focus,
+.atlas-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.planets-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.planet-row {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease);
+}
+.planet-row:hover {
+  border-color: var(--accent);
+}
+.planet-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.planet-row-id {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--accent);
+}
+.planet-row-title {
+  font-weight: 500;
+  font-size: 13px;
+}
+.planet-row-summary {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+@media (max-width: 720px) {
+  .galaxy-legend-bar {
+    max-width: calc(100vw - 32px);
+    bottom: 72px;
+  }
+}

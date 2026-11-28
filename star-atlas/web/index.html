@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>报价 / QUOTATION</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#e9edf2">
+<meta name="description" content="从知乎阅读足迹提炼你的三维知识星图与个人知识体系。">
+<script>
+  /* 沿用原版主题初始化：默认浅色新拟态，支持 ?theme=dark 与 localStorage 记忆 */
+  try {
+    var p = new URLSearchParams(location.search).get("theme");
+    var saved = localStorage.getItem("quotation-theme");
+    document.documentElement.dataset.theme =
+      p === "dark" || (!p && saved === "dark") ? "dark" : "light";
+  } catch (e) {}
+</script>
+<link rel="stylesheet" href="./src/theme.css?v=14">
+<link rel="stylesheet" href="./src/cover.css?v=38">
+<link rel="stylesheet" href="./src/atlas.css?v=2">
+</head>
+<body class="page-cover" data-view="cover">
+
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="brand">
+      <span class="brand-cn">报价</span>
+      <span class="brand-en">QUOTATION</span>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <button class="topbar-workbench-btn" id="topWorkbenchBtn" type="button">数据工作台</button>
+
+    <button class="theme-toggle info-btn" id="aboutBtn" type="button"
+            aria-label="说明" aria-expanded="false" aria-controls="about">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.4"/>
+        <path d="M12 11v5.1"/>
+        <circle cx="12" cy="7.5" r=".95" fill="currentColor" stroke="none"/>
+      </svg>
+    </button>
+
+    <button class="theme-toggle" id="themeToggle" type="button"
+            aria-label="切换到夜间模式" aria-pressed="false">
+      <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2"/>
+        <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.7 1.7M16.9 16.9l1.7 1.7M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7"/>
+      </svg>
+      <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8 8.6 8.6 0 1 0 20.2 14.6Z"/>
+      </svg>
+    </button>
+
+    <div class="about" id="about" role="dialog" aria-label="说明" hidden>
+      <p class="about-title">说明</p>
+      <p>在「数据工作台」登录知乎并同步浏览记录后，画像 Agent 会同步生成知识偏好画像，数据转换 Agent 会过滤网文与日常噪音并提炼知识点写入星球数据库。</p>
+      <p>星图写入 Agent 实时监听星球数据库变动，自动按语义归并领域星系、按分支配色并按权重映射星球大小与亮度。点击封面星球即可进入三维星图。</p>
+    </div>
+  </div>
+</header>
+
+<main class="cover">
+
+  <div class="stage">
+    <p class="galaxy-label">YOUR MIND GALAXY</p>
+    <div class="planet-wrap">
+      <div class="orbit" aria-hidden="true"></div>
+      <button class="planet" id="planet" type="button" aria-label="进入我的三维知识星图">
+        <canvas class="planet-liquid" id="planetLiquid" aria-hidden="true"></canvas>
+        <span class="planet-glow" aria-hidden="true"></span>
+      </button>
+    </div>
+    <p class="stage-label" id="stageLabel"><span class="mono">01</span> 世界观</p>
+  </div>
+
+  <!-- 原版封面主标题与双按钮入口（已移除旧观点交锋与下滑旧板块） -->
+  <section class="intro demo-intro" id="demoCoverIntro">
+    <h1>你的阅读，<br>正在长成一片星图。</h1>
+    <p class="lede">从知乎浏览足迹里过滤噪音、提炼知识点，实时编织属于你的三维知识星系。</p>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="openKnowledge" type="button">我的知识星图</button>
+      <button class="btn btn-ghost" id="openWorkbench" type="button">知乎登录与采集</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <span class="mono" id="footStatus">v0.4 / star-atlas-live</span>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 原版黑洞坍缩转场层 -->
+<div class="bh-veil" id="bhVeil" aria-hidden="true"></div>
+<div class="black-hole" id="blackHole" aria-hidden="true"></div>
+
+<!-- 原版全屏 3D 星图舞台（与仓库 origin/main 完全一致，直接接入原版 galaxy.js） -->
+<section class="galaxy" id="galaxy" role="dialog" aria-modal="true" aria-label="Mind Galaxy" aria-hidden="true">
+  <canvas class="galaxy-canvas" id="galaxyCanvas" role="img"
+          aria-label="世界观承重星图"></canvas>
+
+  <div class="galaxy-hud">
+    <p class="galaxy-eyebrow">MIND GALAXY</p>
+    <p class="galaxy-user" id="galaxyUser"></p>
+    <button class="galaxy-reset" id="galaxyReset" type="button">↺ 复位星图</button>
+  </div>
+
+  <div class="galaxy-empty-overlay" id="galaxyEmpty" hidden>
+    <p class="galaxy-empty-title" id="galaxyEmptyTitle">当前星图为空</p>
+    <p class="galaxy-empty-desc">前往数据工作台登录知乎并同步一次阅读数据后，星图写入 Agent 将自动为你构建星球与连线。</p>
+    <a class="galaxy-reset" id="galaxyConnectWorkbench" href="/workbench">前往数据工作台</a>
+    <button class="galaxy-reset" id="galaxyEmptyBack" type="button">← 返回</button>
+  </div>
+
+  <p class="galaxy-hint" id="galaxyHint">
+    <span class="hint-desktop">拖动转视角 · WASD 移动 · 点击节点</span>
+    <span class="hint-mobile">拖动转视角 · 点击节点</span>
+  </p>
+
+  <aside class="node-card" id="nodeCard" hidden>
+    <button class="node-card-close" id="nodeCardClose" type="button" aria-label="关闭">×</button>
+    <p class="node-card-cluster" id="cardCluster"></p>
+    <p class="node-card-id mono" id="cardNodeId" hidden></p>
+    <h3 class="node-card-name" id="cardName"></h3>
+    <p class="node-card-text" id="cardText"></p>
+    <p class="node-card-meta" id="cardMeta"></p>
+    <p class="node-card-evidence" id="cardEvidence" hidden></p>
+    <div id="knowledgeSources" hidden></div>
+    <button class="node-card-collapse node-card-focus" id="nodeCardLocateCitation" type="button" hidden>在对话里看这条出处</button>
+    <button class="node-card-collapse node-card-focus" id="nodeCardFocus" type="button" hidden>以此节点为焦点</button>
+    <button class="node-card-collapse" id="nodeCardCollapse" type="button" hidden>坍缩这颗主星</button>
+    <button class="node-card-collapse node-card-rewind" id="nodeCardRewind" type="button" hidden>回溯这颗主星</button>
+  </aside>
+
+  <button class="galaxy-back" id="galaxyBack" type="button">← 返回</button>
+</section>
+
+<script type="module" src="./src/app-ui.js?v=3"></script>
+</body>
+</html>

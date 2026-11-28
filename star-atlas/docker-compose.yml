@@ -1,0 +1,31 @@
+services:
+  star-atlas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: star-atlas-v1
+    ports:
+      - "3300:3300"
+      # 可选：若配置了知乎官方 OAuth（APP_ORIGIN=http://127.0.0.1:3000），供回调使用
+      - "3000:3000"
+    environment:
+      - STAR_ATLAS_HOST=0.0.0.0
+      - STAR_ATLAS_PORT=3300
+      - COLLECTOR_BROWSER=chromium
+      - AGENT_BASE_URL=${AGENT_BASE_URL:-}
+      - AGENT_MODEL=${AGENT_MODEL:-}
+      - AGENT_API_KEY=${AGENT_API_KEY:-}
+      - ZHIHU_OAUTH_APP_ID=${ZHIHU_OAUTH_APP_ID:-}
+      - ZHIHU_OAUTH_APP_KEY=${ZHIHU_OAUTH_APP_KEY:-}
+      - ZHIHU_ACCESS_SECRET=${ZHIHU_ACCESS_SECRET:-}
+      - APP_ORIGIN=${APP_ORIGIN:-http://127.0.0.1:3000}
+    volumes:
+      - star_atlas_data:/app/data
+      - star_atlas_secrets:/app/.data
+    # Chromium 在容器内运行推荐至少 512m 共享内存
+    shm_size: "512m"
+    restart: unless-stopped
+
+volumes:
+  star_atlas_data:
+  star_atlas_secrets:

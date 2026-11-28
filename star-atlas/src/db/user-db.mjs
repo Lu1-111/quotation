@@ -179,6 +179,59 @@ export function createUserDatabase(filePath) {
     });
   }
 
+  async function upsertRecords(newRecords = [], { accountNickname = null } = {}) {
+    return enqueue(async () => {
+      const current = await read();
+      const byKey = new Map((current.records || []).map((r) => [r.key, r]));
+      const incomingKeys = [];
+
+      for (const raw of newRecords) {
+        if (!raw || !raw.key) continue;
+        incomingKeys.push(raw.key);
+        const existing = byKey.get(raw.key);
+        if (existing) {
+          byKey.set(raw.key, {
+            ...existing,
+            ...raw,
+            kinds: [...new Set([...(existing.kinds || ['history']), ...(raw.kinds || ['history'])])],
+            summary: raw.summary && raw.summary.length > (existing.summary || '').length ? raw.summary : existing.summary,
+            topics: raw.topics?.length ? raw.topics : existing.topics || [],
+            voteCount: raw.voteCount ?? existing.voteCount ?? null,
+            commentCount: raw.commentCount ?? existing.commentCount ?? null,
+          });
+        } else {
+          byKey.set(raw.key, raw);
+        }
+      }
+
+      const records = [...byKey.values()];
+      const revision = createHash('sha256')
+        .update(JSON.stringify({ records: records.map((r) => [r.key, r.title, r.weight]), excluded: current.excluded.length }))
+        .digest('hex');
+
+      // 移除刚写入的新帖 key（若 previously 不存在），保证数据转换 Agent 立刻处理新增帖子
+      const incomingSet = new Set(incomingKeys);
+      const convertedKeys = (current.convertedKeys || []).filter((k) => !incomingSet.has(k));
+
+      const next = {
+        ...current,
+        $formatDeclaration: USER_DB_FORMAT_DECLARATION,
+        account: { nickname: accountNickname || current.account?.nickname || '' },
+        syncedAt: new Date().toISOString(),
+        revision,
+        counts: {
+          history: records.filter((r) => (r.kinds || ['history']).includes('history')).length,
+          likes: records.filter((r) => (r.kinds || []).includes('likes')).length,
+          collections: records.filter((r) => (r.kinds || []).includes('collections')).length,
+        },
+        records,
+        convertedKeys,
+      };
+      await atomicWriteJson(filePath, next);
+      return next;
+    });
+  }
+
   async function clear() {
     return enqueue(async () => {
       const empty = createEmptyUserDb();
@@ -193,6 +246,7 @@ export function createUserDatabase(filePath) {
     ensureInitialized,
     read,
     saveSnapshot,
+    upsertRecords,
     markConverted,
     clear,
   };

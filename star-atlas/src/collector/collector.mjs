@@ -3,6 +3,7 @@
 // - 初次 50 条采集目标 <= 15s，后续增量同步目标 <= 10s
 // - 同步完成后写入用户数据库（user-db.json），并触发绑定回调（如画像 Agent 与数据转换 Agent）
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { BrowserSetupError, loadBrowser } from './browser-runtime.mjs';
@@ -839,11 +840,37 @@ export function createCollectorService({
     return { userDbData: savedDb, syncStats };
   }
 
+  // 供「星球探索 · 跃迁」阅读模块与搜索回退共用同一套知乎登录会话（登录一体化）
+  async function ensureAuthenticatedSession({ autoOpenHeadless = true } = {}) {
+    if (gateway.active) {
+      try {
+        const acc = await fetchAccount(gateway);
+        boundAccount = acc;
+        return { authenticated: true, account: acc, gateway };
+      } catch {
+        return { authenticated: false, account: null, gateway };
+      }
+    }
+    if (!autoOpenHeadless || !existsSync(browserProfileDir)) {
+      return { authenticated: false, account: null, gateway };
+    }
+    try {
+      await gateway.open({ headless: true });
+      const acc = await fetchAccount(gateway);
+      boundAccount = acc;
+      return { authenticated: true, account: acc, gateway };
+    } catch {
+      return { authenticated: false, account: null, gateway };
+    }
+  }
+
   return {
     openLoginWindow,
     startQrLogin,
     getQrSnapshot,
     syncFromOAuthRecords,
+    ensureAuthenticatedSession,
+    getGateway: () => gateway,
     sync: (opts = {}) => runSync({ useDemo: false, ...opts }),
     syncDemo: (opts = {}) => runSync({ useDemo: true, ...opts }),
     updateSettings,

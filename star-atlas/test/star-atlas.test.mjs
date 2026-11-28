@@ -346,3 +346,129 @@ test('端到端 HTTP 服务：演示采集 -> 用户库 -> 画像 Agent + 数据
     }
   });
 });
+
+test('星球探索 · 跃迁子模块：联想检索 3 个高互动知识帖 -> 选中后站内阅读 + 写入用户库 + 立刻生成新星球', async () => {
+  await withTempDir(async (dir) => {
+    const mockSearchTool = {
+      hasOfficialSecret: () => true,
+      async search(query) {
+        return {
+          provider: 'mock_official',
+          query,
+          items: [
+            {
+              key: 'article:9001',
+              contentId: '9001',
+              contentType: 'article',
+              title: 'FlashAttention-3 异步流水线与 FP8 量化原理深度解析',
+              excerpt: '利用 Hopper GPU 的 TMA 与 WGMMA 异步重叠计算和访存，使注意力算子算力利用率大幅提升。',
+              url: 'https://zhuanlan.zhihu.com/p/9001',
+              author: 'GPU 架构师',
+              authorBadge: '深度学习系统研究员',
+              voteCount: 3200,
+              commentCount: 280,
+              viewCount: 95000,
+              rankingScore: 0.96,
+            },
+            {
+              key: 'answer:9002',
+              contentId: '9002',
+              contentType: 'answer',
+              title: 'Speculative Decoding（投机解码）如何做到大模型无损推理加速？',
+              excerpt: '通过小草稿模型生成候选 Token 并由目标大模型并行一次前向校验，严格保持采样分布等价。',
+              url: 'https://www.zhihu.com/answer/9002',
+              author: '推理引擎作者',
+              voteCount: 2450,
+              commentCount: 190,
+              viewCount: 68000,
+              rankingScore: 0.92,
+            },
+            {
+              key: 'article:9003',
+              contentId: '9003',
+              contentType: 'article',
+              title: 'Ring Attention 分布式超长上下文注意力通信隐藏机制',
+              excerpt: '将长序列切分至多卡环形传递 KV 块，在计算局部注意力的同时异步重叠通信延迟。',
+              url: 'https://zhuanlan.zhihu.com/p/9003',
+              author: '分布式训练工程师',
+              voteCount: 1850,
+              commentCount: 132,
+              viewCount: 54000,
+              rankingScore: 0.89,
+            },
+            {
+              key: 'pin:9999',
+              contentId: '9999',
+              contentType: 'pin',
+              title: '穿越回古代带着无限超市系统爽文',
+              excerpt: '爽文日常吃瓜。',
+              url: 'https://www.zhihu.com/pin/9999',
+              author: '水帖',
+              voteCount: 50000,
+              commentCount: 1000,
+              rankingScore: 0.99,
+            },
+          ],
+        };
+      },
+    };
+
+    const app = await createStarAtlasApp({
+      dataDir: path.join(dir, 'data'),
+      secretsDir: path.join(dir, '.data'),
+      getModelOverride: async () => ({ model: null, modelName: null }),
+      searchToolOverride: mockSearchTool,
+    });
+
+    await new Promise((resolve) => app.server.listen(0, '127.0.0.1', resolve));
+    const base = `http://127.0.0.1:${app.server.address().port}`;
+
+    try {
+      // 先准备初始星图
+      await fetch(`${base}/api/collection/sync-demo`, { method: 'POST' });
+      const beforeMap = await (await fetch(`${base}/api/starmap`)).json();
+      const beforeUserDb = await (await fetch(`${base}/api/user-db`)).json();
+      const originPlanet = beforeMap.planets[0];
+
+      // 1. 发起「跃迁」联想检索
+      const warpSession = await fetch(`${base}/api/exploration/warp/propose`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planetId: originPlanet.id }),
+      }).then((r) => r.json());
+
+      assert.ok(warpSession.warpId);
+      assert.equal(warpSession.targets.length, 3, '应选出 3 个最符合条件的跃迁目标');
+      assert.ok(
+        warpSession.targets.every((t) => t.title && t.briefSummary && t.knowledgeGain && !/爽文/.test(t.title)),
+        '每个跃迁目标必须包含标题、最简明摘要、阅读收获且已过滤非知识噪音',
+      );
+
+      // 2. 选择第一个跃迁目标 -> 站内打开正文 + 写入用户库 + 立即触发新星球生成流程
+      const chosen = warpSession.targets[0];
+      const selectRes = await fetch(`${base}/api/exploration/warp/select`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ warpId: warpSession.warpId, targetKey: chosen.key, waitForPipeline: true }),
+      }).then((r) => r.json());
+
+      assert.equal(selectRes.article.title, chosen.title);
+      assert.ok(selectRes.article.contentHtml.length > 0, '站内阅读器应返回可直接渲染的 HTML 正文');
+      assert.equal(selectRes.pipelineTriggered, true);
+
+      const afterUserDb = await (await fetch(`${base}/api/user-db`)).json();
+      assert.ok(
+        afterUserDb.records.some((r) => r.key === chosen.key),
+        '选中跃迁目标后必须立刻写入用户数据库',
+      );
+      assert.equal(afterUserDb.records.length, beforeUserDb.records.length + 1);
+
+      const afterMap = await (await fetch(`${base}/api/starmap`)).json();
+      assert.ok(afterMap.planets.length >= beforeMap.planets.length + 1, '新增跃迁帖子后必须立刻生成并写入新星球');
+      const newPlanet = afterMap.planets.find((p) => (p.sources || []).some((s) => s.key === chosen.key));
+      assert.ok(newPlanet, '新生成的星球应携带跃迁帖子的出处信息');
+    } finally {
+      await app.close();
+    }
+  });
+});

@@ -40,6 +40,10 @@ const state = {
   planetsDb: { records: [] },
   profile: null,
   status: null,
+  currentWarp: null,
+  currentReaderArticle: null,
+  readerQrTimer: null,
+  newlyWarpedPlanetId: null,
 };
 
 let galaxyScene = null;
@@ -147,37 +151,48 @@ function renderPlanetProvenance(meta) {
     empty.className = 'ks-empty';
     empty.textContent = '由工作台手动录入或直接归纳自知识库。';
     wrap.appendChild(empty);
-    return wrap;
+  } else {
+    const list = document.createElement('ul');
+    list.className = 'ks-list';
+    for (const src of items) {
+      const li = document.createElement('li');
+      li.className = 'ks-item';
+
+      const titleEl = src.url ? document.createElement('a') : document.createElement('span');
+      titleEl.className = 'ks-link';
+      titleEl.textContent = src.title || src.key || '知乎原帖';
+      if (src.url) {
+        titleEl.href = src.url;
+        titleEl.target = '_blank';
+        titleEl.rel = 'noopener noreferrer';
+      }
+      li.appendChild(titleEl);
+
+      const subParts = [];
+      if (src.contentType && CONTENT_TYPE_LABELS[src.contentType]) subParts.push(CONTENT_TYPE_LABELS[src.contentType]);
+      if (src.author) subParts.push(`作者：${src.author}`);
+      if (subParts.length) {
+        const sub = document.createElement('span');
+        sub.className = 'ks-sub';
+        sub.textContent = subParts.join(' · ');
+        li.appendChild(sub);
+      }
+      list.appendChild(li);
+    }
+    wrap.appendChild(list);
   }
 
-  const list = document.createElement('ul');
-  list.className = 'ks-list';
-  for (const src of items) {
-    const li = document.createElement('li');
-    li.className = 'ks-item';
+  // 「星球探索」功能入口（当前首个子模块：跃迁）
+  const exploreBar = document.createElement('div');
+  exploreBar.className = 'ks-explore-bar';
+  const warpBtn = document.createElement('button');
+  warpBtn.type = 'button';
+  warpBtn.className = 'node-card-collapse ks-warp-btn';
+  warpBtn.textContent = '✦ 星球探索 · 跃迁';
+  warpBtn.addEventListener('click', () => openWarpModal(meta));
+  exploreBar.appendChild(warpBtn);
+  wrap.appendChild(exploreBar);
 
-    const titleEl = src.url ? document.createElement('a') : document.createElement('span');
-    titleEl.className = 'ks-link';
-    titleEl.textContent = src.title || src.key || '知乎原帖';
-    if (src.url) {
-      titleEl.href = src.url;
-      titleEl.target = '_blank';
-      titleEl.rel = 'noopener noreferrer';
-    }
-    li.appendChild(titleEl);
-
-    const subParts = [];
-    if (src.contentType && CONTENT_TYPE_LABELS[src.contentType]) subParts.push(CONTENT_TYPE_LABELS[src.contentType]);
-    if (src.author) subParts.push(`作者：${src.author}`);
-    if (subParts.length) {
-      const sub = document.createElement('span');
-      sub.className = 'ks-sub';
-      sub.textContent = subParts.join(' · ');
-      li.appendChild(sub);
-    }
-    list.appendChild(li);
-  }
-  wrap.appendChild(list);
   return wrap;
 }
 
@@ -434,6 +449,250 @@ function closeGalaxy() {
   }, 470);
 }
 
+// ---------- 星球探索 · 跃迁面板与站内一体化阅读器 ----------
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatMetrics(item) {
+  const parts = [];
+  if (item.voteCount != null) parts.push(`赞同 ${item.voteCount}`);
+  if (item.commentCount != null) parts.push(`评论 ${item.commentCount}`);
+  if (item.viewCount != null) parts.push(`浏览 ${item.viewCount}`);
+  if (item.author) parts.push(`作者 ${item.author}`);
+  return parts.join(' · ') || '知乎知识内容';
+}
+
+function closeWarpModal() {
+  $('warpBackdrop').hidden = true;
+  $('warpModal').hidden = true;
+}
+
+function stopReaderQrPoll() {
+  if (state.readerQrTimer) {
+    clearInterval(state.readerQrTimer);
+    state.readerQrTimer = null;
+  }
+}
+
+function closeReaderModal() {
+  stopReaderQrPoll();
+  $('readerQrBar').hidden = true;
+  $('readerBackdrop').hidden = true;
+  $('readerModal').hidden = true;
+}
+
+async function openWarpModal(planetMeta) {
+  $('warpBackdrop').hidden = false;
+  $('warpModal').hidden = false;
+  $('warpModalTitle').textContent = `从「${planetMeta.domain}」跃迁探索`;
+  $('warpModalSub').textContent = `起点知识点：${cardName.textContent || planetMeta.id}`;
+  $('warpModalBody').innerHTML = `
+    <div class="explore-loading-box">
+      <div class="explore-spinner" aria-hidden="true"></div>
+      <p class="explore-loading">跃迁 Agent 正在结合该知识点与出处进行联想，并调用知乎搜索工具优选高互动知识帖子...</p>
+    </div>
+  `;
+
+  try {
+    const session = await api('/api/exploration/warp/propose', {
+      method: 'POST',
+      body: { planetId: planetMeta.id },
+    });
+    state.currentWarp = session;
+    renderWarpTargets(session);
+  } catch (err) {
+    $('warpModalBody').innerHTML = `
+      <div class="explore-error-box">
+        <p>${escapeHtml(err.message)}</p>
+        <button type="button" class="reader-pill-btn accent" id="warpRetryBtn">重新跃迁联想</button>
+      </div>
+    `;
+    $('warpRetryBtn')?.addEventListener('click', () => openWarpModal(planetMeta));
+  }
+}
+
+function renderWarpTargets(session) {
+  const bodyEl = $('warpModalBody');
+  const queryTags = (session.queries || [])
+    .map((q) => `<span class="warp-query-chip"># ${escapeHtml(q)}</span>`)
+    .join('');
+
+  bodyEl.innerHTML = `
+    <div class="warp-queries-row">
+      <span class="warp-queries-label">联想检索：</span>${queryTags}
+    </div>
+    <div class="warp-grid" id="warpTargetsGrid"></div>
+  `;
+
+  const grid = $('warpTargetsGrid');
+  for (const target of session.targets || []) {
+    const cardEl = document.createElement('article');
+    cardEl.className = 'warp-card';
+    cardEl.innerHTML = `
+      <div class="warp-card-top">
+        <span class="warp-angle-badge">${escapeHtml(target.associationAngle || '知识延伸')}</span>
+        <span class="warp-metrics">${escapeHtml(formatMetrics(target))}</span>
+      </div>
+      <h3 class="warp-card-title">${escapeHtml(target.title)}</h3>
+      <div class="warp-block">
+        <span class="warp-block-label">最简明摘要</span>
+        <p class="warp-block-text">${escapeHtml(target.briefSummary)}</p>
+      </div>
+      <div class="warp-block gain">
+        <span class="warp-block-label">阅读可获知识 / 可解疑问</span>
+        <p class="warp-block-text">${escapeHtml(target.knowledgeGain)}</p>
+      </div>
+      <button type="button" class="node-card-collapse warp-select-btn">跃迁至此帖并站内阅读 →</button>
+    `;
+    const btn = cardEl.querySelector('.warp-select-btn');
+    btn.addEventListener('click', () => selectWarpTarget(session.warpId, target, btn));
+    grid.appendChild(cardEl);
+  }
+}
+
+function renderReaderArticle(payload) {
+  const { viewer, article, fullContentLoaded, requiresLogin } = payload;
+  state.currentReaderArticle = article;
+
+  const accChip = $('readerAccountChip');
+  const loginBtn = $('readerInlineLoginBtn');
+  if (viewer?.loggedIn) {
+    accChip.textContent = `已用你的知乎账号「${viewer.nickname || '已认证'}」阅读`;
+    accChip.className = 'reader-account-chip ok';
+    loginBtn.hidden = true;
+    $('readerQrBar').hidden = true;
+    stopReaderQrPoll();
+  } else {
+    accChip.textContent = '当前为未登录预览态（登录与采集模块一体化）';
+    accChip.className = 'reader-account-chip warn';
+    loginBtn.hidden = false;
+  }
+
+  $('readerArticleMeta').textContent = `${CONTENT_TYPE_LABELS[article.contentType] || '知乎内容'} · ${formatMetrics(article)}`;
+  $('readerArticleTitle').textContent = article.title;
+
+  const gainBanner = $('readerGainBanner');
+  if (article.knowledgeGain) {
+    gainBanner.textContent = `✦ 本次跃迁收获预期：${article.knowledgeGain}`;
+    gainBanner.hidden = false;
+  } else {
+    gainBanner.hidden = true;
+  }
+
+  const qDetail = $('readerQuestionDetail');
+  if (article.questionDetailHtml) {
+    qDetail.innerHTML = `<p class="warp-block-label">问题背景</p>${article.questionDetailHtml}`;
+    qDetail.hidden = false;
+  } else {
+    qDetail.hidden = true;
+    qDetail.innerHTML = '';
+  }
+
+  $('readerArticleBody').innerHTML = article.contentHtml || `<p>${escapeHtml(article.briefSummary || '暂无正文')}</p>`;
+
+  const topicsText = (article.topics || []).length ? `话题：${article.topics.join(' · ')}` : '';
+  const statusNote = fullContentLoaded ? '已加载站内完整正文' : requiresLogin ? '扫码登录后可自动加载你的知乎账号完整正文' : '已展示帖子节选';
+  $('readerArticleFoot').innerHTML = `
+    <span>${escapeHtml([statusNote, topicsText].filter(Boolean).join(' · '))}</span>
+    ${article.url ? `<a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">原帖地址 ↗</a>` : ''}
+  `;
+}
+
+async function selectWarpTarget(warpId, target, triggerBtn) {
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+    triggerBtn.textContent = '正在跃迁并加载站内正文...';
+  }
+  state.newlyWarpedPlanetId = null;
+
+  try {
+    const res = await api('/api/exploration/warp/select', {
+      method: 'POST',
+      body: { warpId, targetKey: target.key, target },
+    });
+    closeWarpModal();
+    $('readerBackdrop').hidden = false;
+    $('readerModal').hidden = false;
+
+    const pipeChip = $('readerPipelineChip');
+    pipeChip.disabled = true;
+    pipeChip.className = 'reader-pipeline-chip';
+    pipeChip.textContent = '✦ 已写入用户库，正在生成新星球...';
+
+    renderReaderArticle(res);
+  } catch (err) {
+    toast(`跃迁失败：${err.message}`);
+  } finally {
+    if (triggerBtn) {
+      triggerBtn.disabled = false;
+      triggerBtn.textContent = '跃迁至此帖并站内阅读 →';
+    }
+  }
+}
+
+async function startInlineReaderQrLogin() {
+  const qrBar = $('readerQrBar');
+  const qrBox = $('readerQrBox');
+  qrBar.hidden = false;
+  qrBox.innerHTML = '<p class="ks-empty">正在提取知乎实时扫码二维码（与数据工作台共用登录态）...</p>';
+
+  const renderQr = (url) => {
+    qrBox.innerHTML = `
+      <img src="${url}" alt="知乎登录二维码" class="reader-qr-img">
+      <div>
+        <p style="margin:0 0 6px;font-size:13px;color:#ffd27a">请用手机知乎 App 扫码登录</p>
+        <p class="ks-empty">登录成功后自动以你的知乎账号重载完整正文，且与工作台采集共享登录态。</p>
+      </div>
+    `;
+  };
+
+  try {
+    const res = await api('/api/collection/qr-login', { method: 'POST' });
+    if (res.loggedIn) {
+      qrBar.hidden = true;
+      await reloadCurrentReaderArticle();
+      return;
+    }
+    if (res.qrDataUrl) renderQr(res.qrDataUrl);
+    stopReaderQrPoll();
+    state.readerQrTimer = setInterval(async () => {
+      try {
+        const snap = await api('/api/collection/qr-state');
+        if (snap.loggedIn) {
+          stopReaderQrPoll();
+          qrBar.hidden = true;
+          toast(`已登录知乎（${snap.account?.nickname || '已认证'}），正在加载完整正文...`);
+          await reloadCurrentReaderArticle();
+          return;
+        }
+        if (snap.qrDataUrl) renderQr(snap.qrDataUrl);
+      } catch {
+        // ignore
+      }
+    }, 2200);
+  } catch (err) {
+    qrBox.innerHTML = `<p class="ks-empty" style="color:#ff8f8f">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+async function reloadCurrentReaderArticle() {
+  if (!state.currentReaderArticle) return;
+  try {
+    const reloaded = await api('/api/exploration/reader/load', {
+      method: 'POST',
+      body: { target: state.currentReaderArticle },
+    });
+    renderReaderArticle(reloaded);
+  } catch (err) {
+    toast(`重载正文失败：${err.message}`);
+  }
+}
+
 async function refreshStarMap() {
   state.starMap = await api('/api/starmap');
   pushStarMapToOriginalGalaxy();
@@ -449,6 +708,36 @@ function connectSse() {
       toast(`星图写入 Agent 已写入 ${payload.stats.placedCount} 颗星球`);
     }
   });
+
+  es.addEventListener('warp.planet_created', (ev) => {
+    const payload = JSON.parse(ev.data);
+    if (payload.starMap) {
+      state.starMap = payload.starMap;
+      pushStarMapToOriginalGalaxy();
+    }
+    const created = Array.isArray(payload.createdPlanets) ? payload.createdPlanets : [];
+    const pipeChip = $('readerPipelineChip');
+    if (pipeChip && !$('readerModal').hidden) {
+      if (created.length > 0) {
+        state.newlyWarpedPlanetId = created[0].id;
+        pipeChip.disabled = false;
+        pipeChip.className = 'reader-pipeline-chip ready';
+        pipeChip.textContent = `✦ 已生成新星球「${created[0].knowledgePoint}」（前往定位 →）`;
+      } else {
+        pipeChip.disabled = false;
+        pipeChip.className = 'reader-pipeline-chip ready';
+        pipeChip.textContent = '✦ 已合并至知识星图（返回查看 →）';
+      }
+    }
+  });
+
+  es.addEventListener('collection.logged_in', () => {
+    if (!$('readerModal').hidden && state.currentReaderArticle) {
+      stopReaderQrPoll();
+      $('readerQrBar').hidden = true;
+      reloadCurrentReaderArticle();
+    }
+  });
 }
 
 function bindEvents() {
@@ -459,8 +748,37 @@ function bindEvents() {
   galaxyBack.addEventListener('click', () => closeGalaxy());
   galaxyEmptyBack?.addEventListener('click', () => closeGalaxy());
 
+  $('warpModalClose')?.addEventListener('click', closeWarpModal);
+  $('warpBackdrop')?.addEventListener('click', closeWarpModal);
+  $('readerModalClose')?.addEventListener('click', closeReaderModal);
+  $('readerBackdrop')?.addEventListener('click', closeReaderModal);
+  $('readerBackToWarp')?.addEventListener('click', () => {
+    closeReaderModal();
+    if (state.currentWarp) {
+      $('warpBackdrop').hidden = false;
+      $('warpModal').hidden = false;
+    }
+  });
+  $('readerInlineLoginBtn')?.addEventListener('click', startInlineReaderQrLogin);
+  $('readerPipelineChip')?.addEventListener('click', () => {
+    const targetId = state.newlyWarpedPlanetId;
+    closeReaderModal();
+    closeWarpModal();
+    if (targetId && galaxyScene) {
+      galaxyScene.selectNodeById(targetId);
+    }
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (!$('readerModal').hidden) {
+      closeReaderModal();
+      return;
+    }
+    if (!$('warpModal').hidden) {
+      closeWarpModal();
+      return;
+    }
     if (galaxy.classList.contains('on') || bhActive) {
       closeGalaxy();
       return;

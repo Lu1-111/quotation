@@ -16,7 +16,7 @@
   } catch (e) {}
 </script>
 <link rel="stylesheet" href="./src/theme.css?v=14">
-<link rel="stylesheet" href="./src/cover.css?v=42">
+<link rel="stylesheet" href="./src/cover.css?v=38">
 <link rel="stylesheet" href="./src/atlas.css?v=2">
 </head>
 <body class="page-cover" data-view="cover">
@@ -33,12 +33,11 @@
     <button class="topbar-workbench-btn" id="topWorkbenchBtn" type="button">数据工作台</button>
 
     <button class="theme-toggle info-btn" id="aboutBtn" type="button"
-            aria-label="设置" aria-expanded="false" aria-controls="about">
+            aria-label="说明" aria-expanded="false" aria-controls="about">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4.5 7.5h15M4.5 12h15M4.5 16.5h15"/>
-        <circle cx="9.5" cy="7.5" r="1.8" fill="currentColor" stroke="none"/>
-        <circle cx="15" cy="12" r="1.8" fill="currentColor" stroke="none"/>
-        <circle cx="8.5" cy="16.5" r="1.8" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="12" r="8.4"/>
+        <path d="M12 11v5.1"/>
+        <circle cx="12" cy="7.5" r=".95" fill="currentColor" stroke="none"/>
       </svg>
     </button>
 
@@ -53,13 +52,10 @@
       </svg>
     </button>
 
-    <div class="about" id="about" role="dialog" aria-label="设置" hidden>
-      <p class="about-title">设置</p>
-      <section class="settings-section">
-        <p class="settings-label">说明</p>
-        <p>在「数据工作台」登录知乎并同步浏览记录后，画像 Agent 会同步生成知识偏好画像，数据转换 Agent 会过滤网文与日常噪音并提炼知识点写入星球数据库。</p>
-        <p>星图写入 Agent 实时监听星球数据库变动，自动按语义归并领域星系、按分支配色并按权重映射星球大小与亮度。点击封面星球即可进入三维星图。</p>
-      </section>
+    <div class="about" id="about" role="dialog" aria-label="说明" hidden>
+      <p class="about-title">说明</p>
+      <p>在「数据工作台」登录知乎并同步浏览记录后，画像 Agent 会同步生成知识偏好画像，数据转换 Agent 会过滤网文与日常噪音并提炼知识点写入星球数据库。</p>
+      <p>星图写入 Agent 实时监听星球数据库变动，自动按语义归并领域星系、按分支配色并按权重映射星球大小与亮度。点击封面星球即可进入三维星图。</p>
     </div>
   </div>
 </header>
@@ -140,8 +136,58 @@
   </aside>
 
   <button class="galaxy-back" id="galaxyBack" type="button">← 返回</button>
+
+  <!-- 星球探索 · 跃迁目标选择面板（网站内液态玻璃浮层） -->
+  <div class="explore-backdrop" id="warpBackdrop" hidden></div>
+  <section class="explore-modal" id="warpModal" role="dialog" aria-modal="true" aria-label="星球探索 · 跃迁" hidden>
+    <header class="explore-head">
+      <div>
+        <p class="explore-kicker">PLANET EXPLORATION · WARP</p>
+        <h2 class="explore-title" id="warpModalTitle">知识跃迁探索</h2>
+        <p class="explore-sub" id="warpModalSub"></p>
+      </div>
+      <button class="explore-close" id="warpModalClose" type="button" aria-label="关闭跃迁面板">×</button>
+    </header>
+    <div class="explore-body" id="warpModalBody">
+      <p class="explore-loading">正在联想并检索知乎高赞知识帖子...</p>
+    </div>
+  </section>
+
+  <!-- 星球探索 · 站内一体化知乎阅读面板（不跳外链、不弹外部窗口，与采集模块共享知乎登录态） -->
+  <div class="explore-backdrop" id="readerBackdrop" hidden></div>
+  <section class="reader-modal" id="readerModal" role="dialog" aria-modal="true" aria-label="站内知乎阅读器" hidden>
+    <header class="reader-topbar">
+      <div class="reader-topbar-left">
+        <button class="reader-pill-btn" id="readerBackToWarp" type="button">← 返回跃迁选项</button>
+        <span class="reader-account-chip" id="readerAccountChip">检测知乎登录态...</span>
+        <button class="reader-pill-btn accent" id="readerInlineLoginBtn" type="button" hidden>扫码登录知乎看全文</button>
+      </div>
+      <div class="reader-topbar-right">
+        <button class="reader-pipeline-chip" id="readerPipelineChip" type="button" disabled>✦ 正在写入用户库并生成新星球...</button>
+        <button class="explore-close" id="readerModalClose" type="button" aria-label="关闭阅读器">×</button>
+      </div>
+    </header>
+
+    <!-- 一体化内嵌扫码登录条（未登录时点击“扫码登录知乎看全文”展开，扫码后自动刷新全文） -->
+    <div class="reader-qr-bar" id="readerQrBar" hidden>
+      <div class="reader-qr-box" id="readerQrBox">
+        <p class="ks-empty">正在加载知乎登录二维码（与工作台采集共享同一账号登录态）...</p>
+      </div>
+    </div>
+
+    <article class="reader-content" id="readerContent">
+      <header class="reader-article-head">
+        <p class="reader-article-meta" id="readerArticleMeta"></p>
+        <h1 class="reader-article-title" id="readerArticleTitle"></h1>
+        <div class="reader-gain-banner" id="readerGainBanner" hidden></div>
+      </header>
+      <div class="reader-question-detail" id="readerQuestionDetail" hidden></div>
+      <div class="reader-article-body" id="readerArticleBody"></div>
+      <footer class="reader-article-foot" id="readerArticleFoot"></footer>
+    </article>
+  </section>
 </section>
 
-<script type="module" src="./src/app-ui.js?v=3"></script>
+<script type="module" src="./src/app-ui.js?v=4"></script>
 </body>
 </html>

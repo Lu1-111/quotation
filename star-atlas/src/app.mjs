@@ -10,6 +10,7 @@ import { createProfileAgent } from './agents/profile-agent.mjs';
 import { createStarWriterAgent } from './agents/star-writer-agent.mjs';
 import { createZhihuOAuthService } from './auth/zhihu-oauth.mjs';
 import { createCollectorService } from './collector/collector.mjs';
+import { createPlanetExplorationModule } from './exploration/index.mjs';
 import { createPlanetsDatabase } from './db/planets-db.mjs';
 import { createProfileStore } from './db/profile-store.mjs';
 import { createStarMapStore } from './db/star-map-store.mjs';
@@ -66,6 +67,7 @@ export async function createStarAtlasApp({
   browserChannel = process.env.COLLECTOR_BROWSER || 'auto',
   getModelOverride = null,
   gatewayFactory = null,
+  searchToolOverride = null,
   autoWatch = true,
 } = {}) {
   const userDb = createUserDatabase(path.join(dataDir, 'user-db.json'));
@@ -278,6 +280,57 @@ export async function createStarAtlasApp({
     onSyncComplete: async ({ syncStats }) => {
       // 同步完成后异步不阻塞采集计时统计，但仍等待完整链路供调用方感知
       await runPostCollectionPipeline({ syncStats });
+    },
+  });
+
+  // 「星球探索」功能模块（首个子模块：跃迁 warp；与采集模块共享一体化知乎登录会话）
+  const exploration = createPlanetExplorationModule({
+    starMapStore,
+    planetsDb,
+    userDb,
+    collector,
+    getModel,
+    getAccessSecret: () => process.env.ZHIHU_ACCESS_SECRET || '',
+    searchToolOverride,
+    onWarpPipelineTrigger: async ({ originPlanet, article }) => {
+      pushLog('星球探索·跃迁', `已将「${article.title}」写入用户数据库，立即启动新星球生成流程...`);
+      broadcast('warp.pipeline_started', { title: article.title, key: article.key, originPlanetId: originPlanet?.id || null });
+
+      const beforeIds = new Set((await starMapStore.read()).planets.map((p) => p.id));
+
+      // 立刻运行画像更新 + 数据转换 -> 写入星球库 -> 星图写入 Agent 实时落图
+      const profilePromise = profileAgent
+        .run({ force: true })
+        .then((res) => {
+          if (res?.profile) broadcast('profile.updated', res.profile);
+          return res;
+        })
+        .catch(() => null);
+
+      const convertResult = await converterAgent.run();
+      const writerResult = await starWriterAgent.processPending();
+      await profilePromise;
+
+      const afterMap = await starMapStore.read();
+      const createdPlanets = afterMap.planets.filter((p) => !beforeIds.has(p.id));
+      pushLog(
+        '星球探索·跃迁',
+        createdPlanets.length > 0
+          ? `跃迁帖子已转化为 ${createdPlanets.length} 颗新星球：${createdPlanets.map((p) => p.knowledgePoint).join('、')}`
+          : '跃迁帖子已完成转化并合并至已有相关知识星球',
+      );
+      broadcast('warp.planet_created', {
+        articleTitle: article.title,
+        articleKey: article.key,
+        createdPlanets: createdPlanets.map((p) => ({
+          id: p.id,
+          domain: p.domain,
+          branchName: p.branchName,
+          knowledgePoint: p.knowledgePoint,
+        })),
+        starMap: afterMap,
+      });
+      return { convertResult, writerResult, createdPlanets };
     },
   });
 
@@ -554,6 +607,35 @@ export async function createStarAtlasApp({
         return sendJson(res, 200, { converter: resConvert, starWriter: writerResult });
       }
 
+      // ===== 星球探索模块（子模块：跃迁 warp + 站内一体化阅读器） =====
+      if (req.method === 'POST' && pathname === '/api/exploration/warp/propose') {
+        const body = await readJsonBody(req);
+        pushLog('星球探索·跃迁', `正在基于星球 ${body.planetId || ''} 联想检索高质量知乎知识帖...`);
+        const session = await exploration.proposeWarp({ planetId: body.planetId });
+        pushLog(
+          '星球探索·跃迁',
+          `已为「${session.originPlanet.knowledgePoint}」精选出 ${session.targets.length} 个跃迁目标（检索词：${session.queries.join(' / ')}）`,
+        );
+        return sendJson(res, 200, session);
+      }
+
+      if (req.method === 'POST' && pathname === '/api/exploration/warp/select') {
+        const body = await readJsonBody(req);
+        const result = await exploration.selectWarp({
+          warpId: body.warpId,
+          targetKey: body.targetKey,
+          targetOverride: body.target || null,
+          waitForPipeline: Boolean(body.waitForPipeline),
+        });
+        return sendJson(res, 200, result);
+      }
+
+      if (req.method === 'POST' && pathname === '/api/exploration/reader/load') {
+        const body = await readJsonBody(req);
+        const result = await exploration.reloadPost(body.target || body);
+        return sendJson(res, 200, result);
+      }
+
       if (req.method === 'POST' && pathname === '/api/reset') {
         collector.resetDemoRound();
         await Promise.all([userDb.clear(), planetsDb.clear(), starMapStore.clear(), profileStore.clear()]);
@@ -623,6 +705,7 @@ export async function createStarAtlasApp({
     profileStore,
     llmConfigStore,
     collector,
+    exploration,
     profileAgent,
     converterAgent,
     starWriterAgent,

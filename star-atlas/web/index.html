@@ -16,7 +16,7 @@
   } catch (e) {}
 </script>
 <link rel="stylesheet" href="./src/theme.css?v=14">
-<link rel="stylesheet" href="./src/cover.css?v=38">
+<link rel="stylesheet" href="./src/cover.css?v=42">
 <link rel="stylesheet" href="./src/atlas.css?v=2">
 </head>
 <body class="page-cover" data-view="cover">
@@ -33,11 +33,12 @@
     <button class="topbar-workbench-btn" id="topWorkbenchBtn" type="button">数据工作台</button>
 
     <button class="theme-toggle info-btn" id="aboutBtn" type="button"
-            aria-label="说明" aria-expanded="false" aria-controls="about">
+            aria-label="设置" aria-expanded="false" aria-controls="about">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="8.4"/>
-        <path d="M12 11v5.1"/>
-        <circle cx="12" cy="7.5" r=".95" fill="currentColor" stroke="none"/>
+        <path d="M4.5 7.5h15M4.5 12h15M4.5 16.5h15"/>
+        <circle cx="9.5" cy="7.5" r="1.8" fill="currentColor" stroke="none"/>
+        <circle cx="15" cy="12" r="1.8" fill="currentColor" stroke="none"/>
+        <circle cx="8.5" cy="16.5" r="1.8" fill="currentColor" stroke="none"/>
       </svg>
     </button>
 
@@ -52,10 +53,13 @@
       </svg>
     </button>
 
-    <div class="about" id="about" role="dialog" aria-label="说明" hidden>
-      <p class="about-title">说明</p>
-      <p>在「数据工作台」登录知乎并同步浏览记录后，画像 Agent 会同步生成知识偏好画像，数据转换 Agent 会过滤网文与日常噪音并提炼知识点写入星球数据库。</p>
-      <p>星图写入 Agent 实时监听星球数据库变动，自动按语义归并领域星系、按分支配色并按权重映射星球大小与亮度。点击封面星球即可进入三维星图。</p>
+    <div class="about" id="about" role="dialog" aria-label="设置" hidden>
+      <p class="about-title">设置</p>
+      <section class="settings-section">
+        <p class="settings-label">说明</p>
+        <p>在「数据工作台」登录知乎并同步浏览记录后，画像 Agent 会同步生成知识偏好画像，数据转换 Agent 会过滤网文与日常噪音并提炼知识点写入星球数据库。</p>
+        <p>星图写入 Agent 实时监听星球数据库变动，自动按语义归并领域星系、按分支配色并按权重映射星球大小与亮度。点击封面星球即可进入三维星图。</p>
+      </section>
     </div>
   </div>
 </header>
